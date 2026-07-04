@@ -21,7 +21,7 @@ import type {
 } from "@/types";
 
 const VISIBLE_UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16] as const;
-
+const RANGE_WARNING_MESSAGE = "Your range of motion is below the target.";
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
