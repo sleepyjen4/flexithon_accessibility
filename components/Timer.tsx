@@ -50,6 +50,9 @@ export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps)
     // Derive the next state from the current render's `running` and run all
     // side effects here in the handler — never inside the setRunning updater,
     // which runs during render and can't notify the parent (onPauseChange).
+    // `paused` is the post-toggle state (running now → paused next), so the
+    // parent (e.g. PoseTracker) receives the value that matches the UI it will
+    // render after this click.
     const paused = running;
     setRunning(!running);
     setAnnouncement(

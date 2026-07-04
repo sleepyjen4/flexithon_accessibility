@@ -62,7 +62,7 @@ const FEMALE_VOICE_HINTS = [
 let preferredVoice: SpeechSynthesisVoice | null = null;
 let voiceListenerAttached = false;
 
-function pickFemaleVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+export function pickFemaleVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   const english = voices.filter((voice) => voice.lang?.toLowerCase().startsWith("en"));
   const pool = english.length > 0 ? english : voices;
 
