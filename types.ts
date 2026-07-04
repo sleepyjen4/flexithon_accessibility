@@ -153,11 +153,6 @@ export interface PoseFrame {
   timestamp: number;
 }
 
-export interface PersonalRange {
-  minDeg: number;
-  maxDeg: number;
-}
-
 export type RepEvent =
   | { type: "rep"; count: number }
   | { type: "range_reached" }
@@ -179,6 +174,17 @@ export interface PoseProvider {
   onFrame(cb: (f: PoseFrame) => void): void;
   onRepEvent(cb: (e: RepEvent) => void): void;
   setRange(r: PersonalRange): void;
+}
+
+/**
+ * A person's own comfortable range of motion for one exercise (Section 5b),
+ * captured by a short calibration pass. Rep-counting thresholds are derived
+ * from this instead of a fixed angle, so hands-free counting works
+ * regardless of a person's actual range of motion.
+ */
+export interface PersonalRange {
+  minDeg: number;
+  maxDeg: number;
 }
 
 /**
