@@ -17,23 +17,26 @@ const PoseTracker = dynamic(
 
 const demoExercise: ExerciseDef = {
   id: "seated_arm_raise",
-  name: "Seated arm raise",
-  landmarks: [11, 13, 15],
+  name: "Seated lateral raise",
+  landmarks: [13, 11, 23],
   side: "either",
   instructions: [
     "Sit in a supported position.",
-    "Raise one arm toward a comfortable range.",
-    "Lower your arm when you are ready.",
+    "Raise one arm out to the side toward a comfortable range.",
+    "Lower your arm gently when you are ready.",
   ],
   cues: {
     rangeReached: "You reached your target range.",
-    encourage: ["Move within today’s comfortable range.", "Pause whenever you need."],
+    encourage: [
+      "Move within today’s comfortable range.",
+      "Pause whenever you need.",
+    ],
   },
 };
 
 const demoRange: PersonalRange = {
-  minDeg: 20,
-  maxDeg: 150,
+  minDeg: 15,
+  maxDeg: 95,
 };
 
 export default function ExercisePage() {
@@ -43,8 +46,8 @@ export default function ExercisePage() {
         <header className="space-y-2">
           <h1 className="text-3xl font-bold">Exercise tracker demo</h1>
           <p className="text-base text-slate-600">
-            Follow the movement instructions. Camera tracking is optional, and manual
-            completion is always available.
+            Follow the movement instructions. Camera tracking is optional, and
+            manual completion is always available.
           </p>
         </header>
 
