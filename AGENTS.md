@@ -66,7 +66,7 @@ Disabled users face two failures:
 | Styling | **Tailwind CSS** | Speed; consistent spacing/contrast tokens |
 | Components | **Radix UI primitives** (+ lucide-react icons) | Accessible by default: focus, ARIA, keyboard nav |
 | Backend | **Supabase** (auth, Postgres, storage) via `@supabase/ssr` | Zero backend code; magic-link auth |
-| AI | **Anthropic API** (claude-sonnet) via a **Next.js Route Handler** (`app/api/generate-workout`) | Key stays server-side; no separate edge functions needed |
+| AI | **Gemini API** (`@google/genai`, gemini-2.5-flash) via a **Next.js Route Handler** (`app/api/generate-workout`) | Key stays server-side; no separate edge functions needed |
 | Motion tracking | **@mediapipe/tasks-vision** (PoseLandmarker) — client-side only | All video stays on-device (privacy); no backend, no upload |
 | State | **Zustand** (client) + Supabase queries | No Redux. Keep it tiny |
 | Deploy | **Vercel** | Push-to-deploy from main |
@@ -106,7 +106,7 @@ supabase/migrations/
 
 **Server/client rules:** components are Server Components by default; add
 `"use client"` only where there's interactivity (the player, pickers, forms).
-Never import `lib/supabase/server.ts` or the Anthropic SDK into a client component.
+Never import `lib/supabase/server.ts` or the Gemini SDK into a client component.
 
 ---
 
@@ -226,7 +226,7 @@ Base font: 18px. Spacing scale: 4/8/16/24/32. Radius: rounded-2xl on cards, roun
 
 - **TypeScript strict.** No `any`. All shared types in `src/types.ts` — check there before inventing a type.
 - **One screen = one folder** with an `index.tsx`. Components under ~150 lines; extract when bigger.
-- **Never hardcode secrets.** Client-safe vars use the `NEXT_PUBLIC_` prefix (Supabase URL + anon key only). `ANTHROPIC_API_KEY` has no prefix and is read **only** inside `app/api/*` route handlers.
+- **Never hardcode secrets.** Client-safe vars use the `NEXT_PUBLIC_` prefix (Supabase URL + anon key only). `GEMINI_API_KEY` has no prefix and is read **only** inside `app/api/*` route handlers.
 - **No new dependencies** beyond Section 2 without asking the team.
 - **Loading/error/empty states are mandatory** on every screen that fetches data.
 - **Mobile-first**: build at 390px width; desktop is a bonus.
