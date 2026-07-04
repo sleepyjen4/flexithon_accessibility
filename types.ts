@@ -188,11 +188,25 @@ export interface PersonalRange {
 }
 
 /**
- * Locally persisted summary of a finished session, powering the progress
- * view (F6) with or without a Supabase login. Effort and showing up only —
- * never calories or steps.
+ * Section 0 contract: summary of one completed tracking session, consumed by
+ * the /summary screen (T12). Distinct from WorkoutSessionSummary below.
  */
 export interface SessionSummary {
+  exerciseId: string;
+  reps: number;
+  personalRange: PersonalRange;
+  peakAngleToday: number;
+  startedAt: number;
+  endedAt: number;
+}
+
+/**
+ * Locally persisted summary of a finished workout, powering the progress
+ * view (F6) with or without a Supabase login. Effort and showing up only —
+ * never calories or steps. (Renamed from SessionSummary so the Section 0
+ * contract keeps its agreed name.)
+ */
+export interface WorkoutSessionSummary {
   id: string;
   workout_title: string;
   energy_level: EnergyLevel;

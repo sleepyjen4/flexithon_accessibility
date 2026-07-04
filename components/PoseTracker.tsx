@@ -5,13 +5,6 @@ import { createMockPoseProvider as createPoseProvider } from "@/lib/pose/mockPro
 import type { NormalizedLandmark, PoseLandmarker } from "@mediapipe/tasks-vision";
 import { useCalibrationStore } from "@/store/calibration";
 import { emaStep, visibleJointAngleDegrees, type AnglePoint } from "@/lib/pose/angle";
-import {
-  initialRepCounterState,
-  stepRepCounter,
-  thresholdsFromRange,
-  DEFAULT_THRESHOLDS,
-  type RepThresholds,
-} from "@/lib/pose/repCounter";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import type {

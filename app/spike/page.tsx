@@ -7,6 +7,8 @@ import type {
 } from "@mediapipe/tasks-vision";
 import { calculateAngle } from "@/lib/pose/angles";
 import { smoothWithEma } from "@/lib/pose/smoothing";
+import { createRepCounter, type RepCounter } from "@/lib/pose/repCounter";
+import type { PersonalRange } from "@/types";
 
 const UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16, 23, 24] as const;
 
@@ -15,6 +17,11 @@ const UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16, 23, 24] as const;
 const ANGLE_TRIPLE_INDICES = [11, 13, 15] as const;
 const MIN_VISIBILITY = 0.5;
 
+// T06 live verification only — real calibrated ranges come from T08.
+// Elbow angle: ~20° fully bent, ~150-170° extended, so a full
+// bend-and-extend cycle acts out one "rep" for the demo.
+const DEMO_RANGE: PersonalRange = { minDeg: 20, maxDeg: 150 };
+
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
@@ -22,10 +29,14 @@ export default function SpikePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const smoothedAngleRef = useRef<number | null>(null);
+  const repCounterRef = useRef<RepCounter | null>(null);
   const [fps, setFps] = useState(0);
   const [status, setStatus] = useState("Loading...");
   const [delegate, setDelegate] = useState<"GPU" | "CPU" | null>(null);
   const [angleDeg, setAngleDeg] = useState<number | null>(null);
+  const [reps, setReps] = useState(0);
+  const [counting, setCounting] = useState(true);
+  const [lastEvent, setLastEvent] = useState<string | null>(null);
 
   useEffect(() => {
     let animationId: number;
@@ -141,6 +152,27 @@ export default function SpikePage() {
         setAngleDeg(null);
       }
 
+      // T06 live verification: feed every frame to the rep counter; it gates
+      // on visibility >= 0.6 internally. When smoothedAngleRef is null we
+      // have no real angle, so we send NaN rather than a fabricated number
+      // — NaN never satisfies a threshold comparison, so it can't produce a
+      // phantom event even if the visibility gate's threshold ever changes.
+      repCounterRef.current ??= createRepCounter(DEMO_RANGE);
+      const events = repCounterRef.current.update({
+        angleDeg: smoothedAngleRef.current ?? Number.NaN,
+        visibility: minVisibility,
+        timestamp: Date.now(),
+      });
+      for (const event of events) {
+        // event.count is the counter's own running total, not a delta —
+        // set it directly rather than incrementing local state, so this
+        // display can never drift from what the counter actually counted.
+        if (event.type === "rep") setReps(event.count);
+        if (event.type === "range_reached") setLastEvent("range_reached");
+        if (event.type === "tracking_paused") setCounting(false);
+        if (event.type === "tracking_resumed") setCounting(true);
+      }
+
       frameCount++;
       const now = performance.now();
       if (now - fpsUpdateTime >= 1000) {
@@ -172,6 +204,11 @@ export default function SpikePage() {
       <p style={{ margin: "8px 0", fontFamily: "monospace" }} aria-live="polite">
         T05 angle read-out (L shoulder-elbow-wrist, EMA-smoothed):{" "}
         {angleDeg !== null ? `${angleDeg.toFixed(1)}°` : "low visibility"}
+      </p>
+      <p style={{ margin: "8px 0", fontFamily: "monospace" }} aria-live="polite">
+        T06 rep counter (demo range 20–150°): Reps: {reps} |{" "}
+        {counting ? "counting" : "paused"}
+        {lastEvent ? ` | last event: ${lastEvent}` : ""}
       </p>
       <div style={{ position: "relative", width: 640, height: 480 }}>
         <video

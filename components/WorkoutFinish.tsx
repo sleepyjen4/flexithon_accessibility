@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { SessionSummary, Workout } from "@/types";
+import type { WorkoutSessionSummary, Workout } from "@/types";
 import { useSessionStore } from "@/store/session";
 import { useHistoryStore } from "@/store/history";
 import { saveSessionToSupabase } from "@/lib/sessions";
@@ -28,10 +28,10 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
     // Guards against re-saving this same workout on a remount (browser
     // back/forward) and against a double-click racing the re-render.
     if (savedSummary) return;
-    const summary: SessionSummary = {
+    const summary: WorkoutSessionSummary = {
       id: crypto.randomUUID(),
       workout_title: workout.title,
-      energy_level: workout.energy_level as SessionSummary["energy_level"],
+      energy_level: workout.energy_level as WorkoutSessionSummary["energy_level"],
       completed_steps: completedSteps.length,
       total_steps: workout.steps.length,
       effort,
