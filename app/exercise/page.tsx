@@ -8,7 +8,7 @@ import { FileAudio } from "lucide-react";
 import type { PersonalRange, SafeMovementStats } from "@/types";
 import { Button } from "@/components/Button";
 import { getExerciseById } from "@/lib/exercises";
-import { getPoseExerciseById } from "@/lib/pose/exercises";
+import { POSE_EXERCISES, getPoseExerciseById } from "@/lib/pose/exercises";
 import { getExerciseAudioUrl } from "@/lib/audioManifest";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
 import { useCalibrationStore } from "@/store/calibration";
@@ -27,7 +27,8 @@ const PoseTracker = dynamic(
 );
 
 const SUMMARY_EXERCISE_ID = "seated_lateral_raise";
-const trackerExercise = getPoseExerciseById("seated_arm_raise")!;
+const trackerExercise =
+  getPoseExerciseById("seated_arm_raise") ?? POSE_EXERCISES[0];
 
 const demoRange: PersonalRange = {
   minDeg: 15,
