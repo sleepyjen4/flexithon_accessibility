@@ -23,7 +23,11 @@ export const useHistoryStore = create<HistoryState>()(
       sessions: [],
       checkins: [],
       addSession: (session) =>
-        set((state) => ({ sessions: [...state.sessions, session] })),
+        set((state) =>
+          state.sessions.some((existing) => existing.id === session.id)
+            ? state
+            : { sessions: [...state.sessions, session] },
+        ),
       addCheckin: (checkin) =>
         set((state) => ({
           checkins: [
