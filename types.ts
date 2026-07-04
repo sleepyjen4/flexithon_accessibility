@@ -139,7 +139,7 @@ export type GenerateWorkoutRequest = z.infer<
 export interface PersonalRange {
   minDeg: number; // comfortable resting/low angle
   maxDeg: number; // comfortable peak angle (already inside the comfort margin)
-  capturedAt: string; // ISO timestamp of calibration
+  capturedAt?: string; // ISO timestamp of calibration (set when captured via T08 flow)
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +155,41 @@ export interface SessionRecord {
   /** Section 5b: peak range-of-motion angle captured per exercise, keyed by exercise_id */
   peak_rom_degrees?: Record<string, number>;
   created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Motion tracking contracts (T07/T03 dependency backbone)
+// ---------------------------------------------------------------------------
+
+export interface PoseFrame {
+  /** Smoothed joint angle for the active exercise. */
+  angleDeg: number;
+  /** 0–1 minimum visibility of the required landmarks. */
+  visibility: number;
+  timestamp: number;
+}
+
+export type RepEvent =
+  | { type: "rep"; count: number }
+  | { type: "range_reached" }
+  | { type: "tracking_paused" }
+  | { type: "tracking_resumed" };
+
+export interface ExerciseDef {
+  id: "seated_arm_raise" | "seated_torso_twist";
+  name: string;
+  landmarks: [number, number, number];
+  side: "left" | "right" | "either";
+  instructions: string[];
+  cues: { rangeReached: string; encourage: string[] };
+}
+
+export interface PoseProvider {
+  start(video: HTMLVideoElement, ex: ExerciseDef): void;
+  stop(): void;
+  onFrame(cb: (f: PoseFrame) => void): void;
+  onRepEvent(cb: (e: RepEvent) => void): void;
+  setRange(r: PersonalRange): void;
 }
 
 /**
