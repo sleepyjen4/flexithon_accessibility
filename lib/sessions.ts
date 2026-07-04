@@ -1,4 +1,4 @@
-import type { SessionSummary, Workout } from "@/types";
+import type { WorkoutSessionSummary, Workout } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
  */
 export async function saveSessionToSupabase(
   workout: Workout,
-  summary: SessionSummary,
+  summary: WorkoutSessionSummary,
   completedStepIndexes: number[],
 ): Promise<void> {
   try {
