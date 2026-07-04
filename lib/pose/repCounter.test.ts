@@ -179,4 +179,16 @@ describe("createRepCounter", () => {
     const events = feed(counter, [105, 108, 103, 107, 102, 106, 104]);
     expect(events.filter((e) => e.type === "rep")).toHaveLength(0);
   });
+
+  it("never counts with a zero-width calibration range", () => {
+    // minDeg === maxDeg collapses both thresholds to the same angle. Without
+    // the explicit span <= 0 guard, a single frame jumping from just below
+    // to just above that one point (then back down) can fire a full
+    // phantom rep for a user whose calibration showed zero measurable
+    // motion — exactly the failure this app must never inflict.
+    const counter = createRepCounter({ minDeg: 90, maxDeg: 90 });
+    const events = feed(counter, [89, 91, 89, 91, 89]);
+    expect(events).toEqual([]);
+    expect(counter.getCount()).toBe(0);
+  });
 });

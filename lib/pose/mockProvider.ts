@@ -4,6 +4,7 @@ import type {
   PoseProvider,
   RepEvent,
 } from "@/types";
+import { computeThresholds } from "./repCounter";
 
 const MIN_ANGLE_DEG = 20;
 const MAX_ANGLE_DEG = 150;
@@ -93,11 +94,10 @@ class MockPoseProvider implements PoseProvider {
       this.emitRepEvent({ type: "tracking_resumed" });
     }
 
-    // Range-relative thresholds, kept in sync with repCounter.ts (see its
-    // doc comment for why 0.85 × maxDeg breaks high-minimum ranges).
-    const span = this.range.maxDeg - this.range.minDeg;
-    const targetDeg = this.range.minDeg + span * 0.85;
-    const downDeg = this.range.minDeg + span * 0.15;
+    // Shared with repCounter.ts so mock and real counting can't drift apart
+    // (see computeThresholds' doc comment for why 0.85 × maxDeg breaks
+    // high-minimum ranges).
+    const { up: targetDeg, down: downDeg } = computeThresholds(this.range);
 
     if (!this.aboveTarget && frame.angleDeg >= targetDeg) {
       this.aboveTarget = true;

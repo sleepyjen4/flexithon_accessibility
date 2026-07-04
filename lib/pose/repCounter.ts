@@ -13,6 +13,24 @@ export const UP_THRESHOLD_FRACTION = 0.85;
 /** A rep's bottom threshold: angle must return below minDeg + 0.15 × range. */
 export const DOWN_THRESHOLD_FRACTION = 0.15;
 
+/**
+ * Derives the up/down angle thresholds from a calibrated range. Exported so
+ * mockProvider.ts (and any future consumer) computes the identical values
+ * instead of re-deriving the fractions — two independent copies of this
+ * formula is exactly how the original `0.85 × maxDeg` bug went unnoticed in
+ * one file while being fixed in the other.
+ */
+export function computeThresholds(range: PersonalRange): {
+  up: number;
+  down: number;
+} {
+  const span = range.maxDeg - range.minDeg;
+  return {
+    up: range.minDeg + UP_THRESHOLD_FRACTION * span,
+    down: range.minDeg + DOWN_THRESHOLD_FRACTION * span,
+  };
+}
+
 type Phase = "idle" | "rising" | "peaked" | "falling";
 
 export interface RepCounter {
@@ -46,14 +64,19 @@ export interface RepCounter {
  *   the threshold, current frame above). Resuming tracking with the arm
  *   already at the top cannot fabricate a rep or range_reached.
  *
- * Degenerate calibration (maxDeg ≤ minDeg, or a range so narrow the
- * thresholds invert) simply never counts — it cannot spam phantom reps.
- * T08's calibration flow is responsible for producing sane ranges.
+ * Degenerate calibration (maxDeg ≤ minDeg) is guarded explicitly below: a
+ * zero-width range collapses both thresholds to the same angle, and a
+ * single frame jumping from just below to just above that one point (then
+ * back down) can otherwise fire a full phantom rep — for a user whose
+ * calibration showed no measurable motion at all. T08's calibration flow
+ * should never produce this, but the counter must not depend on that.
  */
 export function createRepCounter(range: PersonalRange): RepCounter {
-  const span = range.maxDeg - range.minDeg;
-  const upThreshold = range.minDeg + UP_THRESHOLD_FRACTION * span;
-  const downThreshold = range.minDeg + DOWN_THRESHOLD_FRACTION * span;
+  if (range.maxDeg <= range.minDeg) {
+    return { update: () => [], getCount: () => 0 };
+  }
+
+  const { up: upThreshold, down: downThreshold } = computeThresholds(range);
 
   let phase: Phase = "idle";
   let count = 0;
@@ -92,6 +115,11 @@ export function createRepCounter(range: PersonalRange): RepCounter {
     if (previousAngle === null) {
       // First visible frame (start or post-pause): establish a baseline so
       // threshold crossings are only detected between two observed frames.
+      // Deliberate: if this frame is already above upThreshold (e.g. camera
+      // resumed mid-motion with the arm raised), we still don't emit
+      // range_reached here — the crossing itself was never observed, so
+      // there's nothing to credit yet. See "does not fabricate a rep when
+      // tracking resumes with the arm already raised" in the test file.
       previousAngle = angle;
       return events;
     }

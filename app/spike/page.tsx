@@ -161,6 +161,9 @@ export default function SpikePage() {
         timestamp: Date.now(),
       });
       for (const event of events) {
+        // event.count is the counter's own running total, not a delta —
+        // set it directly rather than incrementing local state, so this
+        // display can never drift from what the counter actually counted.
         if (event.type === "rep") setReps(event.count);
         if (event.type === "range_reached") setLastEvent("range_reached");
         if (event.type === "tracking_paused") setCounting(false);
