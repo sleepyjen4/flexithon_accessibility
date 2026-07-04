@@ -96,9 +96,13 @@ export function ExerciseStep({
         {step.adaptation_note}
       </p>
 
+      {/* When the timer runs out, advance the same way the "Done — next"
+          button does (completes the step, then rest-or-next). The button
+          stays available to move on early. */}
       <Timer
         seconds={step.duration_seconds}
         label={exercise.name}
+        onComplete={onDone}
         onPauseChange={setTimerPaused}
       />
 
