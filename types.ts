@@ -138,7 +138,7 @@ export type GenerateWorkoutRequest = z.infer<
  */
 export interface PersonalRange {
   minDeg: number; // comfortable resting/low angle
-  maxDeg: number; // comfortable peak angle (already inside the comfort margin)
+  maxDeg: number; // observed comfortable peak; 85% margin applied downstream in rep counting
   capturedAt?: string; // ISO timestamp of calibration (set when captured via T08 flow)
 }
 

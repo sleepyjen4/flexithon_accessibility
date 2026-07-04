@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { PersonalRange } from "@/types";
+import type { ExerciseDef, PersonalRange, PoseProvider } from "@/types";
 import {
   DEFAULT_RANGE,
   MIN_CALIBRATION_SWEEP_DEGREES,
@@ -11,7 +11,8 @@ import {
   isUsableSweep,
 } from "@/lib/calibration";
 import { getExerciseById } from "@/lib/exercises";
-import { useShoulderAngle } from "@/lib/pose/useShoulderAngle";
+import { createMockPoseProvider } from "@/lib/pose/mockProvider";
+import { smoothWithEma } from "@/lib/pose/smoothing";
 import { useCalibrationStore } from "@/store/calibration";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -19,33 +20,67 @@ import { Card } from "@/components/Card";
 /** The one exercise with hands-free rep counting (Section 5b, F9). */
 const HERO_EXERCISE_ID = "seated_lateral_raise";
 const TARGET_SWEEPS = 3; // three guided movements (T08).
+const MIN_VISIBILITY = 0.6; // pause capture silently below this (matches T06).
 
 type Phase = "intro" | "capture" | "review";
+type PoseStatus = "loading" | "tracking" | "unavailable";
+
+/**
+ * Minimal pose descriptor handed to the provider. The T03 mock ignores it; the
+ * real provider (T11) will use the landmark triple. Keeping calibration on the
+ * `PoseProvider` contract is what lets the whole flow run with zero MediaPipe
+ * code today and swap mock → real with a one-line factory change.
+ */
+const HERO_POSE_DEF: ExerciseDef = {
+  id: "seated_arm_raise",
+  name: "Seated lateral raise",
+  landmarks: [11, 13, 23], // shoulder, elbow, hip
+  side: "either",
+  instructions: [
+    "Sit so your head and arms are in view.",
+    "Raise your arms out to the side as far as is comfortable.",
+    "Lower them gently and repeat.",
+  ],
+  cues: {
+    rangeReached: "That's your range.",
+    encourage: ["Nice and gentle.", "Only as far as is comfortable."],
+  },
+};
+
+interface CalibrationFlowProps {
+  /** Swap for the real provider (T11) or a stub in tests; defaults to the T03 mock. */
+  providerFactory?: () => PoseProvider;
+}
 
 /**
  * T08: guided calibration for the hands-free hero exercise. Records the user's
  * own comfortable min/max shoulder angle over a few movements, stores it as a
- * `PersonalRange`, and heads to the workout. Fully keyboard-operable, and the
+ * `PersonalRange`, and heads to the exercise screen. Fully keyboard-operable, and the
  * camera is always optional — the flow never dead-ends.
  */
-export function CalibrationFlow() {
+export function CalibrationFlow({
+  providerFactory = createMockPoseProvider,
+}: CalibrationFlowProps = {}) {
   const router = useRouter();
   const setRange = useCalibrationStore((state) => state.setRange);
   const existing = useCalibrationStore((state) => state.ranges[HERO_EXERCISE_ID]);
   const exercise = getExerciseById(HERO_EXERCISE_ID);
 
   const [phase, setPhase] = useState<Phase>("intro");
+  const [status, setStatus] = useState<PoseStatus>("loading");
   const [liveDeg, setLiveDeg] = useState<number | null>(null);
   const [captMin, setCaptMin] = useState<number | null>(null);
   const [captMax, setCaptMax] = useState<number | null>(null);
   const [sweeps, setSweeps] = useState(0);
 
   // Running capture lives in refs so 30fps updates never re-render.
+  const videoRef = useRef<HTMLVideoElement>(null);
   const minRef = useRef<number | null>(null);
   const maxRef = useRef<number | null>(null);
   const sweepArmedRef = useRef(false);
   const sweepsRef = useRef(0);
   const roundedLiveRef = useRef<number | null>(null);
+  const smoothedRef = useRef<number | null>(null);
 
   const handleAngle = useCallback((deg: number | null) => {
     if (deg === null) return; // landmarks dropped — say nothing, keep going.
@@ -79,10 +114,62 @@ export function CalibrationFlow() {
     }
   }, []);
 
-  const { videoRef, status } = useShoulderAngle({
-    enabled: phase === "capture",
-    onAngle: handleAngle,
-  });
+  // Read angles through the PoseProvider contract (T03 mock by default), so the
+  // whole flow works with zero MediaPipe code and swapping to the real provider
+  // (T11) is a one-line change. The camera preview is a best-effort enhancement —
+  // capture keeps working from the provider even if the camera is denied.
+  useEffect(() => {
+    if (phase !== "capture") return;
+
+    let cancelled = false;
+    let stream: MediaStream | null = null;
+    const provider = providerFactory();
+
+    provider.onFrame((frame) => {
+      if (cancelled) return;
+      setStatus("tracking");
+      if (frame.visibility < MIN_VISIBILITY) {
+        smoothedRef.current = null;
+        return;
+      }
+      smoothedRef.current = smoothWithEma(smoothedRef.current, frame.angleDeg);
+      handleAngle(smoothedRef.current);
+    });
+
+    const begin = async () => {
+      try {
+        const video = videoRef.current ?? document.createElement("video");
+        provider.start(video, HERO_POSE_DEF);
+      } catch {
+        if (!cancelled) setStatus("unavailable");
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          await video.play();
+        }
+      } catch {
+        // Preview is optional; the provider still drives capture.
+      }
+    };
+    void begin();
+
+    return () => {
+      cancelled = true;
+      provider.stop();
+      stream?.getTracks().forEach((track) => track.stop());
+    };
+  }, [phase, providerFactory, handleAngle]);
 
   const beginCapture = () => {
     minRef.current = null;
@@ -90,16 +177,18 @@ export function CalibrationFlow() {
     sweepArmedRef.current = false;
     sweepsRef.current = 0;
     roundedLiveRef.current = null;
+    smoothedRef.current = null;
     setCaptMin(null);
     setCaptMax(null);
     setLiveDeg(null);
     setSweeps(0);
+    setStatus("loading");
     setPhase("capture");
   };
 
   const save = (range: PersonalRange) => {
     setRange(HERO_EXERCISE_ID, range);
-    router.push("/workout");
+    router.push("/exercise");
   };
 
   const saveDefault = () => save({ ...DEFAULT_RANGE, capturedAt: new Date().toISOString() });
@@ -222,7 +311,7 @@ export function CalibrationFlow() {
           </p>
           <div className="mt-auto flex flex-col gap-3 pt-4">
             <Button type="button" onClick={() => save(range)}>
-              Save and start workout
+              Save and start exercise
             </Button>
             <Button type="button" variant="secondary" onClick={beginCapture}>
               Recalibrate
@@ -246,7 +335,7 @@ export function CalibrationFlow() {
         </>
       )}
       <Link
-        href="/workout"
+        href="/exercise"
         className="min-h-12 content-center text-center text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
       >
         Skip for now

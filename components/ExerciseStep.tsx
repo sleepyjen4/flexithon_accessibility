@@ -40,16 +40,7 @@ export function ExerciseStep({
   const personalRange = useCalibrationStore(
     (state) => state.ranges[POSE_EXERCISE_ID],
   );
-  const hasCalibration = useCalibrationStore((state) =>
-    Boolean(state.ranges[exercise.id]),
-  );
-  const clearRange = useCalibrationStore((state) => state.clearRange);
   const [cameraOn, setCameraOn] = useState(false);
-
-  const recalibrate = () => {
-    clearRange(exercise.id);
-    setCameraOn(false);
-  };
 
   // TTS is user-triggered only (Section 6, rule 8); stop it when the step changes.
   useEffect(() => {
@@ -99,11 +90,6 @@ export function ExerciseStep({
           >
             {cameraOn ? "Turn camera off" : "Count reps with camera (optional)"}
           </Button>
-          {cameraOn && hasCalibration && (
-            <Button type="button" variant="secondary" onClick={recalibrate}>
-              Recalibrate my range
-            </Button>
-          )}
           {cameraOn && (
             <PoseTracker
               personalRange={personalRange}

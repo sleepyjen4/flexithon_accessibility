@@ -2,17 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createMockPoseProvider as createPoseProvider } from "@/lib/pose/mockProvider";
-import type { NormalizedLandmark, PoseLandmarker } from "@mediapipe/tasks-vision";
-import { useCalibrationStore } from "@/store/calibration";
-import { emaStep, visibleJointAngleDegrees, type AnglePoint } from "@/lib/pose/angle";
-import {
-  initialRepCounterState,
-  stepRepCounter,
-  thresholdsFromRange,
-  DEFAULT_THRESHOLDS,
-  type RepThresholds,
-} from "@/lib/pose/repCounter";
-import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import type {
   ExerciseDef,
@@ -29,28 +18,6 @@ type CameraState =
   | "denied"
   | "unavailable"
   | "error";
-
-// Keep in sync with the installed @mediapipe/tasks-vision version.
-const WASM_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-
-// Upper-body landmarks only (Section 5b) — lower body is ignored entirely.
-const LEFT = { shoulder: 11, elbow: 13, hip: 23 };
-const RIGHT = { shoulder: 12, elbow: 14, hip: 24 };
-
-const CALIBRATION_SECONDS = 10;
-const MIN_CALIBRATION_SPAN_DEG = 20;
-
-/** Shoulder abduction angle: at the shoulder, between the arm
- * (shoulder→elbow) and the torso (shoulder→hip). */
-function shoulderAngle(landmarks: NormalizedLandmark[], side: typeof LEFT): number | null {
-  const shoulder = landmarks[side.shoulder];
-  const elbow = landmarks[side.elbow];
-  const hip = landmarks[side.hip];
-  if (!shoulder || !elbow || !hip) return null;
-  return visibleJointAngleDegrees(elbow as AnglePoint, shoulder as AnglePoint, hip as AnglePoint);
-}
 
 interface PoseTrackerProps {
   exercise?: ExerciseDef;

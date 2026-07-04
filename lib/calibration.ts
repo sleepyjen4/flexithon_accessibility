@@ -6,13 +6,6 @@ import type { PersonalRange } from "@/types";
  * and reuse.
  */
 
-/**
- * Fraction of the observed peak we actually ask the user to reach each rep.
- * Calibration captures a best-effort stretch; targeting 85% of it keeps every
- * working rep comfortably achievable instead of demanding a maximal effort.
- */
-export const COMFORT_MARGIN = 0.85;
-
 /** Ignore captures that barely moved — likely noise, not a real movement. */
 export const MIN_CALIBRATION_SWEEP_DEGREES = 15;
 
@@ -28,8 +21,10 @@ export const DEFAULT_RANGE: Omit<PersonalRange, "capturedAt"> = {
 
 /**
  * Turn the min/max angles observed during calibration into a `PersonalRange`.
- * The peak target sits at `COMFORT_MARGIN` of the way from the resting angle to
- * the observed peak, so hitting range on every rep stays realistic.
+ * We store the raw comfortable resting/peak angles — the 85% comfort margin
+ * (Section 0: "range_reached = hit 85% of personal max") is applied by the rep
+ * counter (`repCounter.ts` / the mock provider) at `0.85 × maxDeg`, so it must
+ * NOT be baked in here or it would be double-counted.
  */
 export function computeRange(
   observedMinDeg: number,
@@ -38,10 +33,9 @@ export function computeRange(
 ): PersonalRange {
   const low = Math.min(observedMinDeg, observedMaxDeg);
   const high = Math.max(observedMinDeg, observedMaxDeg);
-  const target = low + (high - low) * COMFORT_MARGIN;
   return {
     minDeg: Math.round(low),
-    maxDeg: Math.round(target),
+    maxDeg: Math.round(high),
     capturedAt: now.toISOString(),
   };
 }
@@ -49,17 +43,4 @@ export function computeRange(
 /** True when the captured movement is large enough to be a real calibration. */
 export function isUsableSweep(observedMinDeg: number, observedMaxDeg: number): boolean {
   return Math.abs(observedMaxDeg - observedMinDeg) >= MIN_CALIBRATION_SWEEP_DEGREES;
-}
-
-/**
- * Hysteresis thresholds for rep counting, derived from a personal range: count
- * a rep once the arm rises past `up`, and re-arm only after it drops below
- * `down`. The gap between them is what prevents jitter double-counts.
- */
-export function repThresholds(range: PersonalRange): { up: number; down: number } {
-  const span = range.maxDeg - range.minDeg;
-  return {
-    up: range.minDeg + span * 0.7, // most of the way to the personal peak
-    down: range.minDeg + span * 0.25, // clearly back toward rest
-  };
 }
