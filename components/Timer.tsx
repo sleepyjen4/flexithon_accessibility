@@ -47,14 +47,15 @@ export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps)
   }, [remaining, label, haptics, onComplete]);
 
   const togglePause = () => {
-    setRunning((current) => {
-      const paused = current;
-      setAnnouncement(
-        paused ? `Paused with ${formatTime(remaining)} left.` : "Timer resumed.",
-      );
-      onPauseChange?.(paused);
-      return !current;
-    });
+    // Derive the next state from the current render's `running` and run all
+    // side effects here in the handler — never inside the setRunning updater,
+    // which runs during render and can't notify the parent (onPauseChange).
+    const paused = running;
+    setRunning(!running);
+    setAnnouncement(
+      paused ? `Paused with ${formatTime(remaining)} left.` : "Timer resumed.",
+    );
+    onPauseChange?.(paused);
   };
 
   const extend = () => {
