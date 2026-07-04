@@ -12,11 +12,20 @@ export default function Home() {
           A fitness app that adapts to your body and your energy today.
         </p>
       </div>
-      <div className="flex w-full max-w-xs flex-col gap-4">
-        <Link href="/onboarding">
-          <Button>Get started</Button>
+      <nav aria-label="Get started" className="flex w-full max-w-xs flex-col gap-4">
+        <Button asChild>
+          <Link href="/onboarding">Get started</Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/check-in">I already have a profile</Link>
+        </Button>
+        <Link
+          href="/progress"
+          className="min-h-12 content-center rounded-xl px-6 text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
+        >
+          View my progress
         </Link>
-      </div>
+      </nav>
     </div>
   );
 }
