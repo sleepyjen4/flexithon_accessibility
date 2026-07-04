@@ -193,17 +193,6 @@ export interface PoseProvider {
 }
 
 /**
- * A person's own comfortable range of motion for one exercise (Section 5b),
- * captured by a short calibration pass. Rep-counting thresholds are derived
- * from this instead of a fixed angle, so hands-free counting works
- * regardless of a person's actual range of motion.
- */
-export interface PersonalRange {
-  minDeg: number;
-  maxDeg: number;
-}
-
-/**
  * Section 0 contract: summary of one completed tracking session, consumed by
  * the /summary screen (T12). Distinct from WorkoutSessionSummary below.
  */
