@@ -93,8 +93,11 @@ class MockPoseProvider implements PoseProvider {
       this.emitRepEvent({ type: "tracking_resumed" });
     }
 
-    const targetDeg = this.range.maxDeg * 0.85;
-    const downDeg = this.range.minDeg + (this.range.maxDeg - this.range.minDeg) * 0.15;
+    // Range-relative thresholds, kept in sync with repCounter.ts (see its
+    // doc comment for why 0.85 × maxDeg breaks high-minimum ranges).
+    const span = this.range.maxDeg - this.range.minDeg;
+    const targetDeg = this.range.minDeg + span * 0.85;
+    const downDeg = this.range.minDeg + span * 0.15;
 
     if (!this.aboveTarget && frame.angleDeg >= targetDeg) {
       this.aboveTarget = true;

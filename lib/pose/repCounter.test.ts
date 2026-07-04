@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PersonalRange, PoseFrame, RepEvent } from "@/types";
 import { createRepCounter, VISIBILITY_THRESHOLD } from "./repCounter";
 
-// Range 20–150 → up threshold = 0.85 × 150 = 127.5,
+// Range 20–150 → up threshold = 20 + 0.85 × 130 = 130.5,
 // down threshold = 20 + 0.15 × 130 = 39.5 (same math as mockProvider).
 const RANGE: PersonalRange = { minDeg: 20, maxDeg: 150 };
 
@@ -52,10 +52,10 @@ describe("createRepCounter", () => {
 
   it("does not double-count on jitter around the upper threshold", () => {
     const counter = createRepCounter(RANGE);
-    // Oscillates across 127.5 four times before finally descending.
+    // Oscillates across 130.5 four times before finally descending.
     const events = feed(
       counter,
-      [25, 60, 100, 126, 129, 126, 129, 126, 129, 100, 60, 35]
+      [25, 60, 100, 128, 133, 128, 133, 128, 133, 100, 60, 35]
     );
     expect(events).toEqual([
       { type: "range_reached" },
@@ -147,7 +147,7 @@ describe("createRepCounter", () => {
     // Rep with top jitter, then a clean rep: each rep gets exactly one
     // range_reached, in order.
     const events = feed(counter, [
-      ...[25, 60, 126, 130, 126, 130, 100, 35],
+      ...[25, 60, 128, 133, 128, 133, 100, 35],
       ...CLEAN_REP,
     ]);
     expect(events).toEqual([
@@ -155,6 +155,20 @@ describe("createRepCounter", () => {
       { type: "rep", count: 1 },
       { type: "range_reached" },
       { type: "rep", count: 2 },
+    ]);
+  });
+
+  it("counts reps for a high-minimum limited range of motion", () => {
+    // Calibrated 120–140° (e.g. limited elbow extension): range-relative
+    // thresholds give up = 137, down = 123 — both inside the user's range.
+    // The old 0.85 × maxDeg formula put the top threshold at 119°, below
+    // the user's minimum, making reps uncountable for exactly the users
+    // this app is built for.
+    const counter = createRepCounter({ minDeg: 120, maxDeg: 140 });
+    const events = feed(counter, [121, 125, 130, 136, 139, 130, 124, 122]);
+    expect(events).toEqual([
+      { type: "range_reached" },
+      { type: "rep", count: 1 },
     ]);
   });
 

@@ -7,7 +7,7 @@ import type { PersonalRange, PoseFrame, RepEvent } from "@/types";
  */
 export const VISIBILITY_THRESHOLD = 0.6;
 
-/** A rep's top threshold: angle must cross above 0.85 × maxDeg. */
+/** A rep's top threshold: angle must cross above minDeg + 0.85 × range. */
 export const UP_THRESHOLD_FRACTION = 0.85;
 
 /** A rep's bottom threshold: angle must return below minDeg + 0.15 × range. */
@@ -26,10 +26,17 @@ export interface RepCounter {
 
 /**
  * Hysteresis rep counter (T06). A rep counts only when the angle crosses
- * up past `UP_THRESHOLD_FRACTION * maxDeg`, then back down below
+ * up past `minDeg + UP_THRESHOLD_FRACTION * range`, then back down below
  * `minDeg + DOWN_THRESHOLD_FRACTION * range` — jitter around a single
  * threshold can never double-count. Threshold math intentionally matches
  * mockProvider.ts so the T11 provider swap is behavior-compatible.
+ *
+ * Both thresholds are range-relative (85% / 15% of the way through the
+ * user's own calibrated range), NOT fractions of the absolute angle. The
+ * originally ticketed `0.85 × maxDeg` inverts for high-minimum ranges
+ * (e.g. calibrated 120–140° → top threshold 119°, below the user's min),
+ * silently ignoring reps from users with limited range of motion — the
+ * exact users this app serves.
  *
  * Differences from the mock, required by the T06 acceptance criteria:
  * - Visibility dropout resets the in-flight rep (count is preserved), so a
@@ -44,9 +51,9 @@ export interface RepCounter {
  * T08's calibration flow is responsible for producing sane ranges.
  */
 export function createRepCounter(range: PersonalRange): RepCounter {
-  const upThreshold = UP_THRESHOLD_FRACTION * range.maxDeg;
-  const downThreshold =
-    range.minDeg + DOWN_THRESHOLD_FRACTION * (range.maxDeg - range.minDeg);
+  const span = range.maxDeg - range.minDeg;
+  const upThreshold = range.minDeg + UP_THRESHOLD_FRACTION * span;
+  const downThreshold = range.minDeg + DOWN_THRESHOLD_FRACTION * span;
 
   let phase: Phase = "idle";
   let count = 0;
