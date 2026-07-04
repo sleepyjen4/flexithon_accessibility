@@ -127,6 +127,22 @@ export type GenerateWorkoutRequest = z.infer<
 >;
 
 // ---------------------------------------------------------------------------
+// Personal range of motion (T08 — calibration, F9)
+// ---------------------------------------------------------------------------
+
+/**
+ * A user's own comfortable range for the hands-free hero exercise, captured
+ * during calibration. Rep counting is scaled to THIS range instead of fixed
+ * thresholds, so the app adapts to the body in front of it (never the reverse).
+ * Angles are degrees of shoulder abduction; keyed by exercise id in the store.
+ */
+export interface PersonalRange {
+  minDeg: number; // comfortable resting/low angle
+  maxDeg: number; // comfortable peak angle (already inside the comfort margin)
+  capturedAt: string; // ISO timestamp of calibration
+}
+
+// ---------------------------------------------------------------------------
 // Workout sessions (Section 4 — sessions table)
 // ---------------------------------------------------------------------------
 

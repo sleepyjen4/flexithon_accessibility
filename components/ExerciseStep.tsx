@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type { Exercise, WorkoutStep } from "@/types";
 import { useSessionStore } from "@/store/session";
+import { useCalibrationStore } from "@/store/calibration";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -35,6 +37,9 @@ export function ExerciseStep({
   onSkip,
 }: ExerciseStepProps) {
   const recordRom = useSessionStore((state) => state.recordRom);
+  const personalRange = useCalibrationStore(
+    (state) => state.ranges[POSE_EXERCISE_ID],
+  );
   const [cameraOn, setCameraOn] = useState(false);
 
   // TTS is user-triggered only (Section 6, rule 8); stop it when the step changes.
@@ -87,9 +92,18 @@ export function ExerciseStep({
           </Button>
           {cameraOn && (
             <PoseTracker
+              range={personalRange}
               onPeakRom={(degrees) => recordRom(exercise.id, degrees)}
             />
           )}
+          <Link
+            href="/calibrate"
+            className="min-h-12 content-center text-center text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
+          >
+            {personalRange
+              ? `Recalibrate range (now ${personalRange.minDeg}°–${personalRange.maxDeg}°)`
+              : "Calibrate to my range for more accurate counting"}
+          </Link>
         </div>
       )}
 
