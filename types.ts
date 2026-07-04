@@ -192,6 +192,14 @@ export interface PoseProvider {
   setRange(r: PersonalRange): void;
 }
 
+export interface SafeMovementStats {
+  repsInTargetRange: number;
+  movementConsistencyPercent: number | null;
+  averageRepSeconds: number | null;
+  activeSeconds: number;
+  restSeconds: number;
+}
+
 /**
  * Section 0 contract: summary of one completed tracking session, consumed by
  * the /summary screen (T12). Distinct from WorkoutSessionSummary below.
@@ -201,6 +209,7 @@ export interface SessionSummary {
   reps: number;
   personalRange: PersonalRange;
   peakAngleToday: number;
+  safeStats?: SafeMovementStats;
   startedAt: number;
   endedAt: number;
 }

@@ -19,6 +19,7 @@ import type {
   PoseFrame,
   PoseProvider,
   RepEvent,
+  SafeMovementStats,
 } from "@/types";
 
 const VISIBLE_UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16] as const;
@@ -43,6 +44,7 @@ interface PoseTrackerProps {
   onManualDone?: () => void;
   onPeakRom?: (degrees: number) => void;
   onRepCount?: (count: number) => void;
+  onMovementStats?: (stats: SafeMovementStats) => void;
   /** Test/demo escape hatch. Production uses real MediaPipe tracking by default. */
   providerFactory?: () => PoseProvider;
 }
@@ -67,6 +69,31 @@ const DEFAULT_EXERCISE: ExerciseDef = {
     ],
   },
 };
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getConsistencyPercent(
+  repPeakAngles: readonly number[],
+  personalRange: PersonalRange,
+): number | null {
+  if (repPeakAngles.length < 2) return null;
+
+  const averagePeak =
+    repPeakAngles.reduce((total, angle) => total + angle, 0) /
+    repPeakAngles.length;
+  const averageDifference =
+    repPeakAngles.reduce(
+      (total, angle) => total + Math.abs(angle - averagePeak),
+      0,
+    ) / repPeakAngles.length;
+  const rangeSpan = Math.max(1, personalRange.maxDeg - personalRange.minDeg);
+
+  return Math.round(
+    clampNumber(100 - (averageDifference / rangeSpan) * 100, 0, 100),
+  );
+}
 
 function getCameraStateFromError(error: unknown): CameraState {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
@@ -209,6 +236,7 @@ export function PoseTracker({
   onManualDone,
   onPeakRom,
   onRepCount,
+  onMovementStats,
   providerFactory,
 }: PoseTrackerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -220,6 +248,14 @@ export function PoseTracker({
   const frameRunIdRef = useRef(0);
   const repCounterRef = useRef<RepCounter | null>(null);
   const smoothedAngleRef = useRef<number | null>(null);
+  const peakAngleRef = useRef(0);
+  const sessionStartedAtRef = useRef<number | null>(null);
+  const activeMillisecondsRef = useRef(0);
+  const lastActiveFrameAtRef = useRef<number | null>(null);
+  const currentRepPeakRef = useRef(0);
+  const lastRepAtRef = useRef<number | null>(null);
+  const repPeakAnglesRef = useRef<number[]>([]);
+  const repDurationsMsRef = useRef<number[]>([]);
   const mountedRef = useRef(false);
 
   const [cameraState, setCameraState] = useState<CameraState>("idle");
@@ -242,24 +278,92 @@ export function PoseTracker({
     canvas.height = Math.max(1, Math.round(rect.height * scale));
   }, []);
 
+  const recordPeakAngle = useCallback(
+    (angle: number) => {
+      const nextPeak = Math.max(peakAngleRef.current, angle);
+      if (nextPeak === peakAngleRef.current) return;
+
+      peakAngleRef.current = nextPeak;
+      setPeakAngle(nextPeak);
+      onPeakRom?.(Math.round(nextPeak));
+    },
+    [onPeakRom],
+  );
+
+  const publishMovementStats = useCallback(
+    (targetReps: number) => {
+      if (!onMovementStats) return;
+
+      const elapsedMilliseconds =
+        sessionStartedAtRef.current === null
+          ? 0
+          : Math.max(0, Date.now() - sessionStartedAtRef.current);
+      const restMilliseconds = Math.max(
+        0,
+        elapsedMilliseconds - activeMillisecondsRef.current,
+      );
+
+      const averageRepSeconds =
+        repDurationsMsRef.current.length === 0
+          ? null
+          : Math.round(
+              repDurationsMsRef.current.reduce(
+                (total, duration) => total + duration,
+                0,
+              ) / repDurationsMsRef.current.length / 100,
+            ) / 10;
+
+      onMovementStats({
+        repsInTargetRange: targetReps,
+        movementConsistencyPercent: getConsistencyPercent(
+          repPeakAnglesRef.current,
+          personalRange,
+        ),
+        averageRepSeconds,
+        activeSeconds: Math.round(activeMillisecondsRef.current / 1000),
+        restSeconds: Math.round(restMilliseconds / 1000),
+      });
+    },
+    [onMovementStats, personalRange],
+  );
+
+  const recordActiveFrame = useCallback(
+    (angle: number, timestamp: number) => {
+      const previousTimestamp = lastActiveFrameAtRef.current;
+      if (previousTimestamp !== null) {
+        const elapsed = clampNumber(timestamp - previousTimestamp, 0, 500);
+        activeMillisecondsRef.current += elapsed;
+      }
+
+      lastActiveFrameAtRef.current = timestamp;
+      currentRepPeakRef.current = Math.max(currentRepPeakRef.current, angle);
+      publishMovementStats(repCount);
+    },
+    [publishMovementStats, repCount],
+  );
+
   const handleFrame = useCallback(
     (frame: PoseFrame) => {
       if (!mountedRef.current) return;
 
       resizeCanvas();
       setAngleDeg(frame.angleDeg);
-      setPeakAngle((currentPeak) => {
-        const nextPeak = Math.max(currentPeak, frame.angleDeg);
-        onPeakRom?.(Math.round(nextPeak));
-        return nextPeak;
-      });
+      recordPeakAngle(frame.angleDeg);
+      if (
+        frame.visibility >= VISIBILITY_THRESHOLD &&
+        Number.isFinite(frame.angleDeg)
+      ) {
+        recordActiveFrame(frame.angleDeg, frame.timestamp);
+      } else {
+        lastActiveFrameAtRef.current = null;
+      }
 
       const canvas = canvasRef.current;
       if (canvas) {
         drawMockSkeleton(canvas, frame);
       }
     },
-    [onPeakRom, resizeCanvas],
+    [recordActiveFrame, recordPeakAngle, resizeCanvas],
   );
 
   const handleRepEvent = useCallback(
@@ -269,6 +373,17 @@ export function PoseTracker({
       if (event.type === "rep") {
         setRepCount(event.count);
         onRepCount?.(event.count);
+        const now = Date.now();
+        const previousRepAt = lastRepAtRef.current ?? sessionStartedAtRef.current;
+        if (previousRepAt !== null && now > previousRepAt) {
+          repDurationsMsRef.current.push(now - previousRepAt);
+        }
+        lastRepAtRef.current = now;
+        if (currentRepPeakRef.current > 0) {
+          repPeakAnglesRef.current.push(currentRepPeakRef.current);
+        }
+        currentRepPeakRef.current = 0;
+        publishMovementStats(event.count);
         setStatusText(`Rep ${event.count} counted.`);
         return;
       }
@@ -285,7 +400,7 @@ export function PoseTracker({
 
       setStatusText("Tracking resumed.");
     },
-    [exercise.cues.rangeReached, onRepCount],
+    [exercise.cues.rangeReached, onRepCount, publishMovementStats],
   );
 
   const stopAnimation = useCallback(() => {
@@ -378,13 +493,11 @@ export function PoseTracker({
       smoothedAngleRef.current = emaStep(smoothedAngleRef.current, rawAngle);
       const smoothedAngle = smoothedAngleRef.current;
       setAngleDeg(smoothedAngle);
-      setPeakAngle((currentPeak) => {
-        const nextPeak = Math.max(currentPeak, smoothedAngle);
-        onPeakRom?.(Math.round(nextPeak));
-        return nextPeak;
-      });
+      recordPeakAngle(smoothedAngle);
+      recordActiveFrame(smoothedAngle, Date.now());
     } else {
       smoothedAngleRef.current = null;
+      lastActiveFrameAtRef.current = null;
       setAngleDeg(null);
     }
 
@@ -400,8 +513,9 @@ export function PoseTracker({
   }, [
     exercise.landmarks,
     handleRepEvent,
-    onPeakRom,
     personalRange,
+    recordActiveFrame,
+    recordPeakAngle,
     resizeCanvas,
     scheduleRealFrame,
   ]);
@@ -446,8 +560,17 @@ export function PoseTracker({
       await video.play();
 
       setRepCount(0);
+      peakAngleRef.current = 0;
+      sessionStartedAtRef.current = Date.now();
+      activeMillisecondsRef.current = 0;
+      lastActiveFrameAtRef.current = null;
+      currentRepPeakRef.current = 0;
+      lastRepAtRef.current = null;
+      repPeakAnglesRef.current = [];
+      repDurationsMsRef.current = [];
       setPeakAngle(0);
       setAngleDeg(null);
+      publishMovementStats(0);
       frameRunIdRef.current += 1;
       repCounterRef.current = createRepCounter(personalRange);
       smoothedAngleRef.current = null;
@@ -487,13 +610,20 @@ export function PoseTracker({
           : "Camera tracking is unavailable. You can continue manually.",
       );
     }
-  }, [personalRange, resizeCanvas, scheduleRealFrame, startMockProvider]);
+  }, [
+    personalRange,
+    publishMovementStats,
+    resizeCanvas,
+    scheduleRealFrame,
+    startMockProvider,
+  ]);
 
   const completeManually = useCallback(() => {
     setManualDone(true);
+    publishMovementStats(repCount);
     setStatusText("Exercise marked complete manually.");
     onManualDone?.();
-  }, [onManualDone]);
+  }, [onManualDone, publishMovementStats, repCount]);
 
   useEffect(() => {
     mountedRef.current = true;

@@ -1,11 +1,12 @@
 import { create } from "zustand";
-import type { WorkoutSessionSummary, Workout } from "@/types";
+import type { SessionSummary, WorkoutSessionSummary, Workout } from "@/types";
 
 interface SessionState {
   workout: Workout | null;
   currentStepIndex: number;
   completedSteps: number[];
   peakRomDegrees: Record<string, number>;
+  trackingSummary: SessionSummary | null;
   /** Set once the current workout has been saved to history/Supabase, so a
    * remounted WorkoutFinish (e.g. after browser back/forward) shows the
    * saved confirmation instead of re-offering the save action. */
@@ -14,6 +15,8 @@ interface SessionState {
   completeStep: (index: number) => void;
   advanceStep: () => void;
   recordRom: (exerciseId: string, degrees: number) => void;
+  setTrackingSummary: (summary: SessionSummary) => void;
+  clearTrackingSummary: () => void;
   markSaved: (summary: WorkoutSessionSummary) => void;
   reset: () => void;
 }
@@ -22,6 +25,7 @@ const FRESH_WORKOUT_STATE = {
   currentStepIndex: 0,
   completedSteps: [],
   peakRomDegrees: {},
+  trackingSummary: null,
   savedSummary: null,
 };
 
@@ -44,6 +48,8 @@ export const useSessionStore = create<SessionState>((set) => ({
         [exerciseId]: Math.max(state.peakRomDegrees[exerciseId] ?? 0, degrees),
       },
     })),
+  setTrackingSummary: (summary) => set({ trackingSummary: summary }),
+  clearTrackingSummary: () => set({ trackingSummary: null }),
   markSaved: (summary) => set({ savedSummary: summary }),
   reset: () => set({ workout: null, ...FRESH_WORKOUT_STATE }),
 }));
