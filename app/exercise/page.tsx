@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { FileAudio } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/Button";
+import { SpeechToggle } from "@/components/SpeechToggle";
 import { getPoseExerciseById } from "@/lib/pose/exercises";
 import { getExerciseAudioUrl } from "@/lib/audioManifest";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
 import { useCalibrationStore } from "@/store/calibration";
+import { useProfileStore } from "@/store/profile";
 import { useSessionStore } from "@/store/session";
 import type { PersonalRange, RepEvent } from "@/types";
 
@@ -42,6 +44,9 @@ export default function ExercisePage() {
     (state) => state.ranges[CALIBRATION_KEY],
   );
   const recordRom = useSessionStore((state) => state.recordRom);
+  const speechEnabled = useProfileStore(
+    (state) => state.prefs.speech_enabled !== false,
+  );
 
   const [active, setActive] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -49,6 +54,7 @@ export default function ExercisePage() {
   const [reps, setReps] = useState(0);
   const [peak, setPeak] = useState(0);
   const [liveMessage, setLiveMessage] = useState("");
+  const [reading, setReading] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
 
   // Stop any in-flight speech (rep counts / read-aloud) when leaving the page.
@@ -79,15 +85,23 @@ export default function ExercisePage() {
   const handlePeak = useCallback((degrees: number) => setPeak(degrees), []);
 
   const readAloud = useCallback(() => {
+    // Play/stop toggle: a second tap stops the clip mid-way.
+    if (reading) {
+      cancelSpeech();
+      setReading(false);
+      return;
+    }
     const text = [poseExercise.name, ...poseExercise.instructions].join(". ");
     // Prefer the pre-generated clip (Section 5c); speakOrPlay falls back to the
-    // Web Speech API when no clip exists. No-ops while speech is muted.
+    // Web Speech API when no clip exists. Resolves when it ends, is stopped, or
+    // no-ops (speech muted) — reset to the Play state either way.
+    setReading(true);
     void speakOrPlay(
       getExerciseAudioUrl({ id: poseExercise.id, audio_url: null }),
       text,
       { interrupt: true },
-    );
-  }, []);
+    ).finally(() => setReading(false));
+  }, [reading]);
 
   const togglePause = useCallback(() => {
     setPaused((current) => {
@@ -118,13 +132,19 @@ export default function ExercisePage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-bold">{poseExercise.name}</h1>
-          <p className="text-base text-slate-600">
-            Hands-free rep counting, scored against your own range. The camera
-            is optional and everything below works if you keep it off.
-          </p>
-        </header>
+        {/* Page-level so the speech toggle stays visible across every state
+            (setup, tracking, finished) — otherwise a user who muted elsewhere
+            lands here with no way to turn spoken counts back on. */}
+        <div className="flex items-start justify-between gap-3">
+          <header className="space-y-2">
+            <h1 className="text-3xl font-bold">{poseExercise.name}</h1>
+            <p className="text-base text-slate-600">
+              Hands-free rep counting, scored against your own range. The camera
+              is optional and everything below works if you keep it off.
+            </p>
+          </header>
+          <SpeechToggle />
+        </div>
 
         {/* Every spoken cue has a visual twin here (AGENTS.md §6). */}
         <p className="sr-only" role="status" aria-live="polite">
@@ -175,14 +195,27 @@ export default function ExercisePage() {
             <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-bold">How to move</h2>
-                <button
-                  type="button"
-                  onClick={readAloud}
-                  className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                  aria-label={`Read the instructions for ${poseExercise.name} aloud`}
-                >
-                  <FileAudio aria-hidden="true" />
-                </button>
+                {/* Hidden while speech is muted — nothing would play, so the
+                    corner mute toggle is the only relevant control then. */}
+                {speechEnabled ? (
+                  <button
+                    type="button"
+                    onClick={readAloud}
+                    aria-pressed={reading}
+                    className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                    aria-label={
+                      reading
+                        ? `Stop reading the instructions for ${poseExercise.name}`
+                        : `Play the instructions for ${poseExercise.name} from the start`
+                    }
+                  >
+                    {reading ? (
+                      <Pause aria-hidden="true" className="h-6 w-6" />
+                    ) : (
+                      <Play aria-hidden="true" className="h-6 w-6" />
+                    )}
+                  </button>
+                ) : null}
               </div>
               <ol className="mt-3 list-decimal space-y-2 pl-6 text-slate-700">
                 {poseExercise.instructions.map((instruction) => (
@@ -253,9 +286,7 @@ function FinishedCard({
           <p className="text-3xl font-bold text-slate-900">{reps}</p>
         </div>
         <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-600">
-            Peak range today
-          </p>
+          <p className="text-sm font-medium text-slate-600">Peak range today</p>
           <p className="text-3xl font-bold text-slate-900">{peak}°</p>
           <p className="mt-1 text-sm text-slate-600">
             {reachedTarget

@@ -7,12 +7,13 @@ import type { Exercise, WorkoutStep } from "@/types";
 import { useSessionStore } from "@/store/session";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
 import { useCalibrationStore } from "@/store/calibration";
+import { useProfileStore } from "@/store/profile";
 import { HERO_EXERCISE_ID } from "@/lib/exercises";
 import { getExerciseAudioUrl } from "@/lib/audioManifest";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { FileAudio } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 
 // F9 lives entirely client-side; loaded only when someone opts in.
 const PoseTracker = dynamic(
@@ -41,10 +42,14 @@ export function ExerciseStep({
   const personalRange = useCalibrationStore(
     (state) => state.ranges[HERO_EXERCISE_ID],
   );
+  const speechEnabled = useProfileStore(
+    (state) => state.prefs.speech_enabled !== false,
+  );
   const [cameraOn, setCameraOn] = useState(false);
   const [timerPaused, setTimerPaused] = useState(false);
+  const [reading, setReading] = useState(false);
 
-  const readAloud = useCallback(() => {
+  const playInstructions = useCallback(() => {
     const text = [
       exercise.name,
       ...exercise.instructions.map((instruction) => instruction.text),
@@ -52,16 +57,34 @@ export function ExerciseStep({
     ].join(". ");
     // Prefer a pre-generated Google AI Studio clip (Section 5c); speakOrPlay falls
     // back to the Web Speech API (with the full text incl. note) when none.
-    void speakOrPlay(getExerciseAudioUrl(exercise), text, { interrupt: true });
+    // Resolves when it ends, is stopped, or no-ops (muted) — reset either way.
+    setReading(true);
+    void speakOrPlay(getExerciseAudioUrl(exercise), text, {
+      interrupt: true,
+    }).finally(() => setReading(false));
   }, [exercise, step.adaptation_note]);
 
-  // Autoplay the instructions when each step opens. speak() no-ops while the
-  // user has speech turned off, so the corner toggle governs autoplay too;
-  // speech is cancelled when the step changes or unmounts.
+  // Play/stop toggle for the button: a second tap stops the clip mid-way.
+  const toggleReadAloud = useCallback(() => {
+    if (reading) {
+      cancelSpeech();
+      setReading(false);
+      return;
+    }
+    playInstructions();
+  }, [reading, playInstructions]);
+
+  // Autoplay the instructions when each step opens. Deferred a tick so the
+  // play/stop state update lands outside the effect body; speakOrPlay no-ops
+  // while the user has speech turned off, so the corner toggle governs autoplay
+  // too. Speech is cancelled when the step changes or unmounts.
   useEffect(() => {
-    readAloud();
-    return () => cancelSpeech();
-  }, [readAloud]);
+    const timer = setTimeout(playInstructions, 0);
+    return () => {
+      clearTimeout(timer);
+      cancelSpeech();
+    };
+  }, [playInstructions]);
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -74,13 +97,27 @@ export function ExerciseStep({
       <Card>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-slate-900">How to do it</h2>
-          <button
-            onClick={readAloud}
-            className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-            aria-label="Read aloud the instructions for this exercise"
-          >
-            <FileAudio />
-          </button>
+          {/* Hidden while speech is muted — nothing would play, so the corner
+              mute toggle is the only relevant control then. */}
+          {speechEnabled ? (
+            <button
+              type="button"
+              onClick={toggleReadAloud}
+              aria-pressed={reading}
+              className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              aria-label={
+                reading
+                  ? "Stop reading the instructions"
+                  : "Play the instructions from the start"
+              }
+            >
+              {reading ? (
+                <Pause aria-hidden="true" className="h-6 w-6" />
+              ) : (
+                <Play aria-hidden="true" className="h-6 w-6" />
+              )}
+            </button>
+          ) : null}
         </div>
         <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg text-slate-900">
           {exercise.instructions.map((instruction) => (
