@@ -11,6 +11,7 @@ import { getExerciseAudioUrl } from "@/lib/audioManifest";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { FileAudio } from "lucide-react";
 
 // F9 lives entirely client-side; loaded only when someone opts in.
 const PoseTracker = dynamic(
@@ -74,7 +75,16 @@ export function ExerciseStep({
       <p className="text-slate-600">{exercise.description}</p>
 
       <Card>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">How to do it</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-slate-900">How to do it</h2>
+          <button
+            onClick={readAloud}
+            className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            aria-label="Read aloud the instructions for this exercise"
+          >
+            <FileAudio />
+          </button>
+        </div>
         <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg text-slate-900">
           {exercise.instructions.map((instruction) => (
             <li key={instruction.text}>{instruction.text}</li>
@@ -122,9 +132,6 @@ export function ExerciseStep({
         </Button>
         <Button type="button" variant="secondary" onClick={onSkip}>
           Skip — no penalty
-        </Button>
-        <Button type="button" variant="secondary" onClick={readAloud}>
-          Read instructions aloud
         </Button>
       </div>
     </div>

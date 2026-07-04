@@ -14,7 +14,7 @@ export function SpeechToggle() {
   // The pref is persisted client-side; render the default-on icon until hydrated
   // so SSR and the first client render agree (no hydration mismatch).
   const hydrated = useSyncExternalStore(
-    () => () => {},
+    () => () => { },
     () => true,
     () => false,
   );
