@@ -54,7 +54,6 @@ function shoulderAngle(landmarks: NormalizedLandmark[], side: typeof LEFT): numb
 
 interface PoseTrackerProps {
   exercise?: ExerciseDef;
-  exerciseId: string;
   personalRange?: PersonalRange;
   onManualDone?: () => void;
   onPeakRom?: (degrees: number) => void;

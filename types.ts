@@ -153,11 +153,6 @@ export interface PoseFrame {
   timestamp: number;
 }
 
-export interface PersonalRange {
-  minDeg: number;
-  maxDeg: number;
-}
-
 export type RepEvent =
   | { type: "rep"; count: number }
   | { type: "range_reached" }

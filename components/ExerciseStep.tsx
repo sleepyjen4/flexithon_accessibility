@@ -100,7 +100,6 @@ export function ExerciseStep({
           )}
           {cameraOn && (
             <PoseTracker
-              exerciseId={exercise.id}
               onManualDone={onDone}
               onPeakRom={(degrees) => recordRom(exercise.id, degrees)}
             />
