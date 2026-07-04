@@ -140,3 +140,19 @@ export interface SessionRecord {
   peak_rom_degrees?: Record<string, number>;
   created_at: string;
 }
+
+/**
+ * Locally persisted summary of a finished session, powering the progress
+ * view (F6) with or without a Supabase login. Effort and showing up only —
+ * never calories or steps.
+ */
+export interface SessionSummary {
+  id: string;
+  workout_title: string;
+  energy_level: EnergyLevel;
+  completed_steps: number;
+  total_steps: number;
+  effort: number | null;
+  peak_rom_degrees: Record<string, number>;
+  completed_at: string;
+}
