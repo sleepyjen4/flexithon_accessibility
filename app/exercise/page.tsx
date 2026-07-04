@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { FileAudio } from "lucide-react";
 import { Button } from "@/components/Button";
 import { getPoseExerciseById } from "@/lib/pose/exercises";
-import { announce, isSpeechAvailable, stopAnnouncing } from "@/lib/pose/announce";
+import { getExerciseAudioUrl } from "@/lib/audioManifest";
+import { cancelSpeech, speakOrPlay } from "@/lib/speech";
 import { useCalibrationStore } from "@/store/calibration";
 import { useSessionStore } from "@/store/session";
 import type { PersonalRange, RepEvent } from "@/types";
@@ -46,56 +48,58 @@ export default function ExercisePage() {
   const [finished, setFinished] = useState(false);
   const [reps, setReps] = useState(0);
   const [peak, setPeak] = useState(0);
-  const [voiceOn, setVoiceOn] = useState(true);
   const [liveMessage, setLiveMessage] = useState("");
   const [sessionKey, setSessionKey] = useState(0);
 
-  useEffect(() => () => stopAnnouncing(), []);
+  // Stop any in-flight speech (rep counts / read-aloud) when leaving the page.
+  useEffect(() => cancelSpeech, []);
 
   const range = calibratedRange ?? DEFAULT_RANGE;
 
-  const handleRepEvent = useCallback(
-    (event: RepEvent) => {
-      switch (event.type) {
-        case "rep":
-          setReps(event.count);
-          if (voiceOn) announce(String(event.count));
-          setLiveMessage(`Rep ${event.count} counted.`);
-          break;
-        case "range_reached":
-          setLiveMessage(poseExercise.cues.rangeReached);
-          break;
-        case "tracking_paused":
-          setLiveMessage("Move back into view whenever you can — no rush.");
-          break;
-        case "tracking_resumed":
-          setLiveMessage("Tracking resumed.");
-          break;
-      }
-    },
-    [voiceOn],
-  );
+  // Rep counts are spoken by PoseTracker (T09 announceRepCount, global mute);
+  // here we only mirror events visually and keep the reps/peak read-outs.
+  const handleRepEvent = useCallback((event: RepEvent) => {
+    switch (event.type) {
+      case "rep":
+        setReps(event.count);
+        setLiveMessage(`Rep ${event.count} counted.`);
+        break;
+      case "range_reached":
+        setLiveMessage(poseExercise.cues.rangeReached);
+        break;
+      case "tracking_paused":
+        setLiveMessage("Move back into view whenever you can — no rush.");
+        break;
+      case "tracking_resumed":
+        setLiveMessage("Tracking resumed.");
+        break;
+    }
+  }, []);
 
   const handlePeak = useCallback((degrees: number) => setPeak(degrees), []);
+
+  const readAloud = useCallback(() => {
+    const text = [poseExercise.name, ...poseExercise.instructions].join(". ");
+    // Prefer the pre-generated clip (Section 5c); speakOrPlay falls back to the
+    // Web Speech API when no clip exists. No-ops while speech is muted.
+    void speakOrPlay(
+      getExerciseAudioUrl({ id: poseExercise.id, audio_url: null }),
+      text,
+      { interrupt: true },
+    );
+  }, []);
 
   const togglePause = useCallback(() => {
     setPaused((current) => {
       const next = !current;
-      if (next) stopAnnouncing();
+      if (next) cancelSpeech();
       setLiveMessage(next ? "Paused." : "Resumed.");
       return next;
     });
   }, []);
 
-  const toggleVoice = useCallback(() => {
-    setVoiceOn((current) => {
-      if (current) stopAnnouncing();
-      return !current;
-    });
-  }, []);
-
   const finish = useCallback(() => {
-    stopAnnouncing();
+    cancelSpeech();
     setPaused(false);
     setFinished(true);
     if (peak > 0) recordRom(CALIBRATION_KEY, peak);
@@ -169,7 +173,17 @@ export default function ExercisePage() {
             )}
 
             <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-              <h2 className="text-xl font-bold">How to move</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold">How to move</h2>
+                <button
+                  type="button"
+                  onClick={readAloud}
+                  className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                  aria-label={`Read the instructions for ${poseExercise.name} aloud`}
+                >
+                  <FileAudio aria-hidden="true" />
+                </button>
+              </div>
               <ol className="mt-3 list-decimal space-y-2 pl-6 text-slate-700">
                 {poseExercise.instructions.map((instruction) => (
                   <li key={instruction}>{instruction}</li>
@@ -198,21 +212,9 @@ export default function ExercisePage() {
                 {paused ? "Resume tracking" : "Pause tracking"}
               </Button>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button type="button" variant="secondary" onClick={toggleVoice}>
-                  {voiceOn ? "Voice count: on" : "Voice count: off"}
-                </Button>
-                <Button type="button" variant="secondary" onClick={finish}>
-                  Finish exercise
-                </Button>
-              </div>
-
-              {!isSpeechAvailable() ? (
-                <p className="text-sm text-slate-600">
-                  Spoken counts aren&apos;t available in this browser — counts
-                  still appear on screen.
-                </p>
-              ) : null}
+              <Button type="button" variant="secondary" onClick={finish}>
+                Finish exercise
+              </Button>
             </div>
           </>
         )}

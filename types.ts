@@ -48,6 +48,7 @@ export interface AccessibilityPrefs {
   high_contrast: boolean;
   reduced_motion: boolean;
   haptics: boolean;
+  speech_enabled: boolean;
 }
 
 export interface Profile {
@@ -190,6 +191,11 @@ export interface PoseProvider {
   onFrame(cb: (f: PoseFrame) => void): void;
   onRepEvent(cb: (e: RepEvent) => void): void;
   setRange(r: PersonalRange): void;
+}
+
+export interface SpeakOptions {
+  /** Cancel queued or active speech before speaking this utterance. */
+  interrupt?: boolean;
 }
 
 /**

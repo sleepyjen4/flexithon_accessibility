@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { RangeArc } from "@/components/RangeArc";
+import { announceRepCount } from "@/lib/speech";
 import { POSE_EXERCISES } from "@/lib/pose/exercises";
 import {
   createRealPoseProvider,
@@ -272,6 +273,8 @@ export function PoseTracker({
         setRepCount(event.count);
         onRepCount?.(event.count);
         setStatusText(`Rep ${event.count} counted.`);
+        // T09: speak the count (cancel-before-speak, global mute honoured).
+        announceRepCount(event.count);
         return;
       }
 
