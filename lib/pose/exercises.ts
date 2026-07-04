@@ -12,6 +12,8 @@ export const POSE_EXERCISES: ExerciseDef[] = [
     // Left shoulder(11)-elbow(13)-wrist(15): confirmed against the T01/T05 spike.
     landmarks: [11, 13, 15],
     side: "either",
+    // TODO(T04): placeholder copy — replace with the approved T04 copy deck
+    // (distinct per-exercise instructions + cues, reviewed by C for tone).
     instructions: [
       "Sit in a supported position.",
       "Raise one arm toward a comfortable range.",
@@ -19,7 +21,10 @@ export const POSE_EXERCISES: ExerciseDef[] = [
     ],
     cues: {
       rangeReached: "You reached your target range.",
-      encourage: ["Move within today’s comfortable range.", "Pause whenever you need."],
+      encourage: [
+        "Move within today’s comfortable range.",
+        "Pause whenever you need.",
+      ],
     },
   },
   {
@@ -32,6 +37,8 @@ export const POSE_EXERCISES: ExerciseDef[] = [
     // twist on `/spike` before relying on it for counting (T10's own AC).
     landmarks: [11, 12, 23],
     side: "either",
+    // TODO(T04): placeholder copy — replace with the approved T04 copy deck
+    // (distinct per-exercise instructions + cues, reviewed by C for tone).
     instructions: [
       "Sit tall, feet flat on the floor.",
       "Cross your arms over your chest, or rest hands on your shoulders.",
@@ -39,11 +46,16 @@ export const POSE_EXERCISES: ExerciseDef[] = [
     ],
     cues: {
       rangeReached: "You reached your target range.",
-      encourage: ["Move within today’s comfortable range.", "Pause whenever you need."],
+      encourage: [
+        "Move within today’s comfortable range.",
+        "Pause whenever you need.",
+      ],
     },
   },
 ];
 
-export function getPoseExerciseById(id: ExerciseDef["id"]): ExerciseDef | undefined {
+export function getPoseExerciseById(
+  id: ExerciseDef["id"],
+): ExerciseDef | undefined {
   return POSE_EXERCISES.find((exercise) => exercise.id === id);
 }
