@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getExerciseById } from "@/lib/exercises";
+import { speak } from "@/lib/speech";
 import { useSessionStore } from "@/store/session";
 import { ExerciseStep } from "@/components/ExerciseStep";
 import { WorkoutFinish } from "@/components/WorkoutFinish";
@@ -17,6 +18,16 @@ export function WorkoutPlayer() {
   const completeStep = useSessionStore((state) => state.completeStep);
   const advanceStep = useSessionStore((state) => state.advanceStep);
   const [resting, setResting] = useState(false);
+
+  // Spoken cue on entry to rest (mirrors the on-screen copy). speak() no-ops
+  // while the user has speech off, so this respects the workout's speech toggle.
+  useEffect(() => {
+    if (resting) {
+      void speak("Time to rest. Take your time — the next exercise waits for you.", {
+        interrupt: true,
+      });
+    }
+  }, [resting]);
 
   if (!workout) {
     return (
