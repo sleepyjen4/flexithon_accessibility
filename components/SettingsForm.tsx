@@ -12,10 +12,11 @@ const TEXT_SIZES: { value: AccessibilityPrefs["text_size"]; label: string }[] = 
   { value: "x-large", label: "Extra large" },
 ];
 
-const TOGGLES: { key: "high_contrast" | "reduced_motion" | "haptics"; label: string; description: string }[] = [
+const TOGGLES: { key: "high_contrast" | "reduced_motion" | "haptics" | "speech_enabled"; label: string; description: string }[] = [
   { key: "high_contrast", label: "High contrast", description: "Darker text and stronger borders" },
   { key: "reduced_motion", label: "Reduce motion", description: "Turn off animations and transitions" },
   { key: "haptics", label: "Haptics", description: "Vibrate when a timer finishes" },
+  { key: "speech_enabled", label: "Spoken instructions & rep counts", description: "Turn off to keep the workout silent" },
 ];
 
 /** F7: accessibility settings. Applied instantly app-wide and persisted;

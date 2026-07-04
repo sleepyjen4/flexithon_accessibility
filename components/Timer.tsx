@@ -8,6 +8,7 @@ interface TimerProps {
   seconds: number;
   label: string;
   onComplete?: () => void;
+  onPauseChange?: (paused: boolean) => void;
 }
 
 function formatTime(total: number): string {
@@ -18,7 +19,7 @@ function formatTime(total: number): string {
 
 /** F5 timer: pause-friendly, extendable, announces state changes via
  * aria-live (Section 6, rule 5) — never a per-second announcement. */
-export function Timer({ seconds, label, onComplete }: TimerProps) {
+export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps) {
   const [remaining, setRemaining] = useState(seconds);
   const [running, setRunning] = useState(true);
   const [announcement, setAnnouncement] = useState("");
@@ -46,14 +47,18 @@ export function Timer({ seconds, label, onComplete }: TimerProps) {
   }, [remaining, label, haptics, onComplete]);
 
   const togglePause = () => {
-    setRunning((current) => {
-      setAnnouncement(
-        current
-          ? `Paused with ${formatTime(remaining)} left.`
-          : "Timer resumed.",
-      );
-      return !current;
-    });
+    // Derive the next state from the current render's `running` and run all
+    // side effects here in the handler — never inside the setRunning updater,
+    // which runs during render and can't notify the parent (onPauseChange).
+    // `paused` is the post-toggle state (running now → paused next), so the
+    // parent (e.g. PoseTracker) receives the value that matches the UI it will
+    // render after this click.
+    const paused = running;
+    setRunning(!running);
+    setAnnouncement(
+      paused ? `Paused with ${formatTime(remaining)} left.` : "Timer resumed.",
+    );
+    onPauseChange?.(paused);
   };
 
   const extend = () => {
