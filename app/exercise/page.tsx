@@ -9,6 +9,7 @@ import { SpeechToggle } from "@/components/SpeechToggle";
 import { getPoseExerciseById } from "@/lib/pose/exercises";
 import { getExerciseAudioUrl } from "@/lib/audioManifest";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
+import { UP_THRESHOLD_FRACTION } from "@/lib/pose/repCounter";
 import { useCalibrationStore } from "@/store/calibration";
 import { useProfileStore } from "@/store/profile";
 import { useSessionStore } from "@/store/session";
@@ -36,7 +37,11 @@ const poseExercise = getPoseExerciseById("seated_arm_raise")!;
 const DEFAULT_RANGE: PersonalRange = { minDeg: 15, maxDeg: 95 };
 
 function targetAngle(range: PersonalRange): number {
-  return Math.round(range.minDeg + 0.85 * (range.maxDeg - range.minDeg));
+  // Single source of truth with the rep counter + RangeArc, so the target can
+  // never drift from the angle a rep actually has to reach.
+  return Math.round(
+    range.minDeg + UP_THRESHOLD_FRACTION * (range.maxDeg - range.minDeg),
+  );
 }
 
 export default function ExercisePage() {

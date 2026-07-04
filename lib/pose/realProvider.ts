@@ -35,6 +35,11 @@ const MODEL_URL =
 const WASM_URL =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
 
+// Roughly one second of continuous detect failures at ~30fps. A single frame
+// throwing is normal (video not ready); sustained failure is a real signal
+// (GPU/WASM problem) worth surfacing once instead of silently retrying forever.
+const DETECT_FAILURE_WARN_THRESHOLD = 30;
+
 /** Raw landmark set for the active frame, or null when nobody is detected. */
 export type LandmarkFrame = readonly NormalizedLandmark[] | null;
 
@@ -86,6 +91,7 @@ class RealMediaPipeProvider implements RealPoseProvider {
   private running = false;
   private paused = false;
   private smoothedAngle: number | null = null;
+  private detectFailures = 0;
 
   start(video: HTMLVideoElement, exercise: ExerciseDef): void {
     this.stop();
@@ -201,8 +207,18 @@ class RealMediaPipeProvider implements RealPoseProvider {
     try {
       const result = landmarker.detectForVideo(video, performance.now());
       landmarks = result.landmarks?.[0] ?? null;
-    } catch {
-      // A transient detect failure (e.g. video not ready) — try again next frame.
+      this.detectFailures = 0;
+    } catch (error) {
+      // A transient detect failure (e.g. video not ready) — try again next
+      // frame. Warn once if failures persist, so a real GPU/WASM problem isn't
+      // silently retried forever (surfaced, not thrown — tracking is optional).
+      this.detectFailures += 1;
+      if (this.detectFailures === DETECT_FAILURE_WARN_THRESHOLD) {
+        console.warn(
+          "[pose] detectForVideo has failed repeatedly; tracking may be degraded.",
+          error,
+        );
+      }
       this.scheduleFrame();
       return;
     }
