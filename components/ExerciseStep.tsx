@@ -6,6 +6,7 @@ import type { Exercise, WorkoutStep } from "@/types";
 import { useSessionStore } from "@/store/session";
 import { cancelSpeech, speak } from "@/lib/speech";
 import { useCalibrationStore } from "@/store/calibration";
+import { HERO_EXERCISE_ID } from "@/lib/exercises";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -15,9 +16,6 @@ const PoseTracker = dynamic(
   () => import("@/components/PoseTracker").then((mod) => mod.PoseTracker),
   { ssr: false },
 );
-
-/** The one exercise with hands-free rep counting (Section 5b). */
-const POSE_EXERCISE_ID = "seated_lateral_raise";
 
 interface ExerciseStepProps {
   step: WorkoutStep;
@@ -88,7 +86,7 @@ export function ExerciseStep({
         onPauseChange={setTimerPaused}
       />
 
-      {exercise.id === POSE_EXERCISE_ID && (
+      {exercise.id === HERO_EXERCISE_ID && (
         <div className="flex flex-col gap-3">
           <Button
             type="button"
