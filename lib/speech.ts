@@ -11,6 +11,28 @@ let currentRequest: SpeechRequest | null = null;
 const queuedRequests: SpeechRequest[] = [];
 let pendingRepAnnouncement: ReturnType<typeof setTimeout> | null = null;
 
+// A pre-generated instruction clip currently playing (Section 5c). Kept in this
+// module so cancelSpeech()/mute/interrupt stop a clip the same way they stop
+// Web Speech — one "stop everything" path for both.
+let currentAudio: HTMLAudioElement | null = null;
+let currentAudioResolve: (() => void) | null = null;
+
+function stopCurrentAudio(): void {
+  const audio = currentAudio;
+  const resolve = currentAudioResolve;
+  currentAudio = null;
+  currentAudioResolve = null;
+
+  if (audio) {
+    audio.onended = null;
+    audio.onerror = null;
+    audio.pause();
+    audio.src = "";
+  }
+
+  resolve?.();
+}
+
 function getSpeechSynthesis(): SpeechSynthesis | null {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     return null;
@@ -154,6 +176,7 @@ export function speak(text: string, options: SpeakOptions = {}): Promise<void> {
   }
 
   if (options.interrupt) {
+    stopCurrentAudio();
     settleRequest(currentRequest);
     settleQueuedRequests();
     currentRequest = null;
@@ -170,6 +193,51 @@ export function speak(text: string, options: SpeakOptions = {}): Promise<void> {
     queuedRequests.push(request);
     processSpeechQueue();
   });
+}
+
+/** Plays a pre-generated instruction clip (Section 5c), taking over from any
+ * current speech or clip. Resolves when the clip ends, errors, or is stopped. */
+function playClip(url: string): Promise<void> {
+  // Take over from whatever is speaking or playing (interrupt semantics).
+  cancelSpeech();
+
+  return new Promise<void>((resolve) => {
+    const audio = new window.Audio(url);
+    currentAudio = audio;
+    currentAudioResolve = resolve;
+
+    const finish = () => {
+      // Ignore late events from a clip that was already superseded/stopped.
+      if (currentAudio !== audio) return;
+      stopCurrentAudio();
+    };
+
+    audio.onended = finish;
+    audio.onerror = finish;
+    void audio.play().catch(finish);
+  });
+}
+
+/**
+ * Speak workout content, preferring a pre-generated audio clip when one exists
+ * and falling back to the Web Speech API otherwise (Section 5c). No-ops while
+ * the user has speech turned off. Clips always interrupt; `options` applies to
+ * the Web Speech fallback path.
+ */
+export function speakOrPlay(
+  audioUrl: string | null,
+  fallbackText: string,
+  options: SpeakOptions = {},
+): Promise<void> {
+  if (!isSpeechEnabled()) {
+    return Promise.resolve();
+  }
+
+  if (audioUrl && typeof window !== "undefined" && typeof window.Audio !== "undefined") {
+    return playClip(audioUrl);
+  }
+
+  return speak(fallbackText, options);
 }
 
 /**
@@ -193,6 +261,7 @@ export function cancelSpeech(): void {
     pendingRepAnnouncement = null;
   }
 
+  stopCurrentAudio();
   settleRequest(currentRequest);
   settleQueuedRequests();
   currentRequest = null;
