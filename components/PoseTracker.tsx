@@ -1,19 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  NormalizedLandmark,
-  PoseLandmarker,
-} from "@mediapipe/tasks-vision";
-import { emaStep } from "@/lib/pose/angle";
-import { calculateAngle } from "@/lib/pose/angles";
-import {
-  createRepCounter,
-  VISIBILITY_THRESHOLD,
-  type RepCounter,
-} from "@/lib/pose/repCounter";
 import { Button } from "@/components/Button";
+import { RangeArc } from "@/components/RangeArc";
 import { POSE_EXERCISES } from "@/lib/pose/exercises";
+import {
+  createRealPoseProvider,
+  isPausable,
+  providesLandmarks,
+  type LandmarkFrame,
+} from "@/lib/pose/realProvider";
 import type {
   ExerciseDef,
   PersonalRange,
@@ -23,12 +19,6 @@ import type {
 } from "@/types";
 
 const VISIBLE_UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16] as const;
-
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-
-const WASM_URL =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
 
 type CameraState =
   | "idle"
@@ -44,6 +34,14 @@ interface PoseTrackerProps {
   onManualDone?: () => void;
   onPeakRom?: (degrees: number) => void;
   onRepCount?: (count: number) => void;
+  /** Full RepEvent stream (rep / range_reached / tracking_paused / resumed) —
+   * the /exercise screen (T11) uses it to drive voice announcements. */
+  onRepEvent?: (event: RepEvent) => void;
+  /** Controlled pause: freezes counting without tearing the camera down. */
+  paused?: boolean;
+  /** Fires when live tracking starts (true) or stops (false) — lets a parent
+   * screen enable its own pause control only while tracking is active. */
+  onActiveChange?: (active: boolean) => void;
   /** Test/demo escape hatch. Production uses real MediaPipe tracking by default. */
   providerFactory?: () => PoseProvider;
 }
@@ -87,9 +85,10 @@ function drawPoint(
   context.fill();
 }
 
+/** Real overlay: the actual upper-body landmarks tracked on the live video. */
 function drawMediaPipeLandmarks(
   canvas: HTMLCanvasElement,
-  landmarks: readonly NormalizedLandmark[],
+  landmarks: LandmarkFrame,
 ): void {
   const context = canvas.getContext("2d");
   if (!context) return;
@@ -97,8 +96,9 @@ function drawMediaPipeLandmarks(
   const width = canvas.width;
   const height = canvas.height;
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#00ff88";
+  if (!landmarks) return;
 
+  context.fillStyle = "#00ff88";
   for (const index of VISIBLE_UPPER_BODY_INDICES) {
     const point = landmarks[index];
     if (!point) continue;
@@ -121,7 +121,11 @@ function drawLimb(
   context.stroke();
 }
 
-function drawMockSkeleton(canvas: HTMLCanvasElement, frame: PoseFrame): void {
+/** Synthetic overlay for the mock provider, which has no real landmarks. */
+function drawSyntheticSkeleton(
+  canvas: HTMLCanvasElement,
+  frame: PoseFrame,
+): void {
   const context = canvas.getContext("2d");
   if (!context) return;
 
@@ -193,17 +197,15 @@ export function PoseTracker({
   onManualDone,
   onPeakRom,
   onRepCount,
+  onRepEvent,
+  paused = false,
+  onActiveChange,
   providerFactory,
 }: PoseTrackerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const providerRef = useRef<PoseProvider | null>(null);
-  const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
-  const animationRef = useRef<number | null>(null);
-  const realFrameRef = useRef<() => void>(() => undefined);
-  const frameRunIdRef = useRef(0);
-  const repCounterRef = useRef<RepCounter | null>(null);
-  const smoothedAngleRef = useRef<number | null>(null);
+  const hasLandmarkFeedRef = useRef(false);
   const mountedRef = useRef(false);
 
   const [cameraState, setCameraState] = useState<CameraState>("idle");
@@ -230,7 +232,6 @@ export function PoseTracker({
     (frame: PoseFrame) => {
       if (!mountedRef.current) return;
 
-      resizeCanvas();
       setAngleDeg(frame.angleDeg);
       setPeakAngle((currentPeak) => {
         const nextPeak = Math.max(currentPeak, frame.angleDeg);
@@ -238,17 +239,34 @@ export function PoseTracker({
         return nextPeak;
       });
 
-      const canvas = canvasRef.current;
-      if (canvas) {
-        drawMockSkeleton(canvas, frame);
+      // Mock provider only: draw the synthetic skeleton from the angle. The
+      // real provider draws actual landmarks via the onLandmarks feed instead.
+      if (!hasLandmarkFeedRef.current) {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          resizeCanvas();
+          drawSyntheticSkeleton(canvas, frame);
+        }
       }
     },
     [onPeakRom, resizeCanvas],
   );
 
+  const handleLandmarks = useCallback(
+    (landmarks: LandmarkFrame) => {
+      if (!mountedRef.current) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      resizeCanvas();
+      drawMediaPipeLandmarks(canvas, landmarks);
+    },
+    [resizeCanvas],
+  );
+
   const handleRepEvent = useCallback(
     (event: RepEvent) => {
       if (!mountedRef.current) return;
+      onRepEvent?.(event);
 
       if (event.type === "rep") {
         setRepCount(event.count);
@@ -263,136 +281,54 @@ export function PoseTracker({
       }
 
       if (event.type === "tracking_paused") {
+        setAngleDeg(null);
         setStatusText("Tracking is paused while the camera view is limited.");
         return;
       }
 
       setStatusText("Tracking resumed.");
     },
-    [exercise.cues.rangeReached, onRepCount],
+    [exercise.cues.rangeReached, onRepCount, onRepEvent],
   );
 
-  const stopAnimation = useCallback(() => {
-    frameRunIdRef.current += 1;
-    if (animationRef.current !== null) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-  }, []);
+  // The provider is long-lived (wired once at start), so it must always invoke
+  // the latest handler logic — e.g. toggling voice mid-session updates
+  // onRepEvent. Route its callbacks through refs to avoid stale closures.
+  const handleFrameRef = useRef(handleFrame);
+  const handleLandmarksRef = useRef(handleLandmarks);
+  const handleRepEventRef = useRef(handleRepEvent);
+  useEffect(() => {
+    handleFrameRef.current = handleFrame;
+    handleLandmarksRef.current = handleLandmarks;
+    handleRepEventRef.current = handleRepEvent;
+  }, [handleFrame, handleLandmarks, handleRepEvent]);
 
-  const scheduleRealFrame = useCallback(() => {
-    const runId = frameRunIdRef.current;
-    animationRef.current = requestAnimationFrame(() => {
-      if (frameRunIdRef.current === runId) realFrameRef.current();
-    });
+  const frameWrapper = useCallback(
+    (frame: PoseFrame) => handleFrameRef.current(frame),
+    [],
+  );
+  const repEventWrapper = useCallback(
+    (event: RepEvent) => handleRepEventRef.current(event),
+    [],
+  );
+  const landmarksWrapper = useCallback(
+    (landmarks: LandmarkFrame) => handleLandmarksRef.current(landmarks),
+    [],
+  );
+
+  const teardownProvider = useCallback(() => {
+    providerRef.current?.stop();
+    providerRef.current = null;
+    hasLandmarkFeedRef.current = false;
   }, []);
 
   const stopCamera = useCallback(() => {
-    stopAnimation();
-    providerRef.current?.stop();
-    providerRef.current = null;
-    poseLandmarkerRef.current?.close();
-    poseLandmarkerRef.current = null;
-    repCounterRef.current = null;
-    smoothedAngleRef.current = null;
+    teardownProvider();
     stopStream(videoRef.current);
     setCameraState("idle");
     setAngleDeg(null);
     setStatusText("Camera tracking is off. Manual controls are available.");
-  }, [stopAnimation]);
-
-  const startMockProvider = useCallback(
-    (video: HTMLVideoElement) => {
-      // Tests and demos can inject a mock provider. When no providerFactory is
-      // supplied, return false so startCamera continues into the real MediaPipe
-      // path below.
-      const provider = providerFactory?.();
-      if (!provider) return false;
-
-      providerRef.current = provider;
-      provider.onFrame(handleFrame);
-      provider.onRepEvent(handleRepEvent);
-      provider.setRange(personalRange);
-      provider.start(video, exercise);
-      return true;
-    },
-    [exercise, handleFrame, handleRepEvent, personalRange, providerFactory],
-  );
-
-  const handleRealFrame = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const poseLandmarker = poseLandmarkerRef.current;
-    if (!video || !canvas || !poseLandmarker || !mountedRef.current) return;
-
-    resizeCanvas();
-    const result = poseLandmarker.detectForVideo(video, performance.now());
-    const landmarks = result.landmarks?.[0];
-
-    if (landmarks) {
-      drawMediaPipeLandmarks(canvas, landmarks);
-    } else {
-      canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-    const [firstIndex, vertexIndex, thirdIndex] = exercise.landmarks;
-    const first = landmarks?.[firstIndex];
-    const vertex = landmarks?.[vertexIndex];
-    const third = landmarks?.[thirdIndex];
-    const visibility =
-      first && vertex && third
-        ? Math.min(
-            first.visibility ?? 1,
-            vertex.visibility ?? 1,
-            third.visibility ?? 1,
-          )
-        : 0;
-
-    if (first && vertex && third && visibility >= VISIBILITY_THRESHOLD) {
-      const aspect = video.videoWidth / video.videoHeight;
-      const correct = (point: NormalizedLandmark) => ({
-        x: point.x * aspect,
-        y: point.y,
-      });
-      const rawAngle = calculateAngle(
-        correct(first),
-        correct(vertex),
-        correct(third),
-      );
-      smoothedAngleRef.current = emaStep(smoothedAngleRef.current, rawAngle);
-      const smoothedAngle = smoothedAngleRef.current;
-      setAngleDeg(smoothedAngle);
-      setPeakAngle((currentPeak) => {
-        const nextPeak = Math.max(currentPeak, smoothedAngle);
-        onPeakRom?.(Math.round(nextPeak));
-        return nextPeak;
-      });
-    } else {
-      smoothedAngleRef.current = null;
-      setAngleDeg(null);
-    }
-
-    repCounterRef.current ??= createRepCounter(personalRange);
-    const events = repCounterRef.current.update({
-      angleDeg: smoothedAngleRef.current ?? Number.NaN,
-      visibility,
-      timestamp: Date.now(),
-    });
-    for (const event of events) handleRepEvent(event);
-
-    scheduleRealFrame();
-  }, [
-    exercise.landmarks,
-    handleRepEvent,
-    onPeakRom,
-    personalRange,
-    resizeCanvas,
-    scheduleRealFrame,
-  ]);
-
-  useEffect(() => {
-    realFrameRef.current = handleRealFrame;
-  }, [handleRealFrame]);
+  }, [teardownProvider]);
 
   const startCamera = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -432,35 +368,27 @@ export function PoseTracker({
       setRepCount(0);
       setPeakAngle(0);
       setAngleDeg(null);
-      frameRunIdRef.current += 1;
-      repCounterRef.current = createRepCounter(personalRange);
-      smoothedAngleRef.current = null;
 
-      if (!startMockProvider(video)) {
-        const { FilesetResolver, PoseLandmarker: PoseLandmarkerFactory } =
-          await import("@mediapipe/tasks-vision");
-        const vision = await FilesetResolver.forVisionTasks(WASM_URL);
-        try {
-          poseLandmarkerRef.current =
-            await PoseLandmarkerFactory.createFromOptions(vision, {
-              baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
-              runningMode: "VIDEO",
-              numPoses: 1,
-            });
-        } catch {
-          poseLandmarkerRef.current =
-            await PoseLandmarkerFactory.createFromOptions(vision, {
-              baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
-              runningMode: "VIDEO",
-              numPoses: 1,
-            });
-        }
-        scheduleRealFrame();
-      }
+      // Swap point (TICKETS.md T07/T11): the real MediaPipe provider is the
+      // default; tests and demos inject the T03 mock via providerFactory.
+      const provider = providerFactory?.() ?? createRealPoseProvider();
+      providerRef.current = provider;
+      hasLandmarkFeedRef.current = providesLandmarks(provider);
+
+      provider.onFrame(frameWrapper);
+      provider.onRepEvent(repEventWrapper);
+      if (providesLandmarks(provider)) provider.onLandmarks(landmarksWrapper);
+      provider.setRange(personalRange);
+      provider.start(video, exercise);
+      if (paused && isPausable(provider)) provider.pause();
 
       resizeCanvas();
       setCameraState("ready");
-      setStatusText("Camera tracking is on. Video stays on this device.");
+      setStatusText(
+        paused
+          ? "Tracking is paused. Resume when you are ready."
+          : "Camera tracking is on. Video stays on this device.",
+      );
     } catch (error: unknown) {
       stream?.getTracks().forEach((track) => track.stop());
       const nextState = getCameraStateFromError(error);
@@ -471,13 +399,36 @@ export function PoseTracker({
           : "Camera tracking is unavailable. You can continue manually.",
       );
     }
-  }, [personalRange, resizeCanvas, scheduleRealFrame, startMockProvider]);
+  }, [
+    exercise,
+    frameWrapper,
+    repEventWrapper,
+    landmarksWrapper,
+    paused,
+    personalRange,
+    providerFactory,
+    resizeCanvas,
+  ]);
 
   const completeManually = useCallback(() => {
     setManualDone(true);
     setStatusText("Exercise marked complete manually.");
     onManualDone?.();
   }, [onManualDone]);
+
+  // Reflect the controlled `paused` prop onto the live provider.
+  useEffect(() => {
+    if (cameraState !== "ready") return;
+    const provider = providerRef.current;
+    if (!provider || !isPausable(provider)) return;
+    if (paused) provider.pause();
+    else provider.resume();
+  }, [paused, cameraState]);
+
+  // Tell a parent screen when live tracking is (in)active.
+  useEffect(() => {
+    onActiveChange?.(cameraState === "ready");
+  }, [cameraState, onActiveChange]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -487,12 +438,11 @@ export function PoseTracker({
     return () => {
       mountedRef.current = false;
       window.removeEventListener("resize", resizeCanvas);
-      stopAnimation();
       providerRef.current?.stop();
-      poseLandmarkerRef.current?.close();
+      providerRef.current = null;
       stopStream(video);
     };
-  }, [resizeCanvas, stopAnimation]);
+  }, [resizeCanvas]);
 
   const cameraUnavailable =
     cameraState === "denied" ||
@@ -544,8 +494,25 @@ export function PoseTracker({
               </p>
             </div>
           ) : null}
+
+          {cameraState === "ready" && paused ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/60 p-4 text-center">
+              <p className="rounded-xl bg-white/95 px-4 py-2 text-lg font-semibold text-slate-900">
+                Paused
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
+
+      {cameraState === "ready" ? (
+        <RangeArc
+          className="mt-4"
+          currentAngle={angleDeg}
+          peakAngle={peakAngle}
+          range={personalRange}
+        />
+      ) : null}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl bg-slate-50 p-4">
