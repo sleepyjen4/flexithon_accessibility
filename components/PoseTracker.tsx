@@ -217,6 +217,7 @@ export function PoseTracker({
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
   const animationRef = useRef<number | null>(null);
   const realFrameRef = useRef<() => void>(() => undefined);
+  const frameRunIdRef = useRef(0);
   const repCounterRef = useRef<RepCounter | null>(null);
   const smoothedAngleRef = useRef<number | null>(null);
   const mountedRef = useRef(false);
@@ -288,10 +289,18 @@ export function PoseTracker({
   );
 
   const stopAnimation = useCallback(() => {
+    frameRunIdRef.current += 1;
     if (animationRef.current !== null) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
+  }, []);
+
+  const scheduleRealFrame = useCallback(() => {
+    const runId = frameRunIdRef.current;
+    animationRef.current = requestAnimationFrame(() => {
+      if (frameRunIdRef.current === runId) realFrameRef.current();
+    });
   }, []);
 
   const stopCamera = useCallback(() => {
@@ -310,6 +319,9 @@ export function PoseTracker({
 
   const startMockProvider = useCallback(
     (video: HTMLVideoElement) => {
+      // Tests and demos can inject a mock provider. When no providerFactory is
+      // supplied, return false so startCamera continues into the real MediaPipe
+      // path below.
       const provider = providerFactory?.();
       if (!provider) return false;
 
@@ -384,13 +396,14 @@ export function PoseTracker({
     });
     for (const event of events) handleRepEvent(event);
 
-    animationRef.current = requestAnimationFrame(() => realFrameRef.current());
+    scheduleRealFrame();
   }, [
     exercise.landmarks,
     handleRepEvent,
     onPeakRom,
     personalRange,
     resizeCanvas,
+    scheduleRealFrame,
   ]);
 
   useEffect(() => {
@@ -435,6 +448,7 @@ export function PoseTracker({
       setRepCount(0);
       setPeakAngle(0);
       setAngleDeg(null);
+      frameRunIdRef.current += 1;
       repCounterRef.current = createRepCounter(personalRange);
       smoothedAngleRef.current = null;
 
@@ -457,9 +471,7 @@ export function PoseTracker({
               numPoses: 1,
             });
         }
-        animationRef.current = requestAnimationFrame(() =>
-          realFrameRef.current(),
-        );
+        scheduleRealFrame();
       }
 
       resizeCanvas();
@@ -475,7 +487,7 @@ export function PoseTracker({
           : "Camera tracking is unavailable. You can continue manually.",
       );
     }
-  }, [personalRange, resizeCanvas, startMockProvider]);
+  }, [personalRange, resizeCanvas, scheduleRealFrame, startMockProvider]);
 
   const completeManually = useCallback(() => {
     setManualDone(true);
@@ -521,7 +533,11 @@ export function PoseTracker({
         </p>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-2xl bg-slate-50">
+      <div
+        className="mt-4 overflow-hidden rounded-2xl bg-slate-50"
+        role="img"
+        aria-label="Live camera preview with shoulder, elbow, and wrist landmarks for rep tracking."
+      >
         <div className="relative aspect-video w-full">
           <video
             ref={videoRef}

@@ -53,6 +53,9 @@ export function createCalibrationCapture(): CalibrationCapture {
   }
 
   function usableRange(): PersonalRange | null {
+    // Calibration must first observe a real min/max sweep before the hysteresis
+    // thresholds mean anything. Until then we only collect range endpoints and
+    // deliberately do not advance the rep-style state machine.
     if (minDeg === null || maxDeg === null || !isUsableSweep(minDeg, maxDeg)) {
       return null;
     }

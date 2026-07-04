@@ -390,7 +390,7 @@ export function CalibrationFlow({
         <p className="text-lg text-slate-600">
           We&apos;ll learn your comfortable range for the{" "}
           <strong>{exercise?.name ?? "hero exercise"}</strong> so the camera
-          counts reps that fit your body — not the other way around.
+          counts reps that fit your body, not the other way around.
         </p>
         {existing && (
           <p className="rounded-2xl bg-emerald-50 p-4 text-lg text-slate-900">
@@ -409,12 +409,12 @@ export function CalibrationFlow({
               lower.
             </li>
             <li>
-              Repeat gently {TARGET_SWEEPS} times — we&apos;ll do the measuring.
+              Repeat gently {TARGET_SWEEPS} times. We&apos;ll do the measuring.
             </li>
           </ol>
         </Card>
         <p className="text-base text-slate-600">
-          Video stays on your device — nothing is uploaded or stored. Prefer not
+          Video stays on your device, nothing is uploaded or stored. Prefer not
           to use the camera? You can skip it and still start your workout.
         </p>
         <div className="mt-auto flex flex-col gap-3 pt-4">
@@ -437,11 +437,14 @@ export function CalibrationFlow({
           <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
           <p className="rounded-2xl bg-slate-50 p-4 text-lg text-slate-600">
             The camera isn&apos;t available right now. That&apos;s completely
-            fine — we&apos;ll use a comfortable default range, and you can count
+            fine. We&apos;ll use a comfortable default range, and you can count
             reps by hand.
           </p>
           <div className="mt-auto flex flex-col gap-3 pt-4">
-            <Button type="button" onClick={saveDefault}>
+            <Button type="button" onClick={beginCapture}>
+              Try camera again
+            </Button>
+            <Button type="button" variant="secondary" onClick={saveDefault}>
               Use a default range and start
             </Button>
             <Button
@@ -467,7 +470,11 @@ export function CalibrationFlow({
           {status === "paused" &&
             "Tracking paused. Move back into view when ready."}
         </p>
-        <div className="overflow-hidden rounded-2xl bg-slate-50 shadow-sm ring-1 ring-slate-200">
+        <div
+          className="overflow-hidden rounded-2xl bg-slate-50 shadow-sm ring-1 ring-slate-200"
+          role="img"
+          aria-label="Live camera preview with shoulder, elbow, and wrist landmarks for calibration."
+        >
           <div className="relative aspect-video w-full">
             <video
               ref={videoRef}
@@ -549,7 +556,7 @@ export function CalibrationFlow({
             aria-live="polite"
             className="rounded-2xl bg-slate-50 p-4 text-lg text-slate-600"
           >
-            We didn&apos;t catch a full movement that time — no problem at all.
+            We didn&apos;t catch a full movement that time. No problem at all.
             Try once more, or start with a comfortable default range.
           </p>
           <div className="mt-auto flex flex-col gap-3 pt-4">
