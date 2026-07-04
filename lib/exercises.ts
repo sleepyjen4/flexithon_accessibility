@@ -1,4 +1,11 @@
-import type { Abilities, Exercise } from "@/types";
+import type { Abilities, Exercise, Workout, WorkoutStep } from "@/types";
+
+/**
+ * The one exercise wired for hands-free camera rep-counting (Section 5b).
+ * Workouts should include it whenever it's available for the user's
+ * abilities so the player's camera-tracking UI has a chance to appear.
+ */
+export const HERO_EXERCISE_ID = "seated_lateral_raise";
 
 /**
  * Seed exercise library (Section 1.5, F2). ~30 hand-written exercises
@@ -612,4 +619,57 @@ export function stepCountForEnergy(energy: number): number {
   if (energy <= 2) return 4;
   if (energy === 3) return 5;
   return 6;
+}
+
+/**
+ * Gentlest-first selection for the deterministic fallback (Section 5). Sorting
+ * by intensity alone can crowd HERO_EXERCISE_ID out entirely — there are more
+ * intensity-1 stretches in the library than most step budgets — so once the
+ * intensity sort picks its N, swap it in if it was left out and is available.
+ */
+export function pickExercisesForEnergy(
+  candidates: Exercise[],
+  stepCount: number,
+): Exercise[] {
+  const sorted = [...candidates].sort((a, b) => a.intensity - b.intensity);
+  const chosen = sorted.slice(0, stepCount);
+
+  const hero = candidates.find((exercise) => exercise.id === HERO_EXERCISE_ID);
+  if (
+    hero &&
+    chosen.length > 0 &&
+    !chosen.some((exercise) => exercise.id === HERO_EXERCISE_ID)
+  ) {
+    chosen[chosen.length - 1] = hero;
+  }
+
+  return chosen;
+}
+
+/**
+ * Guarantees HERO_EXERCISE_ID appears in a generated workout's steps when it's
+ * available for the user's abilities, regardless of what produced the workout
+ * (LLM or fallback) — Section 5b requires it to reliably appear so the
+ * camera-tracking demo has a step to attach to.
+ */
+export function ensureHeroExerciseStep(
+  workout: Workout,
+  availableExercises: Exercise[],
+  energy: number,
+): Workout {
+  const hero = availableExercises.find((exercise) => exercise.id === HERO_EXERCISE_ID);
+  if (!hero || workout.steps.length === 0) return workout;
+  if (workout.steps.some((step) => step.exercise_id === HERO_EXERCISE_ID)) return workout;
+
+  const heroStep: WorkoutStep = {
+    exercise_id: hero.id,
+    duration_seconds: energy <= 2 ? 30 : 45,
+    reps: null,
+    rest_after_seconds: energy <= 2 ? 60 : 30,
+    adaptation_note: "Go at your own pace — skipping is always okay.",
+  };
+
+  const steps = [...workout.steps];
+  steps[steps.length - 1] = heroStep;
+  return { ...workout, steps };
 }

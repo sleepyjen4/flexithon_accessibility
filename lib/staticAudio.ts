@@ -1,0 +1,15 @@
+/**
+ * Non-exercise lines the workout player speaks (Section 5c). These are
+ * pre-generated into static clips by scripts/generate-audio.ts using the same
+ * warm Google AI Studio voice as the exercise instructions.
+ *
+ * This map is the single source of truth for the wording: the build script
+ * synthesizes exactly this text, and the player passes the same text as the
+ * Web Speech fallback — so the pre-generated clip and the fallback are
+ * interchangeable and never drift.
+ */
+export const STATIC_CLIPS = {
+  rest: "Time to rest. Take your time — the next exercise waits for you.",
+} as const;
+
+export type StaticClipId = keyof typeof STATIC_CLIPS;

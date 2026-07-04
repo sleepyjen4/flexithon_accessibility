@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { useHistoryStore } from "@/store/history";
+import { HERO_EXERCISE_ID } from "@/lib/exercises";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 
-const POSE_EXERCISE_ID = "seated_lateral_raise";
 const MONTH_FORMAT = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
 const DAY_FORMAT = new Intl.DateTimeFormat("en", { month: "long", day: "numeric" });
 const EFFORT_LABELS = ["Gentle", "Steady", "Working", "Strong", "Everything I had"];
@@ -44,7 +44,7 @@ export function ProgressView() {
   }
 
   const romReadings = sessions
-    .map((session) => session.peak_rom_degrees[POSE_EXERCISE_ID])
+    .map((session) => session.peak_rom_degrees[HERO_EXERCISE_ID])
     .filter((degrees): degrees is number => typeof degrees === "number");
   const romChange =
     romReadings.length >= 2

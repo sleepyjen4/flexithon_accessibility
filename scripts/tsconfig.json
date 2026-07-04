@@ -1,0 +1,19 @@
+{
+  "comment": "Editor-only config for build-time Node scripts. They are excluded from the app tsconfig (so they never enter the Next build) but still need node types + the @/* alias here.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "dom", "dom.iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["../*"]
+    }
+  },
+  "include": ["**/*.ts"]
+}

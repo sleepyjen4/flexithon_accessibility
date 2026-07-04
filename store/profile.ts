@@ -7,6 +7,7 @@ export const DEFAULT_PREFS: AccessibilityPrefs = {
   high_contrast: false,
   reduced_motion: false,
   haptics: false,
+  speech_enabled: true,
 };
 
 interface ProfileState {
@@ -32,6 +33,18 @@ export const useProfileStore = create<ProfileState>()(
       setPrefs: (prefs) => set({ prefs }),
       setTodaysEnergy: (energy) => set({ todaysEnergy: energy }),
     }),
-    { name: "af-profile" },
+    {
+      name: "af-profile",
+      // Backfills prefs saved before a new toggle existed (e.g. speech_enabled)
+      // so upgrading never silently disables a feature for existing users.
+      merge: (persisted, current) => {
+        const persistedState = persisted as Partial<ProfileState> | undefined;
+        return {
+          ...current,
+          ...persistedState,
+          prefs: { ...DEFAULT_PREFS, ...persistedState?.prefs },
+        };
+      },
+    },
   ),
 );
