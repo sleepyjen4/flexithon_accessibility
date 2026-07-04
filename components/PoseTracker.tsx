@@ -1,11 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createMockPoseProvider as createPoseProvider } from "@/lib/pose/mockProvider";
-import type { NormalizedLandmark, PoseLandmarker } from "@mediapipe/tasks-vision";
-import { useCalibrationStore } from "@/store/calibration";
-import { emaStep, visibleJointAngleDegrees, type AnglePoint } from "@/lib/pose/angle";
-import { Timer } from "@/components/Timer";
+import type {
+  NormalizedLandmark,
+  PoseLandmarker,
+} from "@mediapipe/tasks-vision";
+import { emaStep } from "@/lib/pose/angle";
+import { calculateAngle } from "@/lib/pose/angles";
+import {
+  createRepCounter,
+  VISIBILITY_THRESHOLD,
+  type RepCounter,
+} from "@/lib/pose/repCounter";
 import { Button } from "@/components/Button";
 import type {
   ExerciseDef,
@@ -15,6 +21,14 @@ import type {
   RepEvent,
 } from "@/types";
 
+const VISIBLE_UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16] as const;
+
+const MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+
+const WASM_URL =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
+
 type CameraState =
   | "idle"
   | "requesting"
@@ -23,52 +37,34 @@ type CameraState =
   | "unavailable"
   | "error";
 
-// Keep in sync with the installed @mediapipe/tasks-vision version.
-const WASM_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm";
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-
-// Upper-body landmarks only (Section 5b) — lower body is ignored entirely.
-const LEFT = { shoulder: 11, elbow: 13, hip: 23 };
-const RIGHT = { shoulder: 12, elbow: 14, hip: 24 };
-
-const CALIBRATION_SECONDS = 10;
-const MIN_CALIBRATION_SPAN_DEG = 20;
-
-/** Shoulder abduction angle: at the shoulder, between the arm
- * (shoulder→elbow) and the torso (shoulder→hip). */
-function shoulderAngle(landmarks: NormalizedLandmark[], side: typeof LEFT): number | null {
-  const shoulder = landmarks[side.shoulder];
-  const elbow = landmarks[side.elbow];
-  const hip = landmarks[side.hip];
-  if (!shoulder || !elbow || !hip) return null;
-  return visibleJointAngleDegrees(elbow as AnglePoint, shoulder as AnglePoint, hip as AnglePoint);
-}
-
 interface PoseTrackerProps {
   exercise?: ExerciseDef;
   personalRange?: PersonalRange;
   onManualDone?: () => void;
   onPeakRom?: (degrees: number) => void;
   onRepCount?: (count: number) => void;
+  /** Test/demo escape hatch. Production uses real MediaPipe tracking by default. */
   providerFactory?: () => PoseProvider;
 }
 
-const DEFAULT_RANGE: PersonalRange = { minDeg: 20, maxDeg: 150 };
+const DEFAULT_RANGE: PersonalRange = { minDeg: 15, maxDeg: 95 };
 
 const DEFAULT_EXERCISE: ExerciseDef = {
   id: "seated_arm_raise",
-  name: "Seated arm raise",
-  landmarks: [11, 13, 15],
+  name: "Seated lateral raise",
+  landmarks: [13, 11, 23],
   side: "either",
   instructions: [
     "Sit in a supported position.",
-    "Raise one arm toward a comfortable range.",
-    "Lower your arm when you are ready.",
+    "Raise one arm out to the side toward a comfortable range.",
+    "Lower your arm gently when you are ready.",
   ],
   cues: {
     rangeReached: "You reached your target range.",
-    encourage: ["Move within today’s comfortable range.", "Pause whenever you need."],
+    encourage: [
+      "Move within today’s comfortable range.",
+      "Pause whenever you need.",
+    ],
   },
 };
 
@@ -103,8 +99,27 @@ function drawPoint(
   point: { x: number; y: number },
 ): void {
   context.beginPath();
-  context.arc(point.x, point.y, 8, 0, Math.PI * 2);
+  context.arc(point.x, point.y, 5, 0, Math.PI * 2);
   context.fill();
+}
+
+function drawMediaPipeLandmarks(
+  canvas: HTMLCanvasElement,
+  landmarks: readonly NormalizedLandmark[],
+): void {
+  const context = canvas.getContext("2d");
+  if (!context) return;
+
+  const width = canvas.width;
+  const height = canvas.height;
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "#00ff88";
+
+  for (const index of VISIBLE_UPPER_BODY_INDICES) {
+    const point = landmarks[index];
+    if (!point) continue;
+    drawPoint(context, { x: point.x * width, y: point.y * height });
+  }
 }
 
 function drawLimb(
@@ -164,7 +179,13 @@ function drawMockSkeleton(canvas: HTMLCanvasElement, frame: PoseFrame): void {
   context.strokeStyle = visible ? "#4F46E5" : "#64748B";
   context.fillStyle = visible ? "#4F46E5" : "#64748B";
 
-  drawLimb(context, [leftShoulder, rightShoulder, rightHip, leftHip, leftShoulder]);
+  drawLimb(context, [
+    leftShoulder,
+    rightShoulder,
+    rightHip,
+    leftHip,
+    leftShoulder,
+  ]);
   drawLimb(context, [leftShoulder, leftElbow, leftWrist]);
   drawLimb(context, [rightShoulder, rightElbow, rightWrist]);
 
@@ -188,11 +209,17 @@ export function PoseTracker({
   onManualDone,
   onPeakRom,
   onRepCount,
-  providerFactory = createPoseProvider,
+  providerFactory,
 }: PoseTrackerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const providerRef = useRef<PoseProvider | null>(null);
+  const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
+  const animationRef = useRef<number | null>(null);
+  const realFrameRef = useRef<() => void>(() => undefined);
+  const frameRunIdRef = useRef(0);
+  const repCounterRef = useRef<RepCounter | null>(null);
+  const smoothedAngleRef = useRef<number | null>(null);
   const mountedRef = useRef(false);
 
   const [cameraState, setCameraState] = useState<CameraState>("idle");
@@ -261,13 +288,127 @@ export function PoseTracker({
     [exercise.cues.rangeReached, onRepCount],
   );
 
+  const stopAnimation = useCallback(() => {
+    frameRunIdRef.current += 1;
+    if (animationRef.current !== null) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  }, []);
+
+  const scheduleRealFrame = useCallback(() => {
+    const runId = frameRunIdRef.current;
+    animationRef.current = requestAnimationFrame(() => {
+      if (frameRunIdRef.current === runId) realFrameRef.current();
+    });
+  }, []);
+
   const stopCamera = useCallback(() => {
+    stopAnimation();
     providerRef.current?.stop();
     providerRef.current = null;
+    poseLandmarkerRef.current?.close();
+    poseLandmarkerRef.current = null;
+    repCounterRef.current = null;
+    smoothedAngleRef.current = null;
     stopStream(videoRef.current);
     setCameraState("idle");
+    setAngleDeg(null);
     setStatusText("Camera tracking is off. Manual controls are available.");
-  }, []);
+  }, [stopAnimation]);
+
+  const startMockProvider = useCallback(
+    (video: HTMLVideoElement) => {
+      // Tests and demos can inject a mock provider. When no providerFactory is
+      // supplied, return false so startCamera continues into the real MediaPipe
+      // path below.
+      const provider = providerFactory?.();
+      if (!provider) return false;
+
+      providerRef.current = provider;
+      provider.onFrame(handleFrame);
+      provider.onRepEvent(handleRepEvent);
+      provider.setRange(personalRange);
+      provider.start(video, exercise);
+      return true;
+    },
+    [exercise, handleFrame, handleRepEvent, personalRange, providerFactory],
+  );
+
+  const handleRealFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const poseLandmarker = poseLandmarkerRef.current;
+    if (!video || !canvas || !poseLandmarker || !mountedRef.current) return;
+
+    resizeCanvas();
+    const result = poseLandmarker.detectForVideo(video, performance.now());
+    const landmarks = result.landmarks?.[0];
+
+    if (landmarks) {
+      drawMediaPipeLandmarks(canvas, landmarks);
+    } else {
+      canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    const [firstIndex, vertexIndex, thirdIndex] = exercise.landmarks;
+    const first = landmarks?.[firstIndex];
+    const vertex = landmarks?.[vertexIndex];
+    const third = landmarks?.[thirdIndex];
+    const visibility =
+      first && vertex && third
+        ? Math.min(
+            first.visibility ?? 1,
+            vertex.visibility ?? 1,
+            third.visibility ?? 1,
+          )
+        : 0;
+
+    if (first && vertex && third && visibility >= VISIBILITY_THRESHOLD) {
+      const aspect = video.videoWidth / video.videoHeight;
+      const correct = (point: NormalizedLandmark) => ({
+        x: point.x * aspect,
+        y: point.y,
+      });
+      const rawAngle = calculateAngle(
+        correct(first),
+        correct(vertex),
+        correct(third),
+      );
+      smoothedAngleRef.current = emaStep(smoothedAngleRef.current, rawAngle);
+      const smoothedAngle = smoothedAngleRef.current;
+      setAngleDeg(smoothedAngle);
+      setPeakAngle((currentPeak) => {
+        const nextPeak = Math.max(currentPeak, smoothedAngle);
+        onPeakRom?.(Math.round(nextPeak));
+        return nextPeak;
+      });
+    } else {
+      smoothedAngleRef.current = null;
+      setAngleDeg(null);
+    }
+
+    repCounterRef.current ??= createRepCounter(personalRange);
+    const events = repCounterRef.current.update({
+      angleDeg: smoothedAngleRef.current ?? Number.NaN,
+      visibility,
+      timestamp: Date.now(),
+    });
+    for (const event of events) handleRepEvent(event);
+
+    scheduleRealFrame();
+  }, [
+    exercise.landmarks,
+    handleRepEvent,
+    onPeakRom,
+    personalRange,
+    resizeCanvas,
+    scheduleRealFrame,
+  ]);
+
+  useEffect(() => {
+    realFrameRef.current = handleRealFrame;
+  }, [handleRealFrame]);
 
   const startCamera = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -295,19 +436,43 @@ export function PoseTracker({
       if (!video) {
         stream.getTracks().forEach((track) => track.stop());
         setCameraState("error");
-        setStatusText("Camera setup was interrupted. Manual controls are available.");
+        setStatusText(
+          "Camera setup was interrupted. Manual controls are available.",
+        );
         return;
       }
 
       video.srcObject = stream;
       await video.play();
 
-      const provider = providerFactory();
-      providerRef.current = provider;
-      provider.onFrame(handleFrame);
-      provider.onRepEvent(handleRepEvent);
-      provider.setRange(personalRange);
-      provider.start(video, exercise);
+      setRepCount(0);
+      setPeakAngle(0);
+      setAngleDeg(null);
+      frameRunIdRef.current += 1;
+      repCounterRef.current = createRepCounter(personalRange);
+      smoothedAngleRef.current = null;
+
+      if (!startMockProvider(video)) {
+        const { FilesetResolver, PoseLandmarker: PoseLandmarkerFactory } =
+          await import("@mediapipe/tasks-vision");
+        const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+        try {
+          poseLandmarkerRef.current =
+            await PoseLandmarkerFactory.createFromOptions(vision, {
+              baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
+              runningMode: "VIDEO",
+              numPoses: 1,
+            });
+        } catch {
+          poseLandmarkerRef.current =
+            await PoseLandmarkerFactory.createFromOptions(vision, {
+              baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
+              runningMode: "VIDEO",
+              numPoses: 1,
+            });
+        }
+        scheduleRealFrame();
+      }
 
       resizeCanvas();
       setCameraState("ready");
@@ -322,14 +487,7 @@ export function PoseTracker({
           : "Camera tracking is unavailable. You can continue manually.",
       );
     }
-  }, [
-    exercise,
-    handleFrame,
-    handleRepEvent,
-    personalRange,
-    providerFactory,
-    resizeCanvas,
-  ]);
+  }, [personalRange, resizeCanvas, scheduleRealFrame, startMockProvider]);
 
   const completeManually = useCallback(() => {
     setManualDone(true);
@@ -345,13 +503,17 @@ export function PoseTracker({
     return () => {
       mountedRef.current = false;
       window.removeEventListener("resize", resizeCanvas);
+      stopAnimation();
       providerRef.current?.stop();
+      poseLandmarkerRef.current?.close();
       stopStream(video);
     };
-  }, [resizeCanvas]);
+  }, [resizeCanvas, stopAnimation]);
 
   const cameraUnavailable =
-    cameraState === "denied" || cameraState === "unavailable" || cameraState === "error";
+    cameraState === "denied" ||
+    cameraState === "unavailable" ||
+    cameraState === "error";
 
   return (
     <section
@@ -359,16 +521,23 @@ export function PoseTracker({
       aria-labelledby="pose-tracker-title"
     >
       <div className="space-y-2">
-        <h2 id="pose-tracker-title" className="text-xl font-bold text-slate-900">
+        <h2
+          id="pose-tracker-title"
+          className="text-xl font-bold text-slate-900"
+        >
           Optional camera tracking
         </h2>
         <p className="text-base text-slate-600">
-          Start the camera for hands-free rep counting. Video is processed on this
-          device and is not uploaded.
+          Start the camera for hands-free rep counting. Video is processed on
+          this device and is not uploaded.
         </p>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-2xl bg-slate-50">
+      <div
+        className="mt-4 overflow-hidden rounded-2xl bg-slate-50"
+        role="img"
+        aria-label="Live camera preview with shoulder, elbow, and wrist landmarks for rep tracking."
+      >
         <div className="relative aspect-video w-full">
           <video
             ref={videoRef}
@@ -386,8 +555,8 @@ export function PoseTracker({
           {cameraState !== "ready" ? (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-50 p-4 text-center text-slate-600">
               <p>
-                Camera tracking is optional. Use the controls below to start tracking or
-                continue manually.
+                Camera tracking is optional. Use the controls below to start
+                tracking or continue manually.
               </p>
             </div>
           ) : null}
@@ -407,7 +576,9 @@ export function PoseTracker({
         </div>
         <div className="rounded-2xl bg-slate-50 p-4">
           <p className="text-sm font-medium text-slate-600">Peak today</p>
-          <p className="text-3xl font-bold text-slate-900">{Math.round(peakAngle)}°</p>
+          <p className="text-3xl font-bold text-slate-900">
+            {Math.round(peakAngle)}°
+          </p>
         </div>
       </div>
 
@@ -426,7 +597,9 @@ export function PoseTracker({
             onClick={startCamera}
             disabled={cameraState === "requesting"}
           >
-            {cameraState === "requesting" ? "Starting camera" : "Start camera tracking"}
+            {cameraState === "requesting"
+              ? "Starting camera"
+              : "Start camera tracking"}
           </Button>
         )}
 
@@ -437,10 +610,12 @@ export function PoseTracker({
 
       {cameraUnavailable ? (
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-700">
-          <h3 className="font-semibold text-slate-900">Continue without camera</h3>
+          <h3 className="font-semibold text-slate-900">
+            Continue without camera
+          </h3>
           <p className="mt-1">
-            Follow the written instructions and use the manual button when you are ready
-            to move on.
+            Follow the written instructions and use the manual button when you
+            are ready to move on.
           </p>
         </div>
       ) : null}

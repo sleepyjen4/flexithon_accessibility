@@ -1,0 +1,580 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import type {
+  NormalizedLandmark,
+  PoseLandmarker,
+} from "@mediapipe/tasks-vision";
+import type {
+  ExerciseDef,
+  PersonalRange,
+  PoseFrame,
+  PoseProvider,
+  RepEvent,
+} from "@/types";
+import {
+  DEFAULT_RANGE,
+  createCalibrationCapture,
+  computeRange,
+  isUsableSweep,
+} from "@/lib/calibration";
+import { getExerciseById } from "@/lib/exercises";
+import { calculateAngle } from "@/lib/pose/angles";
+import { smoothWithEma } from "@/lib/pose/smoothing";
+import { useCalibrationStore } from "@/store/calibration";
+import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
+
+const VISIBLE_UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16] as const;
+
+const MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+
+const WASM_URL =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
+
+/** The one exercise with hands-free rep counting (Section 5b, F9). */
+const HERO_EXERCISE_ID = "seated_lateral_raise";
+const TARGET_SWEEPS = 3; // three guided movements (T08).
+const MIN_VISIBILITY = 0.6; // pause capture silently below this (matches T06).
+
+type Phase = "intro" | "capture" | "review";
+type PoseStatus = "loading" | "tracking" | "paused" | "unavailable";
+
+/**
+ * Minimal pose descriptor handed to the provider. The T03 mock ignores it; the
+ * real provider (T11) will use the landmark triple. Keeping calibration on the
+ * `PoseProvider` contract is what lets the whole flow run with zero MediaPipe
+ * code today and swap mock → real with a one-line factory change.
+ */
+const HERO_POSE_DEF: ExerciseDef = {
+  id: "seated_arm_raise",
+  name: "Seated lateral raise",
+  landmarks: [13, 11, 23], // elbow, shoulder, hip: lateral-raise shoulder angle
+  side: "either",
+  instructions: [
+    "Sit so your head and arms are in view.",
+    "Raise your arms out to the side as far as is comfortable.",
+    "Lower them gently and repeat.",
+  ],
+  cues: {
+    rangeReached: "That's your range.",
+    encourage: ["Nice and gentle.", "Only as far as is comfortable."],
+  },
+};
+
+interface CalibrationFlowProps {
+  /** Test/demo escape hatch. Production uses real MediaPipe tracking by default. */
+  providerFactory?: () => PoseProvider;
+}
+
+function stopStream(video: HTMLVideoElement | null): void {
+  const source = video?.srcObject;
+
+  if (source instanceof MediaStream) {
+    for (const track of source.getTracks()) {
+      track.stop();
+    }
+  }
+
+  if (video) {
+    video.srcObject = null;
+  }
+}
+
+function drawPoint(
+  context: CanvasRenderingContext2D,
+  point: { x: number; y: number },
+): void {
+  context.beginPath();
+  context.arc(point.x, point.y, 5, 0, Math.PI * 2);
+  context.fill();
+}
+
+function drawMediaPipeLandmarks(
+  canvas: HTMLCanvasElement,
+  landmarks: readonly NormalizedLandmark[],
+): void {
+  const context = canvas.getContext("2d");
+  if (!context) return;
+
+  const width = canvas.width;
+  const height = canvas.height;
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "#00ff88";
+
+  for (const index of VISIBLE_UPPER_BODY_INDICES) {
+    const point = landmarks[index];
+    if (!point) continue;
+    drawPoint(context, { x: point.x * width, y: point.y * height });
+  }
+}
+
+/**
+ * T08: guided calibration for the hands-free hero exercise. Records the user's
+ * own comfortable min/max shoulder angle over a few movements, stores it as a
+ * `PersonalRange`, and heads to the exercise screen. Fully keyboard-operable, and the
+ * camera is always optional — the flow never dead-ends.
+ */
+export function CalibrationFlow({
+  providerFactory,
+}: CalibrationFlowProps = {}) {
+  const router = useRouter();
+  const setRange = useCalibrationStore((state) => state.setRange);
+  const existing = useCalibrationStore(
+    (state) => state.ranges[HERO_EXERCISE_ID],
+  );
+  const exercise = getExerciseById(HERO_EXERCISE_ID);
+
+  const [phase, setPhase] = useState<Phase>("intro");
+  const [status, setStatus] = useState<PoseStatus>("loading");
+  const [liveDeg, setLiveDeg] = useState<number | null>(null);
+  const [captMin, setCaptMin] = useState<number | null>(null);
+  const [captMax, setCaptMax] = useState<number | null>(null);
+  const [sweeps, setSweeps] = useState(0);
+
+  // Running capture lives in refs so 30fps updates never re-render.
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const providerRef = useRef<PoseProvider | null>(null);
+  const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
+  const animationRef = useRef<number | null>(null);
+  const realFrameRef = useRef<() => void>(() => undefined);
+  const captureRef = useRef(createCalibrationCapture());
+  const roundedLiveRef = useRef<number | null>(null);
+  const smoothedRef = useRef<number | null>(null);
+
+  const resizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
+
+    const rect = video.getBoundingClientRect();
+    const scale = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * scale));
+    canvas.height = Math.max(1, Math.round(rect.height * scale));
+  }, []);
+
+  const syncCaptureSnapshot = useCallback(() => {
+    const snapshot = captureRef.current.getSnapshot();
+    setCaptMin(snapshot.minDeg === null ? null : Math.round(snapshot.minDeg));
+    setCaptMax(snapshot.maxDeg === null ? null : Math.round(snapshot.maxDeg));
+    setSweeps(snapshot.sweeps);
+    if (snapshot.sweeps >= TARGET_SWEEPS) setPhase("review");
+  }, []);
+
+  const handleCaptureEvent = useCallback((event: RepEvent) => {
+    if (event.type === "tracking_paused") setStatus("paused");
+    if (event.type === "tracking_resumed") setStatus("tracking");
+  }, []);
+
+  const handleFrame = useCallback(
+    (frame: PoseFrame) => {
+      if (frame.visibility < MIN_VISIBILITY) {
+        for (const event of captureRef.current.update(frame))
+          handleCaptureEvent(event);
+        return;
+      }
+
+      smoothedRef.current = smoothWithEma(smoothedRef.current, frame.angleDeg);
+      const smoothedFrame = { ...frame, angleDeg: smoothedRef.current };
+      const rounded = Math.round(smoothedFrame.angleDeg);
+      if (rounded !== roundedLiveRef.current) {
+        roundedLiveRef.current = rounded;
+        setLiveDeg(rounded);
+      }
+
+      setStatus("tracking");
+      for (const event of captureRef.current.update(smoothedFrame))
+        handleCaptureEvent(event);
+      syncCaptureSnapshot();
+    },
+    [handleCaptureEvent, syncCaptureSnapshot],
+  );
+
+  const stopAnimation = useCallback(() => {
+    if (animationRef.current !== null) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  }, []);
+
+  const handleRealFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const poseLandmarker = poseLandmarkerRef.current;
+    if (!video || !canvas || !poseLandmarker) return;
+
+    resizeCanvas();
+    const result = poseLandmarker.detectForVideo(video, performance.now());
+    const landmarks = result.landmarks?.[0];
+
+    if (landmarks) {
+      drawMediaPipeLandmarks(canvas, landmarks);
+    } else {
+      canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    const [firstIndex, vertexIndex, thirdIndex] = HERO_POSE_DEF.landmarks;
+    const first = landmarks?.[firstIndex];
+    const vertex = landmarks?.[vertexIndex];
+    const third = landmarks?.[thirdIndex];
+    const visibility =
+      first && vertex && third
+        ? Math.min(
+            first.visibility ?? 1,
+            vertex.visibility ?? 1,
+            third.visibility ?? 1,
+          )
+        : 0;
+
+    if (first && vertex && third && visibility >= MIN_VISIBILITY) {
+      const aspect = video.videoWidth / video.videoHeight;
+      const correct = (point: NormalizedLandmark) => ({
+        x: point.x * aspect,
+        y: point.y,
+      });
+      handleFrame({
+        angleDeg: calculateAngle(
+          correct(first),
+          correct(vertex),
+          correct(third),
+        ),
+        visibility,
+        timestamp: Date.now(),
+      });
+    } else {
+      smoothedRef.current = null;
+      handleFrame({ angleDeg: Number.NaN, visibility, timestamp: Date.now() });
+    }
+
+    animationRef.current = requestAnimationFrame(() => realFrameRef.current());
+  }, [handleFrame, resizeCanvas]);
+
+  useEffect(() => {
+    realFrameRef.current = handleRealFrame;
+  }, [handleRealFrame]);
+
+  // Read angles from real MediaPipe landmarks by default so calibration mirrors
+  // the exercise tracker. A providerFactory can still inject the T03 mock in tests.
+  useEffect(() => {
+    if (phase !== "capture") return;
+
+    let cancelled = false;
+    let stream: MediaStream | null = null;
+    let activeVideo: HTMLVideoElement | null = null;
+
+    const begin = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        const video = videoRef.current;
+        activeVideo = video;
+        if (video) {
+          video.srcObject = stream;
+          await video.play();
+        }
+
+        if (providerFactory) {
+          const provider = providerFactory();
+          providerRef.current = provider;
+          provider.onFrame((frame) => {
+            if (cancelled) return;
+            if (frame.visibility < MIN_VISIBILITY) smoothedRef.current = null;
+            handleFrame(frame);
+          });
+          provider.start(
+            video ?? document.createElement("video"),
+            HERO_POSE_DEF,
+          );
+        } else {
+          const { FilesetResolver, PoseLandmarker: PoseLandmarkerFactory } =
+            await import("@mediapipe/tasks-vision");
+          const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+          try {
+            const landmarker = await PoseLandmarkerFactory.createFromOptions(
+              vision,
+              {
+                baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
+                runningMode: "VIDEO",
+                numPoses: 1,
+              },
+            );
+            if (cancelled) {
+              landmarker.close();
+              return;
+            }
+            poseLandmarkerRef.current = landmarker;
+          } catch {
+            const landmarker = await PoseLandmarkerFactory.createFromOptions(
+              vision,
+              {
+                baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
+                runningMode: "VIDEO",
+                numPoses: 1,
+              },
+            );
+            if (cancelled) {
+              landmarker.close();
+              return;
+            }
+            poseLandmarkerRef.current = landmarker;
+          }
+          animationRef.current = requestAnimationFrame(() =>
+            realFrameRef.current(),
+          );
+        }
+      } catch {
+        if (!cancelled) setStatus("unavailable");
+      }
+    };
+    void begin();
+
+    return () => {
+      cancelled = true;
+      stopAnimation();
+      providerRef.current?.stop();
+      providerRef.current = null;
+      poseLandmarkerRef.current?.close();
+      poseLandmarkerRef.current = null;
+      stream?.getTracks().forEach((track) => track.stop());
+      stopStream(activeVideo);
+    };
+  }, [phase, providerFactory, handleFrame, stopAnimation]);
+
+  const beginCapture = () => {
+    captureRef.current = createCalibrationCapture();
+    roundedLiveRef.current = null;
+    smoothedRef.current = null;
+    stopAnimation();
+    providerRef.current?.stop();
+    providerRef.current = null;
+    poseLandmarkerRef.current?.close();
+    poseLandmarkerRef.current = null;
+    stopStream(videoRef.current);
+    setCaptMin(null);
+    setCaptMax(null);
+    setLiveDeg(null);
+    setSweeps(0);
+    setStatus("loading");
+    setPhase("capture");
+  };
+
+  const save = (range: PersonalRange) => {
+    setRange(HERO_EXERCISE_ID, range);
+    router.push("/exercise");
+  };
+
+  const saveDefault = () =>
+    save({ ...DEFAULT_RANGE, capturedAt: new Date().toISOString() });
+
+  const heading = "Calibrate camera rep counting";
+
+  // ---- Intro -------------------------------------------------------------
+  if (phase === "intro") {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+        <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
+        <p className="text-lg text-slate-600">
+          We&apos;ll learn your comfortable range for the{" "}
+          <strong>{exercise?.name ?? "hero exercise"}</strong> so the camera
+          counts reps that fit your body, not the other way around.
+        </p>
+        {existing && (
+          <p className="rounded-2xl bg-emerald-50 p-4 text-lg text-slate-900">
+            You&apos;re already calibrated ({existing.minDeg}°–{existing.maxDeg}
+            °). You can recalibrate any time.
+          </p>
+        )}
+        <Card>
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">
+            What happens
+          </h2>
+          <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg text-slate-900">
+            <li>Sit so your head and arms are in view.</li>
+            <li>
+              Raise both arms out to the side as far as is comfortable, then
+              lower.
+            </li>
+            <li>
+              Repeat gently {TARGET_SWEEPS} times. We&apos;ll do the measuring.
+            </li>
+          </ol>
+        </Card>
+        <p className="text-base text-slate-600">
+          Video stays on your device, nothing is uploaded or stored. Prefer not
+          to use the camera? You can skip it and still start your workout.
+        </p>
+        <div className="mt-auto flex flex-col gap-3 pt-4">
+          <Button type="button" onClick={beginCapture}>
+            {existing ? "Recalibrate with camera" : "Start calibration"}
+          </Button>
+          <Button type="button" variant="secondary" onClick={saveDefault}>
+            Skip camera — use a comfortable default
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Capture -----------------------------------------------------------
+  if (phase === "capture") {
+    if (status === "unavailable") {
+      return (
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+          <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
+          <p className="rounded-2xl bg-slate-50 p-4 text-lg text-slate-600">
+            The camera isn&apos;t available right now. That&apos;s completely
+            fine. We&apos;ll use a comfortable default range, and you can count
+            reps by hand.
+          </p>
+          <div className="mt-auto flex flex-col gap-3 pt-4">
+            <Button type="button" onClick={beginCapture}>
+              Try camera again
+            </Button>
+            <Button type="button" variant="secondary" onClick={saveDefault}>
+              Use a default range and start
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setPhase("intro")}
+            >
+              Back
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    const captured = Math.min(sweeps, TARGET_SWEEPS);
+    return (
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6">
+        <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
+        <p className="text-lg text-slate-600">
+          {status === "loading" && "Starting camera…"}
+          {status === "tracking" &&
+            "Raise your arms out to the side, then lower. Nice and gentle."}
+          {status === "paused" &&
+            "Tracking paused. Move back into view when ready."}
+        </p>
+        <div
+          className="overflow-hidden rounded-2xl bg-slate-50 shadow-sm ring-1 ring-slate-200"
+          role="img"
+          aria-label="Live camera preview with shoulder, elbow, and wrist landmarks for calibration."
+        >
+          <div className="relative aspect-video w-full">
+            <video
+              ref={videoRef}
+              muted
+              playsInline
+              aria-hidden="true"
+              className="h-full w-full -scale-x-100 object-cover"
+            />
+            <canvas
+              ref={canvasRef}
+              className="pointer-events-none absolute inset-0 h-full w-full -scale-x-100"
+              aria-hidden="true"
+            />
+          </div>
+        </div>
+        <p
+          aria-live="polite"
+          className="text-center text-xl font-semibold text-slate-900"
+        >
+          Movement {captured} of {TARGET_SWEEPS} recorded
+        </p>
+        {liveDeg !== null && (
+          <p className="text-center text-lg text-slate-600">
+            Current: {liveDeg}° · so far {captMin ?? "–"}°–{captMax ?? "–"}°
+          </p>
+        )}
+        <div className="mt-auto flex flex-col gap-3 pt-4">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setPhase("review")}
+          >
+            Done — save my range
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setPhase("intro")}
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Review ------------------------------------------------------------
+  const usable =
+    captMin !== null && captMax !== null && isUsableSweep(captMin, captMax);
+  const range = usable
+    ? computeRange(captMin as number, captMax as number)
+    : null;
+
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+      <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
+      {range ? (
+        <>
+          <p aria-live="polite" className="text-lg text-slate-600">
+            Great — your comfortable range is{" "}
+            <strong>
+              {range.minDeg}° to {range.maxDeg}°
+            </strong>
+            . Reps will count against this, so hitting your target stays
+            realistic.
+          </p>
+          <div className="mt-auto flex flex-col gap-3 pt-4">
+            <Button type="button" onClick={() => save(range)}>
+              Save and start exercise
+            </Button>
+            <Button type="button" variant="secondary" onClick={beginCapture}>
+              Recalibrate
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p
+            aria-live="polite"
+            className="rounded-2xl bg-slate-50 p-4 text-lg text-slate-600"
+          >
+            We didn&apos;t catch a full movement that time. No problem at all.
+            Try once more, or start with a comfortable default range.
+          </p>
+          <div className="mt-auto flex flex-col gap-3 pt-4">
+            <Button type="button" onClick={beginCapture}>
+              Try again
+            </Button>
+            <Button type="button" variant="secondary" onClick={saveDefault}>
+              Use a default range and start
+            </Button>
+          </div>
+        </>
+      )}
+      <Link
+        href="/exercise"
+        className="min-h-12 content-center text-center text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
+      >
+        Skip for now
+      </Link>
+    </div>
+  );
+}
