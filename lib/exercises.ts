@@ -33,7 +33,7 @@ export const EXERCISES: Exercise[] = [
   {
     id: "seated_lateral_raise",
     name: "Seated Lateral Raise",
-    description: "Hero exercise for hands-free rep counting (Section 5b).",
+    description: "Hero exercise for hands-free rep counting.",
     positions: ["seated"],
     equipment: ["none", "dumbbell"],
     body_regions: ["shoulders"],
