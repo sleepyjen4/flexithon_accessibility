@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Exercise, WorkoutStep } from "@/types";
 import { useSessionStore } from "@/store/session";
+import { useCalibrationStore } from "@/store/calibration";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -35,7 +36,14 @@ export function ExerciseStep({
   onSkip,
 }: ExerciseStepProps) {
   const recordRom = useSessionStore((state) => state.recordRom);
+  const hasCalibration = useCalibrationStore((state) => Boolean(state.ranges[exercise.id]));
+  const clearRange = useCalibrationStore((state) => state.clearRange);
   const [cameraOn, setCameraOn] = useState(false);
+
+  const recalibrate = () => {
+    clearRange(exercise.id);
+    setCameraOn(false);
+  };
 
   // TTS is user-triggered only (Section 6, rule 8); stop it when the step changes.
   useEffect(() => {
@@ -85,8 +93,14 @@ export function ExerciseStep({
           >
             {cameraOn ? "Turn camera off" : "Count reps with camera (optional)"}
           </Button>
+          {cameraOn && hasCalibration && (
+            <Button type="button" variant="secondary" onClick={recalibrate}>
+              Recalibrate my range
+            </Button>
+          )}
           {cameraOn && (
             <PoseTracker
+              exerciseId={exercise.id}
               onPeakRom={(degrees) => recordRom(exercise.id, degrees)}
             />
           )}
