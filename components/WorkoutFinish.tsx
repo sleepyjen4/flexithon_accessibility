@@ -19,11 +19,15 @@ interface WorkoutFinishProps {
 export function WorkoutFinish({ workout }: WorkoutFinishProps) {
   const completedSteps = useSessionStore((state) => state.completedSteps);
   const peakRomDegrees = useSessionStore((state) => state.peakRomDegrees);
+  const savedSummary = useSessionStore((state) => state.savedSummary);
+  const markSaved = useSessionStore((state) => state.markSaved);
   const addSession = useHistoryStore((state) => state.addSession);
   const [effort, setEffort] = useState<number | null>(null);
-  const [saved, setSaved] = useState(false);
 
   const save = () => {
+    // Guards against re-saving this same workout on a remount (browser
+    // back/forward) and against a double-click racing the re-render.
+    if (savedSummary) return;
     const summary: WorkoutSessionSummary = {
       id: crypto.randomUUID(),
       workout_title: workout.title,
@@ -36,7 +40,7 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
     };
     addSession(summary);
     void saveSessionToSupabase(workout, summary, completedSteps);
-    setSaved(true);
+    markSaved(summary);
   };
 
   return (
@@ -47,7 +51,7 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
         {workout.steps.length} exercises done — every one of them counts.
       </p>
 
-      {!saved ? (
+      {!savedSummary ? (
         <>
           <fieldset className="flex flex-col gap-3 border-0 p-0">
             <legend className="mb-2 text-lg font-semibold text-slate-900">
