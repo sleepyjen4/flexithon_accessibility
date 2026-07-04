@@ -5,8 +5,15 @@ import type {
   PoseLandmarker as PoseLandmarkerType,
   NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
+import { calculateAngle } from "@/lib/pose/angles";
+import { smoothWithEma } from "@/lib/pose/smoothing";
 
 const UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16, 23, 24] as const;
+
+// T05 live verification only — left shoulder(11)-elbow(13)-wrist(15).
+// Final per-exercise triples come from T10; don't treat this as permanent.
+const ANGLE_TRIPLE_INDICES = [11, 13, 15] as const;
+const MIN_VISIBILITY = 0.5;
 
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
@@ -14,9 +21,11 @@ const MODEL_URL =
 export default function SpikePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const smoothedAngleRef = useRef<number | null>(null);
   const [fps, setFps] = useState(0);
   const [status, setStatus] = useState("Loading...");
   const [delegate, setDelegate] = useState<"GPU" | "CPU" | null>(null);
+  const [angleDeg, setAngleDeg] = useState<number | null>(null);
 
   useEffect(() => {
     let animationId: number;
@@ -96,6 +105,42 @@ export default function SpikePage() {
         });
       });
 
+      const landmarks = result.landmarks?.[0];
+      const [shoulder, elbow, wrist] = ANGLE_TRIPLE_INDICES.map(
+        (i) => landmarks?.[i]
+      );
+      const minVisibility =
+        shoulder && elbow && wrist
+          ? Math.min(
+              shoulder.visibility ?? 1,
+              elbow.visibility ?? 1,
+              wrist.visibility ?? 1
+            )
+          : 0;
+
+      if (shoulder && elbow && wrist && minVisibility >= MIN_VISIBILITY) {
+        // MediaPipe normalizes x/y per-axis; rescale x so angles are computed
+        // in isotropic space (see calculateAngle docs).
+        const aspect = video.videoWidth / video.videoHeight;
+        const correct = (p: NormalizedLandmark) => ({
+          x: p.x * aspect,
+          y: p.y,
+        });
+        const rawAngle = calculateAngle(
+          correct(shoulder),
+          correct(elbow),
+          correct(wrist)
+        );
+        smoothedAngleRef.current = smoothWithEma(
+          smoothedAngleRef.current,
+          rawAngle
+        );
+        setAngleDeg(smoothedAngleRef.current);
+      } else {
+        smoothedAngleRef.current = null;
+        setAngleDeg(null);
+      }
+
       frameCount++;
       const now = performance.now();
       if (now - fpsUpdateTime >= 1000) {
@@ -123,6 +168,10 @@ export default function SpikePage() {
     <div>
       <p style={{ margin: "8px 0", fontFamily: "monospace" }}>
         Status: {status} | FPS: {fps} | Delegate: {delegate ?? "—"}
+      </p>
+      <p style={{ margin: "8px 0", fontFamily: "monospace" }} aria-live="polite">
+        T05 angle read-out (L shoulder-elbow-wrist, EMA-smoothed):{" "}
+        {angleDeg !== null ? `${angleDeg.toFixed(1)}°` : "low visibility"}
       </p>
       <div style={{ position: "relative", width: 640, height: 480 }}>
         <video
