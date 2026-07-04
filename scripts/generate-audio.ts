@@ -8,7 +8,10 @@
  *   2. Google Cloud TTS (fallback)— needs GOOGLE_TTS_API_KEY
  * Force one with TTS_PROVIDER=gemini|google.
  *
- * Usage:  npm run generate:audio   (GEMINI_API_KEY is already in .env)
+ * Usage:  npm run generate:audio                       (all clips)
+ *         npm run generate:audio -- --static-only      (just the static clips)
+ *         npm run generate:audio -- --only=<id>        (just one clip)
+ *         (GEMINI_API_KEY is already in .env)
  *
  * Excluded from the app tsconfig (see tsconfig.json "exclude"); run with tsx.
  */
@@ -17,6 +20,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import { EXERCISES } from "../lib/exercises";
+import { POSE_EXERCISES } from "../lib/pose/exercises";
 import { STATIC_CLIPS } from "../lib/staticAudio";
 import { EXERCISE_AUDIO, STATIC_AUDIO } from "../lib/audioManifest";
 
@@ -305,6 +309,24 @@ function staticJobs(): ClipJob[] {
   return Object.entries(STATIC_CLIPS).map(([id, text]) => ({ id, text, kind: "static" }));
 }
 
+/** Resolves a single clip job by id, sourcing its text from the seed library,
+ * the pose-tracking exercises (which aren't in EXERCISES), or the static clips
+ * — whichever defines it. Used by --only. Returns null if the id is unknown. */
+function jobForId(id: string): ClipJob | null {
+  const seed = EXERCISES.find((exercise) => exercise.id === id);
+  if (seed) return { id, text: instructionText(seed), kind: "exercise" };
+
+  const pose = POSE_EXERCISES.find((exercise) => exercise.id === id);
+  if (pose) {
+    return { id, text: [pose.name, ...pose.instructions].join(". "), kind: "exercise" };
+  }
+
+  const staticText = (STATIC_CLIPS as Record<string, string>)[id];
+  if (staticText) return { id, text: staticText, kind: "static" };
+
+  return null;
+}
+
 async function main(): Promise<void> {
   const order = providerOrder();
   if (order.length === 0) {
@@ -320,18 +342,34 @@ async function main(): Promise<void> {
   const staticOnly =
     process.argv.includes("--static-only") || process.env.STATIC_ONLY === "1";
 
-  const jobs = staticOnly ? staticJobs() : [...exerciseJobs(), ...staticJobs()];
+  // --only=<id> (or ONLY_ID=<id>): regenerate a single clip and leave every
+  // other clip and manifest entry intact — for one new/changed exercise.
+  const onlyArg = process.argv.find((arg) => arg.startsWith("--only="));
+  const onlyId = onlyArg ? onlyArg.slice("--only=".length) : process.env.ONLY_ID;
 
-  // In a full run, wipe the dir so stale clips from a previous provider
-  // (different extension) don't linger unreferenced. In a static-only run,
-  // keep the existing exercise clips and their manifest entries intact.
-  if (!staticOnly) {
+  let jobs: ClipJob[];
+  if (onlyId) {
+    const job = jobForId(onlyId);
+    if (!job) {
+      console.error(`--only: no exercise or static clip with id "${onlyId}". Aborting.`);
+      process.exit(1);
+    }
+    jobs = [job];
+  } else {
+    jobs = staticOnly ? staticJobs() : [...exerciseJobs(), ...staticJobs()];
+  }
+
+  // Only a full run wipes the dir so stale clips from a previous provider
+  // (different extension) don't linger unreferenced. A static-only or --only
+  // run keeps the existing clips and their manifest entries intact.
+  const partialRun = staticOnly || Boolean(onlyId);
+  if (!partialRun) {
     await rm(AUDIO_DIR, { recursive: true, force: true });
   }
   await mkdir(AUDIO_DIR, { recursive: true });
 
-  const exerciseManifest: Record<string, string> = staticOnly ? { ...EXERCISE_AUDIO } : {};
-  const staticManifest: Record<string, string> = staticOnly ? { ...STATIC_AUDIO } : {};
+  const exerciseManifest: Record<string, string> = partialRun ? { ...EXERCISE_AUDIO } : {};
+  const staticManifest: Record<string, string> = partialRun ? { ...STATIC_AUDIO } : {};
 
   const recordClip = async (job: ClipJob, audio: Buffer, provider: Provider) => {
     const filename = `${job.id}.${provider.ext}`;

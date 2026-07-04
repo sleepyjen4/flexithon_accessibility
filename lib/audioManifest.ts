@@ -43,6 +43,7 @@ export const EXERCISE_AUDIO: Record<string, string> = {
   "standing_march": "/audio/standing_march.wav",
   "standing_wall_slide": "/audio/standing_wall_slide.wav",
   "seated_deep_breathing": "/audio/seated_deep_breathing.wav",
+  "seated_arm_raise": "/audio/seated_arm_raise.wav",
 };
 
 /**
