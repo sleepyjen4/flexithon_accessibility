@@ -181,6 +181,11 @@ export interface PoseProvider {
   setRange(r: PersonalRange): void;
 }
 
+export interface SpeakOptions {
+  /** Cancel queued or active speech before speaking this utterance. */
+  interrupt?: boolean;
+}
+
 /**
  * Locally persisted summary of a finished session, powering the progress
  * view (F6) with or without a Supabase login. Effort and showing up only —

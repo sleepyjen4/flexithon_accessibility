@@ -8,6 +8,7 @@ interface TimerProps {
   seconds: number;
   label: string;
   onComplete?: () => void;
+  onPauseChange?: (paused: boolean) => void;
 }
 
 function formatTime(total: number): string {
@@ -18,7 +19,7 @@ function formatTime(total: number): string {
 
 /** F5 timer: pause-friendly, extendable, announces state changes via
  * aria-live (Section 6, rule 5) — never a per-second announcement. */
-export function Timer({ seconds, label, onComplete }: TimerProps) {
+export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps) {
   const [remaining, setRemaining] = useState(seconds);
   const [running, setRunning] = useState(true);
   const [announcement, setAnnouncement] = useState("");
@@ -47,11 +48,11 @@ export function Timer({ seconds, label, onComplete }: TimerProps) {
 
   const togglePause = () => {
     setRunning((current) => {
+      const paused = current;
       setAnnouncement(
-        current
-          ? `Paused with ${formatTime(remaining)} left.`
-          : "Timer resumed.",
+        paused ? `Paused with ${formatTime(remaining)} left.` : "Timer resumed.",
       );
+      onPauseChange?.(paused);
       return !current;
     });
   };

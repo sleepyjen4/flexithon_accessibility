@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Exercise, WorkoutStep } from "@/types";
 import { useSessionStore } from "@/store/session";
+import { cancelSpeech, speak } from "@/lib/speech";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -36,21 +37,20 @@ export function ExerciseStep({
 }: ExerciseStepProps) {
   const recordRom = useSessionStore((state) => state.recordRom);
   const [cameraOn, setCameraOn] = useState(false);
+  const [timerPaused, setTimerPaused] = useState(false);
 
   // TTS is user-triggered only (Section 6, rule 8); stop it when the step changes.
   useEffect(() => {
-    return () => window.speechSynthesis?.cancel();
+    return () => cancelSpeech();
   }, [step.exercise_id]);
 
   const readAloud = () => {
-    if (!("speechSynthesis" in window)) return;
     const text = [
       exercise.name,
       ...exercise.instructions.map((instruction) => instruction.text),
       step.adaptation_note,
     ].join(". ");
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    void speak(text, { interrupt: true });
   };
 
   return (
@@ -74,7 +74,11 @@ export function ExerciseStep({
         {step.adaptation_note}
       </p>
 
-      <Timer seconds={step.duration_seconds} label={exercise.name} />
+      <Timer
+        seconds={step.duration_seconds}
+        label={exercise.name}
+        onPauseChange={setTimerPaused}
+      />
 
       {exercise.id === POSE_EXERCISE_ID && (
         <div className="flex flex-col gap-3">
@@ -87,6 +91,7 @@ export function ExerciseStep({
           </Button>
           {cameraOn && (
             <PoseTracker
+              paused={timerPaused}
               onManualDone={onDone}
               onPeakRom={(degrees) => recordRom(exercise.id, degrees)}
             />

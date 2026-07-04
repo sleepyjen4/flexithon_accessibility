@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createMockPoseProvider as createPoseProvider } from "@/lib/pose/mockProvider";
+import { announceRepCount, speak } from "@/lib/speech";
 import { Button } from "@/components/Button";
 import type {
   ExerciseDef,
@@ -22,6 +23,10 @@ type CameraState =
 interface PoseTrackerProps {
   exercise?: ExerciseDef;
   personalRange?: PersonalRange;
+  /** True while the exercise itself is paused (e.g. the workout timer is
+   * paused for a rest break) — incoming frames/rep events are ignored so
+   * tracking doesn't keep counting or announcing during a break. */
+  paused?: boolean;
   onManualDone?: () => void;
   onPeakRom?: (degrees: number) => void;
   onRepCount?: (count: number) => void;
@@ -29,6 +34,9 @@ interface PoseTrackerProps {
 }
 
 const DEFAULT_RANGE: PersonalRange = { minDeg: 20, maxDeg: 150 };
+
+const RANGE_WARNING_MESSAGE =
+  "Target range not reached yet. Stay within a comfortable range. You can keep going, pause, or finish manually.";
 
 const DEFAULT_EXERCISE: ExerciseDef = {
   id: "seated_arm_raise",
@@ -159,6 +167,7 @@ function drawMockSkeleton(canvas: HTMLCanvasElement, frame: PoseFrame): void {
 export function PoseTracker({
   exercise = DEFAULT_EXERCISE,
   personalRange = DEFAULT_RANGE,
+  paused = false,
   onManualDone,
   onPeakRom,
   onRepCount,
@@ -168,6 +177,7 @@ export function PoseTracker({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const providerRef = useRef<PoseProvider | null>(null);
   const mountedRef = useRef(false);
+  const targetWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [statusText, setStatusText] = useState(
@@ -176,7 +186,17 @@ export function PoseTracker({
   const [repCount, setRepCount] = useState(0);
   const [angleDeg, setAngleDeg] = useState<number | null>(null);
   const [peakAngle, setPeakAngle] = useState(0);
+  const [hasReachedTargetRange, setHasReachedTargetRange] = useState(false);
+  const [showRangeWarning, setShowRangeWarning] = useState(false);
   const [manualDone, setManualDone] = useState(false);
+  const targetRangeDeg = personalRange.maxDeg * 0.85;
+
+  const clearTargetWarningTimer = useCallback(() => {
+    if (targetWarningTimerRef.current) {
+      clearTimeout(targetWarningTimerRef.current);
+      targetWarningTimerRef.current = null;
+    }
+  }, []);
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -191,13 +211,29 @@ export function PoseTracker({
 
   const handleFrame = useCallback(
     (frame: PoseFrame) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || paused) return;
 
       resizeCanvas();
       setAngleDeg(frame.angleDeg);
       setPeakAngle((currentPeak) => {
         const nextPeak = Math.max(currentPeak, frame.angleDeg);
         onPeakRom?.(Math.round(nextPeak));
+
+        if (nextPeak >= targetRangeDeg) {
+          clearTargetWarningTimer();
+          setHasReachedTargetRange(true);
+          setShowRangeWarning(false);
+        } else if (
+          nextPeak > personalRange.minDeg + 5 &&
+          !targetWarningTimerRef.current
+        ) {
+          targetWarningTimerRef.current = setTimeout(() => {
+            targetWarningTimerRef.current = null;
+            setShowRangeWarning(true);
+            void speak(RANGE_WARNING_MESSAGE);
+          }, 3_000);
+        }
+
         return nextPeak;
       });
 
@@ -206,22 +242,22 @@ export function PoseTracker({
         drawMockSkeleton(canvas, frame);
       }
     },
-    [onPeakRom, resizeCanvas],
+    [clearTargetWarningTimer, onPeakRom, paused, personalRange.minDeg, resizeCanvas, targetRangeDeg],
   );
 
   const handleRepEvent = useCallback(
     (event: RepEvent) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || paused) return;
 
       if (event.type === "rep") {
         setRepCount(event.count);
         onRepCount?.(event.count);
         setStatusText(`Rep ${event.count} counted.`);
+        announceRepCount(event.count);
         return;
       }
 
       if (event.type === "range_reached") {
-        setStatusText(exercise.cues.rangeReached);
         return;
       }
 
@@ -232,16 +268,21 @@ export function PoseTracker({
 
       setStatusText("Tracking resumed.");
     },
-    [exercise.cues.rangeReached, onRepCount],
+    [onRepCount, paused],
   );
 
   const stopCamera = useCallback(() => {
+    clearTargetWarningTimer();
     providerRef.current?.stop();
     providerRef.current = null;
     stopStream(videoRef.current);
     setCameraState("idle");
     setStatusText("Camera tracking is off. Manual controls are available.");
-  }, []);
+    setHasReachedTargetRange(false);
+    setShowRangeWarning(false);
+    setPeakAngle(0);
+    setAngleDeg(null);
+  }, [clearTargetWarningTimer]);
 
   const startCamera = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -252,6 +293,11 @@ export function PoseTracker({
 
     setCameraState("requesting");
     setStatusText("Requesting camera access.");
+    clearTargetWarningTimer();
+    setHasReachedTargetRange(false);
+    setShowRangeWarning(false);
+    setPeakAngle(0);
+    setAngleDeg(null);
 
     let stream: MediaStream | null = null;
 
@@ -298,6 +344,7 @@ export function PoseTracker({
     }
   }, [
     exercise,
+    clearTargetWarningTimer,
     handleFrame,
     handleRepEvent,
     personalRange,
@@ -319,10 +366,11 @@ export function PoseTracker({
     return () => {
       mountedRef.current = false;
       window.removeEventListener("resize", resizeCanvas);
+      clearTargetWarningTimer();
       providerRef.current?.stop();
       stopStream(video);
     };
-  }, [resizeCanvas]);
+  }, [clearTargetWarningTimer, resizeCanvas]);
 
   const cameraUnavailable =
     cameraState === "denied" || cameraState === "unavailable" || cameraState === "error";
@@ -388,6 +436,20 @@ export function PoseTracker({
       <p className="mt-4 text-base text-slate-600" aria-live="polite">
         {statusText}
       </p>
+
+      {showRangeWarning && !hasReachedTargetRange ? (
+        <div
+          className="mt-4 rounded-2xl border border-red-700 bg-white p-4 text-slate-900"
+          role="status"
+          aria-live="polite"
+        >
+          <h3 className="font-semibold text-red-700">Target range not reached yet</h3>
+          <p className="mt-1 text-base">
+            Stay within a comfortable range. You can keep going, pause, or finish
+            manually.
+          </p>
+        </div>
+      ) : null}
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         {cameraState === "ready" ? (
