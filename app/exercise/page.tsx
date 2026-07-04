@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ExerciseDef, PersonalRange } from "@/types";
+import type { PersonalRange } from "@/types";
+import { getPoseExerciseById } from "@/lib/pose/exercises";
 
 const PoseTracker = dynamic(
   () => import("@/components/PoseTracker").then((mod) => mod.PoseTracker),
@@ -15,21 +16,8 @@ const PoseTracker = dynamic(
   },
 );
 
-const demoExercise: ExerciseDef = {
-  id: "seated_arm_raise",
-  name: "Seated arm raise",
-  landmarks: [11, 13, 15],
-  side: "either",
-  instructions: [
-    "Sit in a supported position.",
-    "Raise one arm toward a comfortable range.",
-    "Lower your arm when you are ready.",
-  ],
-  cues: {
-    rangeReached: "You reached your target range.",
-    encourage: ["Move within today’s comfortable range.", "Pause whenever you need."],
-  },
-};
+// Falls back to the first exercise only if the id ever drifts from lib/pose/exercises.ts.
+const demoExercise = getPoseExerciseById("seated_arm_raise")!;
 
 const demoRange: PersonalRange = {
   minDeg: 20,

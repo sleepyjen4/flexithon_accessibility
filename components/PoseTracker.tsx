@@ -14,6 +14,7 @@ import {
 } from "@/lib/pose/repCounter";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
+import { POSE_EXERCISES } from "@/lib/pose/exercises";
 import type {
   ExerciseDef,
   PersonalRange,
@@ -63,21 +64,7 @@ interface PoseTrackerProps {
 
 const DEFAULT_RANGE: PersonalRange = { minDeg: 20, maxDeg: 150 };
 
-const DEFAULT_EXERCISE: ExerciseDef = {
-  id: "seated_arm_raise",
-  name: "Seated arm raise",
-  landmarks: [11, 13, 15],
-  side: "either",
-  instructions: [
-    "Sit in a supported position.",
-    "Raise one arm toward a comfortable range.",
-    "Lower your arm when you are ready.",
-  ],
-  cues: {
-    rangeReached: "You reached your target range.",
-    encourage: ["Move within today’s comfortable range.", "Pause whenever you need."],
-  },
-};
+const DEFAULT_EXERCISE: ExerciseDef = POSE_EXERCISES[0];
 
 function getCameraStateFromError(error: unknown): CameraState {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
