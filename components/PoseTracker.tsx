@@ -11,6 +11,7 @@ import {
   type RepCounter,
 } from "@/lib/pose/repCounter";
 import { Button } from "@/components/Button";
+import { POSE_EXERCISES } from "@/lib/pose/exercises";
 import type {
   ExerciseDef,
   PersonalRange,
@@ -51,27 +52,7 @@ interface PoseTrackerProps {
 
 const DEFAULT_RANGE: PersonalRange = { minDeg: 15, maxDeg: 95 };
 
-const RANGE_WARNING_MESSAGE =
-  "Target range not reached yet. Stay within a comfortable range. You can keep going, pause, or finish manually.";
-
-const DEFAULT_EXERCISE: ExerciseDef = {
-  id: "seated_arm_raise",
-  name: "Seated lateral raise",
-  landmarks: [13, 11, 23],
-  side: "either",
-  instructions: [
-    "Sit in a supported position.",
-    "Raise one arm out to the side toward a comfortable range.",
-    "Lower your arm gently when you are ready.",
-  ],
-  cues: {
-    rangeReached: "You reached your target range.",
-    encourage: [
-      "Move within today’s comfortable range.",
-      "Pause whenever you need.",
-    ],
-  },
-};
+const DEFAULT_EXERCISE: ExerciseDef = POSE_EXERCISES[0];
 
 function getCameraStateFromError(error: unknown): CameraState {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
@@ -396,10 +377,10 @@ export function PoseTracker({
     const visibility =
       first && vertex && third
         ? Math.min(
-            first.visibility ?? 1,
-            vertex.visibility ?? 1,
-            third.visibility ?? 1,
-          )
+          first.visibility ?? 1,
+          vertex.visibility ?? 1,
+          third.visibility ?? 1,
+        )
         : 0;
 
     if (first && vertex && third && visibility >= VISIBILITY_THRESHOLD) {
