@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type { Exercise, WorkoutStep } from "@/types";
 import { useSessionStore } from "@/store/session";
 import { useCalibrationStore } from "@/store/calibration";
@@ -36,14 +37,10 @@ export function ExerciseStep({
   onSkip,
 }: ExerciseStepProps) {
   const recordRom = useSessionStore((state) => state.recordRom);
-  const hasCalibration = useCalibrationStore((state) => Boolean(state.ranges[exercise.id]));
-  const clearRange = useCalibrationStore((state) => state.clearRange);
+  const personalRange = useCalibrationStore(
+    (state) => state.ranges[POSE_EXERCISE_ID],
+  );
   const [cameraOn, setCameraOn] = useState(false);
-
-  const recalibrate = () => {
-    clearRange(exercise.id);
-    setCameraOn(false);
-  };
 
   // TTS is user-triggered only (Section 6, rule 8); stop it when the step changes.
   useEffect(() => {
@@ -93,17 +90,21 @@ export function ExerciseStep({
           >
             {cameraOn ? "Turn camera off" : "Count reps with camera (optional)"}
           </Button>
-          {cameraOn && hasCalibration && (
-            <Button type="button" variant="secondary" onClick={recalibrate}>
-              Recalibrate my range
-            </Button>
-          )}
           {cameraOn && (
             <PoseTracker
+              personalRange={personalRange}
               onManualDone={onDone}
               onPeakRom={(degrees) => recordRom(exercise.id, degrees)}
             />
           )}
+          <Link
+            href="/calibrate"
+            className="min-h-12 content-center text-center text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
+          >
+            {personalRange
+              ? `Recalibrate range (now ${personalRange.minDeg}°–${personalRange.maxDeg}°)`
+              : "Calibrate to my range for more accurate counting"}
+          </Link>
         </div>
       )}
 

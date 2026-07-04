@@ -127,6 +127,22 @@ export type GenerateWorkoutRequest = z.infer<
 >;
 
 // ---------------------------------------------------------------------------
+// Personal range of motion (T08 — calibration, F9)
+// ---------------------------------------------------------------------------
+
+/**
+ * A user's own comfortable range for the hands-free hero exercise, captured
+ * during calibration. Rep counting is scaled to THIS range instead of fixed
+ * thresholds, so the app adapts to the body in front of it (never the reverse).
+ * Angles are degrees of shoulder abduction; keyed by exercise id in the store.
+ */
+export interface PersonalRange {
+  minDeg: number; // comfortable resting/low angle
+  maxDeg: number; // observed comfortable peak; 85% margin applied downstream in rep counting
+  capturedAt?: string; // ISO timestamp of calibration (set when captured via T08 flow)
+}
+
+// ---------------------------------------------------------------------------
 // Workout sessions (Section 4 — sessions table)
 // ---------------------------------------------------------------------------
 
@@ -177,22 +193,25 @@ export interface PoseProvider {
 }
 
 /**
- * A person's own comfortable range of motion for one exercise (Section 5b),
- * captured by a short calibration pass. Rep-counting thresholds are derived
- * from this instead of a fixed angle, so hands-free counting works
- * regardless of a person's actual range of motion.
+ * Section 0 contract: summary of one completed tracking session, consumed by
+ * the /summary screen (T12). Distinct from WorkoutSessionSummary below.
  */
-export interface PersonalRange {
-  minDeg: number;
-  maxDeg: number;
+export interface SessionSummary {
+  exerciseId: string;
+  reps: number;
+  personalRange: PersonalRange;
+  peakAngleToday: number;
+  startedAt: number;
+  endedAt: number;
 }
 
 /**
- * Locally persisted summary of a finished session, powering the progress
+ * Locally persisted summary of a finished workout, powering the progress
  * view (F6) with or without a Supabase login. Effort and showing up only —
- * never calories or steps.
+ * never calories or steps. (Renamed from SessionSummary so the Section 0
+ * contract keeps its agreed name.)
  */
-export interface SessionSummary {
+export interface WorkoutSessionSummary {
   id: string;
   workout_title: string;
   energy_level: EnergyLevel;

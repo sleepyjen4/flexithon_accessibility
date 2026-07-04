@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { SessionSummary, Workout } from "@/types";
+import type { WorkoutSessionSummary, Workout } from "@/types";
 
 interface SessionState {
   workout: Workout | null;
@@ -9,12 +9,12 @@ interface SessionState {
   /** Set once the current workout has been saved to history/Supabase, so a
    * remounted WorkoutFinish (e.g. after browser back/forward) shows the
    * saved confirmation instead of re-offering the save action. */
-  savedSummary: SessionSummary | null;
+  savedSummary: WorkoutSessionSummary | null;
   setWorkout: (workout: Workout) => void;
   completeStep: (index: number) => void;
   advanceStep: () => void;
   recordRom: (exerciseId: string, degrees: number) => void;
-  markSaved: (summary: SessionSummary) => void;
+  markSaved: (summary: WorkoutSessionSummary) => void;
   reset: () => void;
 }
 
