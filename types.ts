@@ -141,6 +141,46 @@ export interface SessionRecord {
   created_at: string;
 }
 
+// ---------------------------------------------------------------------------
+// Motion tracking contracts (T07/T03 dependency backbone)
+// ---------------------------------------------------------------------------
+
+export interface PoseFrame {
+  /** Smoothed joint angle for the active exercise. */
+  angleDeg: number;
+  /** 0–1 minimum visibility of the required landmarks. */
+  visibility: number;
+  timestamp: number;
+}
+
+export interface PersonalRange {
+  minDeg: number;
+  maxDeg: number;
+}
+
+export type RepEvent =
+  | { type: "rep"; count: number }
+  | { type: "range_reached" }
+  | { type: "tracking_paused" }
+  | { type: "tracking_resumed" };
+
+export interface ExerciseDef {
+  id: "seated_arm_raise" | "seated_torso_twist";
+  name: string;
+  landmarks: [number, number, number];
+  side: "left" | "right" | "either";
+  instructions: string[];
+  cues: { rangeReached: string; encourage: string[] };
+}
+
+export interface PoseProvider {
+  start(video: HTMLVideoElement, ex: ExerciseDef): void;
+  stop(): void;
+  onFrame(cb: (f: PoseFrame) => void): void;
+  onRepEvent(cb: (e: RepEvent) => void): void;
+  setRange(r: PersonalRange): void;
+}
+
 /**
  * Locally persisted summary of a finished session, powering the progress
  * view (F6) with or without a Supabase login. Effort and showing up only —
