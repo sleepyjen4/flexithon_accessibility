@@ -19,6 +19,10 @@ export const DOWN_THRESHOLD_FRACTION = 0.15;
  * instead of re-deriving the fractions — two independent copies of this
  * formula is exactly how the original `0.85 × maxDeg` bug went unnoticed in
  * one file while being fixed in the other.
+ *
+ * Returns plain floats (no rounding) — callers compare against smoothed
+ * angleDeg values that are themselves fractional, so rounding here would
+ * only lose precision without changing correctness.
  */
 export function computeThresholds(range: PersonalRange): {
   up: number;

@@ -4,7 +4,7 @@ import type {
   PoseProvider,
   RepEvent,
 } from "@/types";
-import { computeThresholds } from "./repCounter";
+import { createRepCounter, type RepCounter } from "./repCounter";
 
 const MIN_ANGLE_DEG = 20;
 const MAX_ANGLE_DEG = 150;
@@ -21,18 +21,10 @@ class MockPoseProvider implements PoseProvider {
   private frameCallbacks: Array<(frame: PoseFrame) => void> = [];
   private repEventCallbacks: Array<(event: RepEvent) => void> = [];
   private timerId: number | null = null;
-  private range: PersonalRange | null = null;
-  private count = 0;
-  private aboveTarget = false;
-  private rangeReachedForCurrentRep = false;
-  private trackingPaused = false;
+  private repCounter: RepCounter | null = null;
 
   start(): void {
     this.stop();
-    this.count = 0;
-    this.aboveTarget = false;
-    this.rangeReachedForCurrentRep = false;
-    this.trackingPaused = false;
 
     const startedAt = performance.now();
 
@@ -50,7 +42,12 @@ class MockPoseProvider implements PoseProvider {
       };
 
       this.emitFrame(frame);
-      this.updateRepState(frame);
+
+      if (this.repCounter) {
+        for (const event of this.repCounter.update(frame)) {
+          this.emitRepEvent(event);
+        }
+      }
     }, FRAME_MS);
   }
 
@@ -70,50 +67,16 @@ class MockPoseProvider implements PoseProvider {
   }
 
   setRange(range: PersonalRange): void {
-    this.range = range;
+    // Delegates entirely to the real hysteresis state machine
+    // (lib/pose/repCounter.ts) instead of re-implementing threshold logic
+    // here, so mock and real counting can never drift apart again —
+    // including the degenerate-range guard (maxDeg <= minDeg never counts).
+    this.repCounter = createRepCounter(range);
   }
 
   private visibilityFor(elapsedMs: number): number {
     const cycle = elapsedMs % 14_000;
     return cycle > 11_800 && cycle < 12_700 ? LOW_VISIBILITY : HIGH_VISIBILITY;
-  }
-
-  private updateRepState(frame: PoseFrame): void {
-    if (!this.range) return;
-
-    if (frame.visibility < 0.6) {
-      if (!this.trackingPaused) {
-        this.trackingPaused = true;
-        this.emitRepEvent({ type: "tracking_paused" });
-      }
-      return;
-    }
-
-    if (this.trackingPaused) {
-      this.trackingPaused = false;
-      this.emitRepEvent({ type: "tracking_resumed" });
-    }
-
-    // Shared with repCounter.ts so mock and real counting can't drift apart
-    // (see computeThresholds' doc comment for why 0.85 × maxDeg breaks
-    // high-minimum ranges).
-    const { up: targetDeg, down: downDeg } = computeThresholds(this.range);
-
-    if (!this.aboveTarget && frame.angleDeg >= targetDeg) {
-      this.aboveTarget = true;
-      if (!this.rangeReachedForCurrentRep) {
-        this.rangeReachedForCurrentRep = true;
-        this.emitRepEvent({ type: "range_reached" });
-      }
-      return;
-    }
-
-    if (this.aboveTarget && frame.angleDeg <= downDeg) {
-      this.aboveTarget = false;
-      this.rangeReachedForCurrentRep = false;
-      this.count += 1;
-      this.emitRepEvent({ type: "rep", count: this.count });
-    }
   }
 
   private emitFrame(frame: PoseFrame): void {

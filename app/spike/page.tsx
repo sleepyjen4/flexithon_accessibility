@@ -153,10 +153,13 @@ export default function SpikePage() {
       }
 
       // T06 live verification: feed every frame to the rep counter; it gates
-      // on visibility >= 0.6 internally (angleDeg is ignored while paused).
+      // on visibility >= 0.6 internally. When smoothedAngleRef is null we
+      // have no real angle, so we send NaN rather than a fabricated number
+      // — NaN never satisfies a threshold comparison, so it can't produce a
+      // phantom event even if the visibility gate's threshold ever changes.
       repCounterRef.current ??= createRepCounter(DEMO_RANGE);
       const events = repCounterRef.current.update({
-        angleDeg: smoothedAngleRef.current ?? 0,
+        angleDeg: smoothedAngleRef.current ?? Number.NaN,
         visibility: minVisibility,
         timestamp: Date.now(),
       });
