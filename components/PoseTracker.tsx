@@ -207,6 +207,7 @@ export function PoseTracker({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const providerRef = useRef<PoseProvider | null>(null);
   const hasLandmarkFeedRef = useRef(false);
+  const peakAngleRef = useRef(0);
   const mountedRef = useRef(false);
 
   const [cameraState, setCameraState] = useState<CameraState>("idle");
@@ -234,11 +235,17 @@ export function PoseTracker({
       if (!mountedRef.current) return;
 
       setAngleDeg(frame.angleDeg);
-      setPeakAngle((currentPeak) => {
-        const nextPeak = Math.max(currentPeak, frame.angleDeg);
+
+      // Track the running peak in a ref so the state update stays a pure value
+      // and the onPeakRom side effect (a parent setState on /exercise) runs
+      // here in the frame callback — never inside a setState updater, which
+      // executes during render and must not update another component.
+      const nextPeak = Math.max(peakAngleRef.current, frame.angleDeg);
+      if (nextPeak > peakAngleRef.current) {
+        peakAngleRef.current = nextPeak;
+        setPeakAngle(nextPeak);
         onPeakRom?.(Math.round(nextPeak));
-        return nextPeak;
-      });
+      }
 
       // Mock provider only: draw the synthetic skeleton from the angle. The
       // real provider draws actual landmarks via the onLandmarks feed instead.
@@ -369,6 +376,7 @@ export function PoseTracker({
       await video.play();
 
       setRepCount(0);
+      peakAngleRef.current = 0;
       setPeakAngle(0);
       setAngleDeg(null);
 
