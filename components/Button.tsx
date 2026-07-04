@@ -15,7 +15,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const base =
-    "inline-flex min-h-12 w-full items-center justify-center rounded-xl px-6 text-lg font-semibold transition-colors disabled:opacity-50";
+    "inline-flex min-h-12 w-full items-center justify-center rounded-xl px-6 text-lg font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-50";
   const variants = {
     primary: "bg-indigo-600 text-white hover:bg-indigo-700",
     secondary:
