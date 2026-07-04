@@ -48,6 +48,7 @@ export interface AccessibilityPrefs {
   high_contrast: boolean;
   reduced_motion: boolean;
   haptics: boolean;
+  speech_enabled: boolean;
 }
 
 export interface Profile {
