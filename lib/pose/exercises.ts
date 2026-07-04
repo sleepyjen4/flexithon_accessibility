@@ -9,8 +9,11 @@ export const POSE_EXERCISES: ExerciseDef[] = [
   {
     id: "seated_arm_raise",
     name: "Seated arm raise",
-    // Left shoulder(11)-elbow(13)-wrist(15): confirmed against the T01/T05 spike.
-    landmarks: [11, 13, 15],
+    // Angle vertex is the MIDDLE index (angles.ts). Elbow(13)-shoulder(11)-hip(23)
+    // measures the angle AT THE SHOULDER, which is what changes as the arm raises.
+    // [11,13,15] (vertex=elbow) was wrong — it measures elbow flexion, ~unchanged
+    // by a straight-arm raise. This matches the calibration branch (425b5a0).
+    landmarks: [13, 11, 23],
     side: "either",
     // TODO(T04): placeholder copy — replace with the approved T04 copy deck
     // (distinct per-exercise instructions + cues, reviewed by C for tone).
