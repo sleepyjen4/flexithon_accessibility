@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { EnergyLevel, SessionSummary } from "@/types";
+import type { EnergyLevel, WorkoutSessionSummary } from "@/types";
 
 interface CheckinSummary {
   energy: EnergyLevel;
@@ -8,9 +8,9 @@ interface CheckinSummary {
 }
 
 interface HistoryState {
-  sessions: SessionSummary[];
+  sessions: WorkoutSessionSummary[];
   checkins: CheckinSummary[];
-  addSession: (session: SessionSummary) => void;
+  addSession: (session: WorkoutSessionSummary) => void;
   addCheckin: (checkin: CheckinSummary) => void;
 }
 
@@ -23,7 +23,11 @@ export const useHistoryStore = create<HistoryState>()(
       sessions: [],
       checkins: [],
       addSession: (session) =>
-        set((state) => ({ sessions: [...state.sessions, session] })),
+        set((state) =>
+          state.sessions.some((existing) => existing.id === session.id)
+            ? state
+            : { sessions: [...state.sessions, session] },
+        ),
       addCheckin: (checkin) =>
         set((state) => ({
           checkins: [
