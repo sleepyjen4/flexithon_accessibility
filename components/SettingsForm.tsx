@@ -68,9 +68,9 @@ export function SettingsForm() {
               <RadioGroup.Item
                 key={size.value}
                 value={size.value}
-                className="flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 text-center text-[13px] font-black leading-none text-ink hover:bg-surface data-[state=checked]:bg-evergreen data-[state=checked]:text-milk sm:text-sm md:text-base"
+                className="flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 text-center text-xs font-black leading-tight text-ink hover:bg-surface data-[state=checked]:bg-evergreen data-[state=checked]:text-milk sm:text-sm md:text-base"
               >
-                <span className="whitespace-nowrap">{size.label}</span>
+                <span>{size.label}</span>
               </RadioGroup.Item>
             ))}
           </RadioGroup.Root>
