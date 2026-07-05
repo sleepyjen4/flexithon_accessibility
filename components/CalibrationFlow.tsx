@@ -29,6 +29,7 @@ import {
   getPoseExerciseById,
   poseExerciseForSide,
 } from "@/lib/pose/exercises";
+import { VISIBILITY_THRESHOLD } from "@/lib/pose/repCounter";
 import { measureActiveSide } from "@/lib/pose/realProvider";
 import { smoothWithEma } from "@/lib/pose/smoothing";
 import { getStaticAudioUrl } from "@/lib/audioManifest";
@@ -48,7 +49,8 @@ const WASM_URL =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
 
 const TARGET_SWEEPS = 3; // three guided movements (T08).
-const MIN_VISIBILITY = 0.6; // pause capture silently below this (matches T06).
+const MIN_VISIBILITY = VISIBILITY_THRESHOLD; // T15: match the tuned workout gate.
+const DETECT_FAILURE_WARN_THRESHOLD = 30;
 
 type Phase = "pick" | "intro" | "capture" | "review";
 type PoseStatus = "loading" | "tracking" | "paused" | "unavailable";
@@ -264,6 +266,7 @@ export function CalibrationFlow({
   const captureRef = useRef(createCalibrationCapture());
   const roundedLiveRef = useRef<number | null>(null);
   const smoothedRef = useRef<number | null>(null);
+  const detectFailuresRef = useRef(0);
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -326,8 +329,31 @@ export function CalibrationFlow({
     const poseLandmarker = poseLandmarkerRef.current;
     if (!video || !canvas || !poseLandmarker) return;
 
+    if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+      animationRef.current = requestAnimationFrame(() =>
+        realFrameRef.current(),
+      );
+      return;
+    }
+
     resizeCanvas();
-    const result = poseLandmarker.detectForVideo(video, performance.now());
+    let result: ReturnType<PoseLandmarker["detectForVideo"]>;
+    try {
+      result = poseLandmarker.detectForVideo(video, performance.now());
+      detectFailuresRef.current = 0;
+    } catch (error) {
+      detectFailuresRef.current += 1;
+      if (detectFailuresRef.current === DETECT_FAILURE_WARN_THRESHOLD) {
+        console.warn(
+          "[pose] calibration detectForVideo has failed repeatedly; retrying camera tracking.",
+          error,
+        );
+      }
+      animationRef.current = requestAnimationFrame(() =>
+        realFrameRef.current(),
+      );
+      return;
+    }
     const landmarks = result.landmarks?.[0];
 
     if (landmarks) {
@@ -336,7 +362,7 @@ export function CalibrationFlow({
       canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    const aspect = video.videoWidth / video.videoHeight;
+    const aspect = video.videoWidth / video.videoHeight || 1;
     const measurement = measureActiveSide(landmarks ?? null, poseDef, aspect);
 
     if (
@@ -467,6 +493,7 @@ export function CalibrationFlow({
     providerRef.current = null;
     poseLandmarkerRef.current?.close();
     poseLandmarkerRef.current = null;
+    detectFailuresRef.current = 0;
     stopStream(videoRef.current);
     setCaptMin(null);
     setCaptMax(null);
