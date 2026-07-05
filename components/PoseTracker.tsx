@@ -232,7 +232,11 @@ export function PoseTracker({
 
   const handleFrame = useCallback(
     (frame: PoseFrame) => {
-      if (!mountedRef.current) return;
+      // Ignore frames while the parent has paused the session. The real
+      // (pausable) provider already stops its loop, but this also makes
+      // `paused` effective for non-pausable providers (e.g. the T03 mock),
+      // so counting/announcements are always suppressed on pause.
+      if (!mountedRef.current || paused) return;
 
       setAngleDeg(frame.angleDeg);
 
@@ -257,7 +261,7 @@ export function PoseTracker({
         }
       }
     },
-    [onPeakRom, resizeCanvas],
+    [onPeakRom, paused, resizeCanvas],
   );
 
   const handleLandmarks = useCallback(
@@ -273,7 +277,9 @@ export function PoseTracker({
 
   const handleRepEvent = useCallback(
     (event: RepEvent) => {
-      if (!mountedRef.current) return;
+      // Suppress rep events while the parent has paused (see handleFrame) so a
+      // non-pausable provider can't keep counting/announcing during a pause.
+      if (!mountedRef.current || paused) return;
       onRepEvent?.(event);
 
       if (event.type === "rep") {
@@ -298,7 +304,7 @@ export function PoseTracker({
 
       setStatusText("Tracking resumed.");
     },
-    [exercise.cues.rangeReached, onRepCount, onRepEvent],
+    [exercise.cues.rangeReached, onRepCount, onRepEvent, paused],
   );
 
   // The provider is long-lived (wired once at start), so it must always invoke
