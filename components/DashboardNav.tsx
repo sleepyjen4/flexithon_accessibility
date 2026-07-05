@@ -24,7 +24,7 @@ export function DashboardNav() {
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <Link
-          href="/welcome"
+          href="/"
           className="hidden items-center gap-2 text-sm font-black uppercase tracking-[0.28em] text-ink lg:inline-flex"
         >
           <Image
