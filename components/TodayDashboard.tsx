@@ -69,7 +69,7 @@ export function TodayDashboard() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:items-start">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:items-stretch">
       <header className="rise-in space-y-2 lg:col-span-2">
         <p className="text-xs font-bold uppercase tracking-[0.32em] text-raspberry">
           Adaptive Fitness
@@ -86,9 +86,9 @@ export function TodayDashboard() {
 
       <section
         aria-labelledby="today-energy-title"
-        className="rise-in rise-in-2 rounded-3xl border border-line bg-surface p-6 shadow-card lg:p-8"
+        className="rise-in rise-in-2 flex flex-col rounded-3xl border border-line bg-surface p-6 shadow-card lg:p-8"
       >
-        <div className="space-y-5">
+        <div className="flex flex-1 flex-col space-y-5">
           <div className="space-y-4">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
               Daily check-in
@@ -166,9 +166,9 @@ export function TodayDashboard() {
 
       <section
         aria-labelledby="movement-session-title"
-        className="rise-in rise-in-3 rounded-3xl border border-line bg-surface p-6 shadow-card lg:p-8"
+        className="rise-in rise-in-3 flex flex-col rounded-3xl border border-line bg-surface p-6 shadow-card lg:p-8"
       >
-        <div className="space-y-4">
+        <div className="flex flex-1 flex-col justify-between space-y-4">
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-evergreen">
               Hands-free counting
