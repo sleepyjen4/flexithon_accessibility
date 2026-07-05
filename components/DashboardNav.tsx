@@ -30,7 +30,7 @@ export function DashboardNav() {
             aria-hidden="true"
             className="h-3 w-3 rounded-full bg-raspberry"
           />
-          Alpha
+          Alfa
         </Link>
         <ul className="grid list-none grid-cols-3 p-0 lg:flex lg:gap-2">
           {NAV_ITEMS.map((item) => {
