@@ -308,10 +308,14 @@ export function ExerciseStep({
           </div>
         </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-md flex-col gap-5">
-          {demo}
-          <Card>{timer}</Card>
-          {actions}
+        // No camera to balance a second column, so demo and timer sit
+        // side by side instead of stacking into one tall, narrow strip.
+        <div className="flex flex-1 flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-8">
+          <div className="flex flex-col gap-5">{demo}</div>
+          <div className="flex flex-col gap-5">
+            <Card>{timer}</Card>
+            {actions}
+          </div>
         </div>
       )}
     </div>
