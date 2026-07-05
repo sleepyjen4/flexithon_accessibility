@@ -62,7 +62,7 @@ export function TodayDashboard() {
         recentSessionIds: [],
       });
       setWorkout(nextWorkout);
-      router.push("/exercise");
+      router.push("/workout");
     } catch {
       setStatus("error");
     }
@@ -110,9 +110,8 @@ export function TodayDashboard() {
                     aria-pressed={energy === level}
                     aria-label={`${level}: ${ENERGY_LABELS[level]}`}
                     onClick={() => setEnergy(level)}
-                    className={`h-14 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
-                      level <= energy ? "bg-[#41637f]" : "bg-slate-200"
-                    } ${energy === level ? "ring-2 ring-slate-950 ring-offset-2" : ""}`}
+                    className={`h-14 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${level <= energy ? "bg-[#41637f]" : "bg-slate-200"
+                      } ${energy === level ? "ring-2 ring-slate-950 ring-offset-2" : ""}`}
                   />
                 ))}
               </div>
