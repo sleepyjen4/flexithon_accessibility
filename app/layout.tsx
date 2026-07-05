@@ -1,20 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import { Providers } from "@/components/Providers";
+import { DashboardNav } from "@/components/DashboardNav";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Display face for headings + body face for everything else. Both are variable
+// fonts, so text-size settings (F7) rescale cleanly without synthetic weights.
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const figtree = Figtree({
+  variable: "--font-figtree",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Adaptive Fitness",
+  title: "Alpha",
   description:
     "A fitness app that adapts to your body and your energy today.",
   manifest: "/manifest.webmanifest",
@@ -23,7 +26,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#4F46E5",
+  themeColor: "#F6EDDC",
 };
 
 export default function RootLayout({
@@ -34,14 +37,23 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${bricolage.variable} ${figtree.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-white text-slate-900">
+      <body className="min-h-full flex flex-col bg-cream font-sans text-ink">
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
         <Providers>
-          <main id="main-content" className="flex flex-1 flex-col">
+          {/* Primary nav on every page: sticky top bar on desktop, fixed
+           * bottom bar on mobile. On mobile the bottom padding clears that
+           * fixed bar at every text size (F7 scales it, so rem-based) plus the
+           * phone home-indicator safe area; on desktop the nav is at the top,
+           * so this is just breathing room below the last content. */}
+          <DashboardNav />
+          <main
+            id="main-content"
+            className="flex flex-1 flex-col pb-[calc(env(safe-area-inset-bottom)+8rem)] lg:pb-12"
+          >
             {children}
           </main>
         </Providers>

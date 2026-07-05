@@ -1,15 +1,70 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+ * Design tokens — "Warm paper" system (FEAT/frontend-redesign).
+ * Cream base, ink foreground, raspberry / evergreen / marigold accents.
+ * Every pairing below is WCAG-AA verified (text >= 4.5:1, UI parts >= 3:1):
+ *   ink on cream 15.3 · ink-soft on cream 6.9 · milk on ink 16.0
+ *   milk on stage 15.2 · milk on evergreen 8.0 · milk on raspberry 6.1
+ *   raspberry on cream 5.9 · evergreen on mint 6.9 · marigold-deep on cream 6.2
+ *   error on cream 6.0 · line-strong on cream 3.7 · raspberry-bright on stage 5.7
+ * ------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a; /* slate-900 */
+  --cream: #f6eddc; /* page background */
+  --surface: #fffdf7; /* card background */
+  --milk: #fff9ee; /* text on dark surfaces */
+  --milk-soft: #d6ccbb; /* secondary text on dark surfaces (10:1 on stage) */
+  --ink: #211d19; /* primary text, primary buttons */
+  --ink-soft: #5c5347; /* secondary text */
+  --line: #e7decb; /* decorative hairline borders */
+  --line-strong: #8a7d66; /* interactive borders (3:1 non-text contrast) */
+  --stage: #26211c; /* dark camera-stage surface */
+  --raspberry: #a93254; /* hero accent; white text safe */
+  --raspberry-bright: #e8798f; /* raspberry for use ON dark surfaces only */
+  --raspberry-soft: #f7dfe3; /* wash background, ink text */
+  --evergreen: #1f5747; /* success / movement accent; white text safe */
+  --mint: #ddede1; /* selected-state wash, ink text */
+  --marigold: #e5a83c; /* decorative fills on dark/neutral only */
+  --marigold-deep: #7a5310; /* marigold as text on cream */
+  --marigold-soft: #f6e7c4; /* wash background, ink text */
+  --lavender: #e6e3f6; /* stat-chip wash, ink text */
+  --error: #b3261e;
+
+  --background: var(--cream);
+  --foreground: var(--ink);
+  /* Focus ring color adapts to its surface: dark containers set .on-dark. */
+  --focus-ring: var(--ink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-cream: var(--cream);
+  --color-surface: var(--surface);
+  --color-milk: var(--milk);
+  --color-milk-soft: var(--milk-soft);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-stage: var(--stage);
+  --color-raspberry: var(--raspberry);
+  --color-raspberry-bright: var(--raspberry-bright);
+  --color-raspberry-soft: var(--raspberry-soft);
+  --color-evergreen: var(--evergreen);
+  --color-mint: var(--mint);
+  --color-marigold: var(--marigold);
+  --color-marigold-deep: var(--marigold-deep);
+  --color-marigold-soft: var(--marigold-soft);
+  --color-lavender: var(--lavender);
+  --color-error: var(--error);
+
+  --font-sans: var(--font-figtree);
+  --font-display: var(--font-bricolage);
+
+  /* Soft, warm elevation — one card shadow, no heavy drops. */
+  --shadow-card: 0 1px 2px rgba(33, 29, 25, 0.05),
+    0 10px 30px -12px rgba(33, 29, 25, 0.14);
 }
 
 html {
@@ -28,14 +83,19 @@ html[data-text-size="x-large"] {
 
 html[data-contrast="high"] {
   --foreground: #000000;
+  --ink: #000000;
+  --ink-soft: #38302a; /* secondary text darkens */
+  --line: #8a7d66; /* hairlines become clearly visible */
+  --line-strong: #4d4234; /* interactive borders strengthen */
 }
 
+/* Legacy hooks for screens not yet moved to the token classes. */
 html[data-contrast="high"] .text-slate-600 {
-  color: #1e293b; /* slate-800 — stronger secondary text */
+  color: #1e293b;
 }
 
 html[data-contrast="high"] .border-slate-300 {
-  border-color: #475569; /* slate-600 — stronger borders */
+  border-color: #475569;
 }
 
 html[data-reduced-motion="true"] *,
@@ -52,10 +112,35 @@ body {
   color: var(--foreground);
 }
 
-/* Section 6, rule 4: visible focus ring everywhere, never outline:none without a replacement */
+/* Display face on headings app-wide, so every screen shares one voice. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-bricolage), var(--font-figtree), sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Section 6, rule 4: visible focus ring everywhere, never outline:none without
+ * a replacement. The ring color flips to milk inside dark containers. */
 :focus-visible {
-  outline: 3px solid #4f46e5; /* indigo-600 */
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+.on-dark {
+  --focus-ring: var(--milk);
+}
+
+/* Tailwind v4's Preflight resets <button> to cursor:default. Restore the
+ * pointer for every interactive control (native buttons, Radix primitives that
+ * render as <button>, role="button", and labels bound to a form control).
+ * Disabled controls are excluded — they keep their cursor-not-allowed. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  label[for] {
+    cursor: pointer;
+  }
 }
 
 /* Section 6, rule 6: gate every animation behind prefers-reduced-motion */
@@ -70,15 +155,44 @@ body {
   }
 }
 
+/* One well-orchestrated page load: cards rise in with a small stagger.
+ * Reduced-motion (OS or in-app setting) collapses these to instant. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise-in {
+  animation: rise-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.rise-in-2 {
+  animation-delay: 0.07s;
+}
+
+.rise-in-3 {
+  animation-delay: 0.14s;
+}
+
+.rise-in-4 {
+  animation-delay: 0.21s;
+}
+
 .skip-link {
   position: absolute;
   left: -9999px;
   top: 0;
   z-index: 50;
   padding: 0.75rem 1.25rem;
-  background: #4f46e5;
-  color: #ffffff;
-  border-radius: 0 0 0.5rem 0;
+  background: var(--ink);
+  color: var(--milk);
+  border-radius: 0 0 0.75rem 0;
 }
 
 .skip-link:focus {

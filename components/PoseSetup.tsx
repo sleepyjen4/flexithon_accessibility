@@ -17,22 +17,33 @@ interface PoseSetupProps {
   disabled?: boolean;
 }
 
-const SIDE_OPTIONS: { value: TrackedSide; label: string; hint: string }[] = [
-  { value: "left", label: "My left side", hint: "Track my left arm" },
-  { value: "either", label: "Either side", hint: "Whichever is easier" },
-  { value: "right", label: "My right side", hint: "Track my right arm" },
+const SIDE_OPTIONS: { value: TrackedSide; label: string }[] = [
+  { value: "left", label: "Left" },
+  { value: "either", label: "Either" },
+  { value: "right", label: "Right" },
 ];
 
 const cardClass =
-  "flex min-h-12 flex-1 items-center justify-between gap-3 rounded-xl border-2 border-slate-300 bg-white px-4 py-2 text-left transition-colors hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-50";
+  "group flex min-h-12 flex-1 items-center justify-between gap-3 rounded-2xl border-2 border-line-strong bg-surface px-4 py-2 text-left transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-evergreen data-[state=checked]:bg-mint";
+
+// Compact variant for the three short side options laid out in one row.
+const sideCardClass =
+  "group flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-line-strong bg-surface px-2 py-2 transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-evergreen data-[state=checked]:bg-mint";
 
 /** A checkmark that appears only for the chosen option, so selection is shown
- * by an icon and not by color alone (AGENTS.md §6, rule 5). */
+ * by an icon and not by color alone (AGENTS.md §6, rule 5). The unchosen
+ * options show an empty ring in the same spot, so the layout never shifts. */
 function SelectedMark() {
   return (
-    <RadioGroup.Indicator className="shrink-0">
-      <Check aria-hidden="true" className="h-5 w-5 text-indigo-700" />
-    </RadioGroup.Indicator>
+    <>
+      <span
+        aria-hidden="true"
+        className="h-6 w-6 shrink-0 rounded-full border-2 border-line-strong group-data-[state=checked]:hidden"
+      />
+      <RadioGroup.Indicator className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink text-milk">
+        <Check aria-hidden="true" className="h-4 w-4" />
+      </RadioGroup.Indicator>
+    </>
   );
 }
 
@@ -51,16 +62,16 @@ export function PoseSetup({
   disabled = false,
 }: PoseSetupProps) {
   return (
-    <section className="flex flex-col gap-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+    <section className="flex flex-col gap-5 rounded-3xl border border-line bg-surface p-5 shadow-card">
       <fieldset className="flex flex-col gap-3 border-0 p-0">
-        <legend className="text-lg font-semibold text-slate-900">
+        <legend className="font-display text-lg font-bold text-ink">
           Which movement?
         </legend>
         <RadioGroup.Root
           value={exerciseId}
           onValueChange={(next) => onExerciseChange(next as PoseExerciseId)}
           aria-label="Which movement to track"
-          className="flex flex-col gap-3 sm:flex-row"
+          className="flex flex-col gap-3 min-[420px]:flex-row lg:flex-col min-[1200px]:flex-row"
           disabled={disabled}
         >
           {POSE_EXERCISES.map((exercise) => (
@@ -69,7 +80,7 @@ export function PoseSetup({
               value={exercise.id}
               className={cardClass}
             >
-              <span className="text-lg font-semibold text-slate-900">
+              <span className="text-lg font-semibold text-ink">
                 {exercise.name}
               </span>
               <SelectedMark />
@@ -79,29 +90,26 @@ export function PoseSetup({
       </fieldset>
 
       <fieldset className="flex flex-col gap-3 border-0 p-0">
-        <legend className="text-lg font-semibold text-slate-900">
+        <legend className="font-display text-lg font-bold text-ink">
           Which side are you moving?
         </legend>
         <RadioGroup.Root
           value={side}
           onValueChange={(next) => onSideChange(next as TrackedSide)}
           aria-label="Which side of your body to track"
-          className="flex flex-col gap-3 sm:flex-row"
+          className="grid grid-cols-3 gap-2 sm:gap-3"
           disabled={disabled}
         >
           {SIDE_OPTIONS.map((option) => (
             <RadioGroup.Item
               key={option.value}
               value={option.value}
-              className={cardClass}
+              className={sideCardClass}
             >
-              <span className="flex flex-col">
-                <span className="text-lg font-semibold text-slate-900">
-                  {option.label}
-                </span>
-                <span className="text-base text-slate-600">{option.hint}</span>
-              </span>
               <SelectedMark />
+              <span className="text-lg font-semibold text-ink">
+                {option.label}
+              </span>
             </RadioGroup.Item>
           ))}
         </RadioGroup.Root>

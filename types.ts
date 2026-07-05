@@ -263,6 +263,27 @@ export interface SpeakOptions {
   interrupt?: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Voice control (T17/W1 — F8)
+// ---------------------------------------------------------------------------
+
+/**
+ * The hands-free command grammar (T17/W1, F8). Spoken synonyms per command
+ * live in `lib/voice.ts` (VOICE_COMMAND_PHRASES); screens receive only these
+ * canonical commands and decide what each one does in their context.
+ */
+export type VoiceCommand =
+  | "start"
+  | "pause"
+  | "resume"
+  | "next"
+  | "skip"
+  | "finish"
+  | "extend"
+  | "repeat"
+  | "mute"
+  | "unmute";
+
 /**
  * Section 0 contract: summary of one completed tracking session, consumed by
  * the /summary screen (T12). Distinct from WorkoutSessionSummary below.

@@ -2,12 +2,17 @@ import type { ButtonHTMLAttributes } from "react";
 import { Slot } from "@radix-ui/react-slot";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" | "accent" | "success";
   /** Render styles onto the child element (e.g. a Link) instead of a <button>,
    * so we never nest interactive elements. */
   asChild?: boolean;
 };
 
+/** Pill buttons, four intents: ink for the main path, outlined for everything
+ * that must stay a visible-but-quieter choice (skip is never hidden), raspberry
+ * for a single celebratory CTA per screen at most, and evergreen for a
+ * "move on / go" action. Focus ring comes from the global :focus-visible rule
+ * so it adapts on dark surfaces. */
 export function Button({
   variant = "primary",
   asChild = false,
@@ -15,11 +20,12 @@ export function Button({
   ...props
 }: ButtonProps) {
   const base =
-    "inline-flex min-h-12 w-full items-center justify-center rounded-xl px-6 text-lg font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-50";
+    "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full px-6 text-lg font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
   const variants = {
-    primary: "bg-indigo-600 text-white hover:bg-indigo-700",
-    secondary:
-      "border border-slate-300 bg-slate-50 text-slate-900 hover:bg-slate-100",
+    primary: "bg-ink text-milk hover:bg-[#3a332b]",
+    secondary: "border-2 border-ink bg-surface text-ink hover:bg-mint",
+    accent: "bg-raspberry text-milk hover:bg-[#8f2a47]",
+    success: "bg-evergreen text-milk hover:bg-[#173f33]",
   };
   const Component = asChild ? Slot : "button";
 

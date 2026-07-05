@@ -1,5 +1,17 @@
 import type { AccessibilityPrefs } from "@/types";
 import { createClient } from "@/lib/supabase/client";
+import { useProfileStore } from "@/store/profile";
+
+/** Turns spoken instructions on/off from code (the "mute"/"unmute" voice
+ * commands) — same store update + Supabase mirror as the SpeechToggle button,
+ * so the corner toggle's icon follows along. */
+export function setSpeechEnabled(enabled: boolean): void {
+  const { prefs, setPrefs } = useProfileStore.getState();
+  if (prefs.speech_enabled !== false === enabled) return;
+  const next = { ...prefs, speech_enabled: enabled };
+  setPrefs(next);
+  void savePrefsToSupabase(next);
+}
 
 /** Best-effort mirror of accessibility prefs to the Supabase profile (F7).
  * Local persistence is the source of truth; this only runs when signed in. */

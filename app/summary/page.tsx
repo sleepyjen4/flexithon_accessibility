@@ -90,10 +90,12 @@ export default function SummaryPage() {
 
   if (!summary) {
     return (
-      <div className="flex min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
+      <div className="flex min-h-screen bg-cream px-4 py-6 text-ink">
         <div className="mx-auto flex w-full max-w-md flex-col gap-6">
-          <h1 className="text-3xl font-bold">No summary yet</h1>
-          <p className="text-lg text-slate-600">
+          <h1 className="font-display text-3xl font-extrabold">
+            No summary yet
+          </h1>
+          <p className="text-lg text-ink-soft">
             Finish an exercise to see your reps and safe movement stats for
             today.
           </p>
@@ -151,134 +153,164 @@ export default function SummaryPage() {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
+    <div className="flex min-h-screen bg-cream px-4 py-6 text-ink sm:px-6 lg:py-8">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <header className="space-y-2">
-          <p
-            className="text-base font-medium text-emerald-700"
+        <header className="rise-in space-y-2">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
+            Session summary
+          </p>
+          <h1
             aria-live="polite"
+            className="font-display text-3xl font-extrabold sm:text-4xl"
           >
             {celebrationLine}
-          </p>
-          <h1 className="text-3xl font-bold">Session summary</h1>
-          <p className="text-lg text-slate-600">
+          </h1>
+          <p className="text-lg text-ink-soft">
             {exercise?.name ?? "Exercise"} · {repsInTargetRange} target reps ·{" "}
             {durationLabel}
           </p>
         </header>
 
         <section
-          className="grid gap-4 sm:grid-cols-2"
+          className="rise-in rise-in-2 grid gap-4 sm:grid-cols-2"
           aria-label="Safe movement summary"
         >
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center gap-3 text-slate-600">
-              <RotateCcw aria-hidden="true" className="h-6 w-6" />
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="rounded-3xl border border-line bg-surface p-5 shadow-card sm:col-span-2">
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-mint text-evergreen"
+              >
+                <RotateCcw className="h-6 w-6" />
+              </span>
+              <h2 className="font-display text-lg font-bold text-ink">
                 Target-range reps
               </h2>
             </div>
-            <p className="mt-3 text-5xl font-bold text-slate-900">
+            <p className="mt-3 font-display text-6xl font-extrabold tabular-nums text-ink">
               {repsInTargetRange}
             </p>
-            <p className="mt-2 text-base text-slate-600">
+            <p className="mt-2 text-base text-ink-soft">
               Counted inside your calibrated range.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center gap-3 text-slate-600">
-              <Gauge aria-hidden="true" className="h-6 w-6" />
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="rounded-3xl border border-line bg-surface p-5 shadow-card">
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-lavender text-[#4f4a78]"
+              >
+                <Gauge className="h-6 w-6" />
+              </span>
+              <h2 className="font-display text-lg font-bold text-ink">
                 Movement consistency
               </h2>
             </div>
-            <p className="mt-3 text-3xl font-bold text-slate-900">
+            <p className="mt-3 text-3xl font-bold tabular-nums text-ink">
               {getStatLabel(consistencyPercent, "%")}
             </p>
-            <p className="mt-2 text-base text-slate-600">
+            <p className="mt-2 text-base text-ink-soft">
               Based on how similar counted reps were.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center gap-3 text-slate-600">
-              <Clock aria-hidden="true" className="h-6 w-6" />
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="rounded-3xl border border-line bg-surface p-5 shadow-card">
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-marigold-soft text-marigold-deep"
+              >
+                <Clock className="h-6 w-6" />
+              </span>
+              <h2 className="font-display text-lg font-bold text-ink">
                 Average rep pace
               </h2>
             </div>
-            <p className="mt-3 text-3xl font-bold text-slate-900">
+            <p className="mt-3 text-3xl font-bold tabular-nums text-ink">
               {getPaceLabel(averageRepSeconds)}
             </p>
-            <p className="mt-2 text-base text-slate-600">
+            <p className="mt-2 text-base text-ink-soft">
               A steadier pace can support controlled movement.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center gap-3 text-slate-600">
-              <Activity aria-hidden="true" className="h-6 w-6" />
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="rounded-3xl border border-line bg-surface p-5 shadow-card">
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-mint text-evergreen"
+              >
+                <Activity className="h-6 w-6" />
+              </span>
+              <h2 className="font-display text-lg font-bold text-ink">
                 Active tracking time
               </h2>
             </div>
-            <p className="mt-3 text-3xl font-bold text-slate-900">
+            <p className="mt-3 text-3xl font-bold tabular-nums text-ink">
               {activeTimeLabel}
             </p>
-            <p className="mt-2 text-base text-slate-600">
+            <p className="mt-2 text-base text-ink-soft">
               Time the camera could follow the movement.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <div className="flex items-center gap-3 text-slate-600">
-              <Clock aria-hidden="true" className="h-6 w-6" />
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="rounded-3xl border border-line bg-surface p-5 shadow-card">
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-raspberry-soft text-raspberry"
+              >
+                <Clock className="h-6 w-6" />
+              </span>
+              <h2 className="font-display text-lg font-bold text-ink">
                 Rest time
               </h2>
             </div>
-            <p className="mt-3 text-3xl font-bold text-slate-900">
+            <p className="mt-3 text-3xl font-bold tabular-nums text-ink">
               {restTimeLabel}
             </p>
-            <p className="mt-2 text-base text-slate-600">
-              Time between reps, pauses, and resets count as part of a safe session.
+            <p className="mt-2 text-base text-ink-soft">
+              Time between reps, pauses, and resets count as part of a safe
+              session.
             </p>
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-xl font-bold text-slate-900">
+        <section className="rise-in rise-in-3 rounded-3xl border border-line bg-surface p-5 shadow-card">
+          <h2 className="font-display text-xl font-bold text-ink">
             Comfortable range context
           </h2>
-          <p className="mt-2 text-base text-slate-600">
+          <p className="mt-2 text-base text-ink-soft">
             Your calibrated range is {summary.personalRange.minDeg}°–
             {summary.personalRange.maxDeg}°. The tracked high point was{" "}
             {summary.peakAngleToday}°, shown for context rather than as a score.
           </p>
-          <p className="mt-2 text-base text-slate-600">{rangeInsight}</p>
+          <p className="mt-2 text-base text-ink-soft">{rangeInsight}</p>
 
           <div className="mt-6" aria-hidden="true">
-            <div className="relative h-6 rounded-full bg-slate-100">
+            <div className="relative h-6 rounded-full bg-cream">
               <div
-                className="absolute inset-y-0 left-0 rounded-full bg-indigo-600"
+                className="absolute inset-y-0 left-0 rounded-full bg-raspberry"
                 style={{ width: peakMarker }}
               />
               <div
-                className="absolute top-1/2 h-12 w-1 -translate-y-1/2 rounded-full bg-slate-900"
+                className="absolute top-1/2 h-12 w-1 -translate-y-1/2 rounded-full bg-ink"
                 style={{ left: peakMarker }}
               />
             </div>
-            <div className="mt-3 flex justify-between text-sm font-medium text-slate-600">
+            <div className="mt-3 flex justify-between text-sm font-medium text-ink-soft">
               <span>{summary.personalRange.minDeg}°</span>
               <span>{summary.personalRange.maxDeg}°</span>
             </div>
           </div>
         </section>
 
-        <section className="rounded-2xl bg-emerald-50 p-5 shadow-sm ring-1 ring-emerald-100">
-          <h2 className="text-xl font-bold text-slate-900">Next step</h2>
-          <p className="mt-2 text-lg text-slate-900">{nextStepLine}</p>
+        <section className="rise-in rise-in-4 rounded-3xl bg-mint p-5">
+          <h2 className="font-display text-xl font-bold text-evergreen">
+            Next step
+          </h2>
+          <p className="mt-2 text-lg text-ink">{nextStepLine}</p>
         </section>
 
         <div className="mt-auto flex flex-col gap-3 pt-2 sm:flex-row">
