@@ -178,9 +178,13 @@ function ProgressCards({
   return (
     <>
       <Card className="shadow-[0_18px_38px_rgba(15,23,42,0.08)]">
-        <div className="mb-5 grid grid-cols-2 rounded-xl bg-slate-100 p-1 text-center text-sm font-black text-slate-900">
-          <span className="whitespace-nowrap rounded-lg bg-[#41637f] px-3 py-3 text-white">This week</span>
-          <span className="whitespace-nowrap px-3 py-3">This month</span>
+        <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 text-center text-[13px] font-black leading-none text-slate-900 sm:text-sm md:text-base">
+          <span className="flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-[#41637f] px-2 text-white">
+            <span className="whitespace-nowrap">This week</span>
+          </span>
+          <span className="flex min-h-12 min-w-0 items-center justify-center px-2">
+            <span className="whitespace-nowrap">This month</span>
+          </span>
         </div>
         <p className="text-base text-slate-800">
           You moved on <strong>{displayDays} days</strong> · <strong>{displayMinutes} min</strong> · mostly

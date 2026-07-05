@@ -62,15 +62,15 @@ export function SettingsForm() {
               update({ ...prefs, text_size: value as AccessibilityPrefs["text_size"] })
             }
             aria-labelledby="text-size-label"
-            className="grid grid-cols-3 rounded-xl bg-slate-100 p-1"
+            className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1"
           >
             {TEXT_SIZES.map((size) => (
               <RadioGroup.Item
                 key={size.value}
                 value={size.value}
-                className="min-h-12 rounded-lg px-3 text-center text-base font-black text-slate-900 hover:bg-white/70 data-[state=checked]:bg-[#41637f] data-[state=checked]:text-white"
+                className="flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 text-center text-[13px] font-black leading-none text-slate-900 hover:bg-white/70 data-[state=checked]:bg-[#41637f] data-[state=checked]:text-white sm:text-sm md:text-base"
               >
-                {size.label}
+                <span className="whitespace-nowrap">{size.label}</span>
               </RadioGroup.Item>
             ))}
           </RadioGroup.Root>

@@ -14,7 +14,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-svh bg-slate-50 text-slate-950">
       <DashboardNav />
-      <div className="mx-auto w-full max-w-6xl px-5 pb-28 pt-8 sm:px-8 lg:px-10 lg:pb-12 lg:pt-10">
+      <div className="mx-auto w-full max-w-6xl px-5 pb-16 pt-8 sm:px-8 lg:px-10 lg:pb-12 lg:pt-10">
         {children}
       </div>
     </div>
@@ -27,7 +27,7 @@ function DashboardNav() {
   return (
     <nav
       aria-label="Dashboard"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white px-5 pb-5 pt-3 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] lg:static lg:border-b lg:border-t-0 lg:px-10 lg:py-4 lg:shadow-sm"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white px-3 py-1 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] lg:static lg:border-b lg:border-t-0 lg:px-10 lg:py-4 lg:shadow-sm"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <Link
@@ -47,7 +47,7 @@ function DashboardNav() {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-3 text-sm font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 lg:min-h-12 lg:flex-row lg:px-4 ${
+                className={`flex min-h-12 flex-col items-center justify-center rounded-md px-2 text-[0.68rem] font-bold leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 lg:min-h-12 lg:flex-row lg:gap-1 lg:rounded-xl lg:px-4 lg:text-sm ${
                   active
                     ? "bg-slate-100 text-slate-900"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
@@ -55,7 +55,7 @@ function DashboardNav() {
               >
                 <Icon
                   aria-hidden="true"
-                  className={`h-6 w-6 ${active ? "text-[#41637f]" : "text-slate-400"}`}
+                  className={`mb-0.5 h-[1.125rem] w-[1.125rem] lg:mb-0 lg:h-6 lg:w-6 ${active ? "text-[#41637f]" : "text-slate-400"}`}
                   strokeWidth={active ? 3 : 2.5}
                 />
                 <span>{item.label}</span>
