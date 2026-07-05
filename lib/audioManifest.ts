@@ -53,6 +53,8 @@ export const EXERCISE_AUDIO: Record<string, string> = {
  */
 export const STATIC_AUDIO: Partial<Record<StaticClipId, string>> = {
   "rest": "/audio/rest.wav",
+  "calibrate_seated_arm_raise": "/audio/calibrate_seated_arm_raise.wav",
+  "calibrate_seated_bicep_curl": "/audio/calibrate_seated_bicep_curl.wav",
 };
 
 /** The instruction-audio URL for an exercise, or null to use Web Speech.

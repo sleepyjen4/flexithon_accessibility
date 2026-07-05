@@ -137,6 +137,26 @@ instructions/cues from T04 copy. Set up axe DevTools; post the §7 checklist as 
 template.
 **AC:** both `ExerciseDef`s type-check; A confirms landmark indices against live spike.
 
+### T22 · C+D · Exercise library: filtered to the person · **M (3h)** · needs T10
+Enrich the seeded exercise library so it can be filtered and explained as "matched to
+you," not merely listed. Extend shared exercise metadata with `category`,
+`tracking_modes`, and `metric_logged` while preserving existing position/equipment/body
+region/intensity fields. Normalize tracking modes to `camera_manual`, `timer`, and
+`manual`; camera-enabled exercises must always keep manual completion available. Seed
+or update exercises from the reference table: seated/standing/lying options, wheelchair
+and mobility-aid entries, timer-based routines, manual-only entries, and pool-access
+examples where they fit app scope. Update workout filtering so generated workouts only
+receive exercises compatible with the profile's positions/equipment and excluded
+regions, and keep all labels practical, accessible, and free of form-correction or
+judgment language.
+**AC:** `types.ts` has strict unions/types for category, tracking modes, and metrics
+with no `any`; `lib/exercises.ts` includes the reference-table exercises or equivalent
+seeded entries; filter helpers return only exercises compatible with selected
+positions/equipment and avoided regions; the library includes at least one seated
+camera/manual exercise, one timer exercise, and one manual-only exercise; the AI route
+prompt receives only filtered exercises and includes tracking/metric metadata; unit
+tests cover profile filtering and tracking-mode metadata.
+
 ---
 
 ## SUNDAY AM — integration day

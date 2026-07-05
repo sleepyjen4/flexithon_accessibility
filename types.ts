@@ -177,7 +177,10 @@ export type RepEvent =
   | { type: "tracking_resumed" };
 
 export interface ExerciseDef {
-  id: "seated_arm_raise" | "seated_torso_twist";
+  // Camera-tracked movements (F9). The torso twist was dropped in favour of the
+  // bicep curl: axial rotation is invisible to a single 2D camera as a joint
+  // angle, whereas elbow flexion gives a clean, single-limb, mirror-able signal.
+  id: "seated_arm_raise" | "seated_bicep_curl";
   name: string;
   landmarks: [number, number, number];
   side: "left" | "right" | "either";
