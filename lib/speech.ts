@@ -175,9 +175,10 @@ if (
     const speechSynthesis = getSpeechSynthesis();
     if (!speechSynthesis) return;
     try {
-      // A silent, empty utterance satisfies the gesture requirement without
-      // making noise; the immediate cancel keeps it from queueing.
-      const primer = new SpeechSynthesisUtterance("");
+      // A single-space (not empty) utterance at volume 0 primes speech silently
+      // — some engines ignore empty text, which would leave speech locked on
+      // Safari; the immediate cancel keeps it from queueing.
+      const primer = new SpeechSynthesisUtterance(" ");
       primer.volume = 0;
       speechSynthesis.speak(primer);
       speechSynthesis.cancel();
