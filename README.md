@@ -21,3 +21,7 @@ Next.js 15 (App Router) + TypeScript, Tailwind CSS, Radix UI, Supabase, Anthropi
 ## Database
 
 Apply `supabase/migrations/0001_init.sql` to a Supabase project to create the `profiles`, `exercises`, `checkins`, and `sessions` tables.
+
+## Accessibility QA
+
+Install the [axe DevTools](https://www.deque.com/axe/devtools/) browser extension and run it against every screen a PR touches before merging to `main` — zero new violations is the bar (AGENTS.md § 1.6 / § 6). This is a manual, per-PR check; see `.github/PULL_REQUEST_TEMPLATE.md` for the full self-check checklist.

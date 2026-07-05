@@ -5,7 +5,12 @@ import {
   type Exercise,
   type Workout,
 } from "@/types";
-import { EXERCISES, filterExercisesForAbilities, stepCountForEnergy } from "@/lib/exercises";
+import {
+  EXERCISES,
+  filterExercisesForAbilities,
+  pickExercisesForEnergy,
+  stepCountForEnergy,
+} from "@/lib/exercises";
 
 interface GenerateWorkoutArgs {
   abilities: Abilities;
@@ -58,12 +63,9 @@ export function buildFallbackWorkout({
   abilities: Abilities;
   energy: EnergyLevel;
 }): Workout {
-  const candidates = filterExercisesForAbilities(abilities, EXERCISES).sort(
-    (a, b) => a.intensity - b.intensity,
-  );
-
+  const candidates = filterExercisesForAbilities(abilities, EXERCISES);
   const stepCount = stepCountForEnergy(energy);
-  const chosen: Exercise[] = candidates.slice(0, stepCount);
+  const chosen: Exercise[] = pickExercisesForEnergy(candidates, stepCount);
 
   const durationSeconds = energy <= 2 ? 30 : 45;
   const restSeconds = energy <= 2 ? 60 : 30;

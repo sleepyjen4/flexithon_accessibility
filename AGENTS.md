@@ -66,7 +66,8 @@ Disabled users face two failures:
 | Styling | **Tailwind CSS** | Speed; consistent spacing/contrast tokens |
 | Components | **Radix UI primitives** (+ lucide-react icons) | Accessible by default: focus, ARIA, keyboard nav |
 | Backend | **Supabase** (auth, Postgres, storage) via `@supabase/ssr` | Zero backend code; magic-link auth |
-| AI | **Anthropic API** (claude-sonnet) via a **Next.js Route Handler** (`app/api/generate-workout`) | Key stays server-side; no separate edge functions needed |
+| AI | **Gemini API** (`@google/genai`, gemini-2.5-flash) via a **Next.js Route Handler** (`app/api/generate-workout`) | Key stays server-side; no separate edge functions needed |
+| Voice (TTS) | **Google AI Studio (Gemini API)** (pre-generated at build time → `audio_url`) + **Web Speech API** runtime fallback | Warm, consistent female voice across devices; clips are static files, so no runtime dependency, cost, or privacy leak |
 | Motion tracking | **@mediapipe/tasks-vision** (PoseLandmarker) — client-side only | All video stays on-device (privacy); no backend, no upload |
 | State | **Zustand** (client) + Supabase queries | No Redux. Keep it tiny |
 | Deploy | **Vercel** | Push-to-deploy from main |
@@ -106,7 +107,7 @@ supabase/migrations/
 
 **Server/client rules:** components are Server Components by default; add
 `"use client"` only where there's interactivity (the player, pickers, forms).
-Never import `lib/supabase/server.ts` or the Anthropic SDK into a client component.
+Never import `lib/supabase/server.ts` or the Gemini SDK into a client component.
 
 ---
 
@@ -200,6 +201,34 @@ must make that look intentional.
 
 ---
 
+## 5c. Pre-generated Voice Audio (Google AI Studio — F5 TTS)
+
+The workout player speaks exercise instructions. OS Web Speech voices vary wildly
+across devices, so for a warm, consistent female voice, instruction audio is
+**pre-generated at build time with Google AI Studio (Gemini API)** and served as static files — never
+called live.
+
+- **Pipeline:** `scripts/generate-audio.ts` reads the seeded library
+  (`lib/exercises.ts`), synthesizes one audio file per exercise (name + instructions), writes
+  them to `public/audio/<exercise_id>.*` (WAV for Gemini, MP3 for Cloud TTS), and regenerates the `lib/audioManifest.ts`
+  id→url map. Run with `npm run generate:audio`.
+- **Providers:** Gemini / Google AI Studio first (`GEMINI_API_KEY`, reusing the app key), **Google Cloud TTS as an
+  automatic fallback** (`GOOGLE_TTS_API_KEY`) if Gemini is unset or fails. The script probes on the first exercise and
+  locks in one provider for the whole run, so voices never mix; force one with
+  `TTS_PROVIDER=gemini|google`.
+- **Runtime:** the player prefers the pre-generated clip (`exercise.audio_url` ??
+  manifest) and **falls back to the Web Speech API** (`lib/speech.ts`, `speakOrPlay`)
+  whenever a clip is missing, and for dynamic strings (rep counts, the rest cue). With no
+  clips generated yet, everything falls back — so the app always works.
+- **Privacy / offline:** clips are static assets, so nothing is uploaded at runtime and
+  playback works offline (venue-Wi-Fi safe). The Gemini/Google keys are used only by the build
+  script, never shipped to the client.
+- **Scope:** clips cover only the static name + instructions. The AI-generated
+  `adaptation_note` stays on screen and is spoken only via Web Speech on the fallback
+  path — never try to pre-generate dynamic text.
+
+---
+
 ## 6. Accessibility Rules (non-negotiable — apply to every component)
 
 1. **Touch targets ≥ 48×48px.** Primary action buttons are full-width on mobile.
@@ -226,7 +255,7 @@ Base font: 18px. Spacing scale: 4/8/16/24/32. Radius: rounded-2xl on cards, roun
 
 - **TypeScript strict.** No `any`. All shared types in `src/types.ts` — check there before inventing a type.
 - **One screen = one folder** with an `index.tsx`. Components under ~150 lines; extract when bigger.
-- **Never hardcode secrets.** Client-safe vars use the `NEXT_PUBLIC_` prefix (Supabase URL + anon key only). `ANTHROPIC_API_KEY` has no prefix and is read **only** inside `app/api/*` route handlers.
+- **Never hardcode secrets.** Client-safe vars use the `NEXT_PUBLIC_` prefix (Supabase URL + anon key only). `GEMINI_API_KEY` is read **only** inside `app/api/*` route handlers and `scripts/generate-audio.ts` at build time. `GOOGLE_TTS_API_KEY` is used **only** by `scripts/generate-audio.ts` at build time — never at runtime or in the client.
 - **No new dependencies** beyond Section 2 without asking the team.
 - **Loading/error/empty states are mandatory** on every screen that fetches data.
 - **Mobile-first**: build at 390px width; desktop is a bonus.
