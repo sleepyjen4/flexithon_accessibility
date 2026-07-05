@@ -118,7 +118,7 @@ export function ProgressView() {
           </p>
           <Link
             href="/"
-            className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-evergreen px-4 text-base font-black text-milk hover:bg-[#173f33]"
+            className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-raspberry px-4 text-base font-black text-milk transition-[background-color,transform,box-shadow] duration-300 ease-smooth hover:-translate-y-0.5 hover:bg-[#8f2a47] hover:shadow-card active:translate-y-0 active:duration-150"
           >
             Check in today
           </Link>
@@ -148,7 +148,7 @@ export function ProgressView() {
       {romChange !== null && romChange > 0 && (
         <Card className="shadow-[0_18px_38px_rgba(15,23,42,0.08)]">
           <h2 className="mb-2 text-lg font-semibold text-ink">Range of motion</h2>
-          <p className="text-lg text-evergreen">
+          <p className="text-lg text-raspberry">
             Your shoulder range improved {romChange}° since your first tracked set.
           </p>
         </Card>
@@ -179,7 +179,7 @@ function ProgressCards({
     <>
       <Card className="shadow-[0_18px_38px_rgba(15,23,42,0.08)]">
         <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-cream p-1 text-center text-[13px] font-black leading-none text-ink sm:text-sm md:text-base">
-          <span className="flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-evergreen px-2 text-milk">
+          <span className="flex min-h-12 min-w-0 items-center justify-center rounded-lg bg-raspberry px-2 text-milk">
             <span className="whitespace-nowrap">This week</span>
           </span>
           <span className="flex min-h-12 min-w-0 items-center justify-center px-2">
@@ -197,7 +197,7 @@ function ProgressCards({
             return (
               <div key={day.toISOString()} className="flex flex-col items-center gap-2">
                 <span
-                  className={`w-9 rounded-t-lg ${active ? "bg-evergreen" : "bg-line-strong"}`}
+                  className={`w-9 rounded-t-lg transition-colors duration-300 ease-smooth ${active ? "bg-raspberry" : "bg-line-strong"}`}
                   style={{ height: `${heights[index]}px`, opacity: active ? 0.9 : 0.7 }}
                 />
                 <span className="text-xs text-ink-soft">{SHORT_DAY_FORMAT.format(day)}</span>
@@ -230,15 +230,15 @@ function ProgressCards({
                         ? `${label}: checked in`
                         : `${label}: rest`
                   }
-                  className={`flex h-11 w-11 items-center justify-center rounded-full border-2 ${
+                  className={`flex h-11 w-11 items-center justify-center rounded-full border-2 transition-colors duration-300 ease-smooth ${
                     active
-                      ? "border-evergreen bg-evergreen"
+                      ? "border-raspberry bg-raspberry"
                       : checkedIn
-                        ? "border-evergreen bg-surface"
+                        ? "border-raspberry bg-surface"
                         : "border-line-strong bg-surface"
                   }`}
                 >
-                  {checkedIn && <span className="h-3 w-3 rounded-full bg-evergreen" />}
+                  {checkedIn && <span className="h-3 w-3 rounded-full bg-raspberry" />}
                 </span>
                 <span className={`text-sm ${index === 6 ? "font-black text-ink" : "text-ink-soft"}`}>
                   {day.toLocaleDateString("en", { weekday: "short" }).slice(0, 1)}
@@ -248,8 +248,8 @@ function ProgressCards({
           })}
         </ul>
         <div className="mt-5 flex flex-wrap gap-4 text-sm text-ink-soft">
-          <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-evergreen" />Moved</span>
-          <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full border-2 border-evergreen bg-surface" />Checked in</span>
+          <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-raspberry" />Moved</span>
+          <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full border-2 border-raspberry bg-surface" />Checked in</span>
           <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full border-2 border-line-strong bg-surface" />Rest</span>
         </div>
       </Card>

@@ -24,7 +24,7 @@ export function DashboardNav() {
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <Link
-          href="/"
+          href="/welcome"
           className="hidden items-center gap-2 text-sm font-black uppercase tracking-[0.28em] text-ink lg:inline-flex"
         >
           <Image
@@ -49,15 +49,15 @@ export function DashboardNav() {
                 <Link
                   href={item.href}
                   aria-current={active ? "page" : undefined}
-                  className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 text-xs font-bold leading-tight transition-colors lg:min-h-12 lg:flex-row lg:gap-2 lg:rounded-full lg:px-5 lg:text-base ${
+                  className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 text-xs font-bold leading-tight transition-colors duration-300 ease-smooth lg:min-h-12 lg:flex-row lg:gap-2 lg:rounded-full lg:px-5 lg:text-base ${
                     active
-                      ? "bg-mint text-ink"
+                      ? "bg-raspberry-soft text-ink"
                       : "text-ink-soft hover:bg-cream hover:text-ink"
                   }`}
                 >
                   <Icon
                     aria-hidden="true"
-                    className={`h-5 w-5 lg:h-5 lg:w-5 ${active ? "text-evergreen" : ""}`}
+                    className={`h-5 w-5 lg:h-5 lg:w-5 ${active ? "text-raspberry" : ""}`}
                     strokeWidth={active ? 3 : 2.5}
                   />
                   <span>{item.label}</span>

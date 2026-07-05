@@ -65,6 +65,10 @@
   /* Soft, warm elevation — one card shadow, no heavy drops. */
   --shadow-card: 0 1px 2px rgba(33, 29, 25, 0.05),
     0 10px 30px -12px rgba(33, 29, 25, 0.14);
+
+  /* House easing for hover/press motion, shared with the rise-in keyframe
+   * below so every animation on the page feels like one system. */
+  --ease-smooth: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 html {

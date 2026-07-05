@@ -42,7 +42,7 @@ export function SettingsForm() {
         </p>
         <Link
           href="/calibrate"
-          className="mt-4 grid min-h-14 grid-cols-[1fr_auto] items-center rounded-xl border-2 border-line-strong px-4 text-center text-base font-black text-ink hover:bg-cream"
+          className="mt-4 grid min-h-14 grid-cols-[1fr_auto] items-center rounded-xl border-2 border-line-strong px-4 text-center text-base font-black text-ink transition-[background-color,transform,box-shadow] duration-300 ease-smooth hover:-translate-y-0.5 hover:bg-cream hover:shadow-card active:translate-y-0 active:duration-150"
         >
           <span>Recalibrate movement range</span>
           <span className="pl-4 text-sm font-black text-ink-soft">Start</span>
@@ -68,7 +68,7 @@ export function SettingsForm() {
               <RadioGroup.Item
                 key={size.value}
                 value={size.value}
-                className="flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 text-center text-xs font-black leading-tight text-ink hover:bg-surface data-[state=checked]:bg-evergreen data-[state=checked]:text-milk sm:text-sm md:text-base"
+                className="flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 text-center text-xs font-black leading-tight text-ink transition-colors duration-300 ease-smooth hover:bg-surface data-[state=checked]:bg-raspberry data-[state=checked]:text-milk sm:text-sm md:text-base"
               >
                 <span>{size.label}</span>
               </RadioGroup.Item>
@@ -87,9 +87,9 @@ export function SettingsForm() {
                 id={`setting-${toggle.key}`}
                 checked={prefs[toggle.key]}
                 onCheckedChange={(checked) => update({ ...prefs, [toggle.key]: checked })}
-                className="relative h-9 w-16 shrink-0 rounded-full bg-line-strong p-1 transition-colors data-[state=checked]:bg-evergreen"
+                className="relative h-9 w-16 shrink-0 rounded-full bg-line-strong p-1 transition-colors duration-300 ease-smooth data-[state=checked]:bg-raspberry"
               >
-                <Switch.Thumb className="block h-7 w-7 rounded-full bg-milk shadow-sm transition-transform data-[state=checked]:translate-x-7" />
+                <Switch.Thumb className="block h-7 w-7 rounded-full bg-milk shadow-sm transition-transform duration-300 ease-smooth data-[state=checked]:translate-x-7" />
               </Switch.Root>
             </div>
           ))}
