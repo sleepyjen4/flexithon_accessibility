@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as RadioGroup from "@radix-ui/react-radio-group";
+import { Check } from "lucide-react";
 import type {
   NormalizedLandmark,
   PoseLandmarker,
@@ -23,6 +25,7 @@ import {
 import { getExerciseById } from "@/lib/exercises";
 import {
   CALIBRATION_KEY_BY_POSE_ID,
+  POSE_EXERCISES,
   getPoseExerciseById,
   poseExerciseForSide,
   usesInvertedAngle,
@@ -44,7 +47,7 @@ const WASM_URL =
 const TARGET_SWEEPS = 3; // three guided movements (T08).
 const MIN_VISIBILITY = 0.6; // pause capture silently below this (matches T06).
 
-type Phase = "intro" | "capture" | "review";
+type Phase = "pick" | "intro" | "capture" | "review";
 type PoseStatus = "loading" | "tracking" | "paused" | "unavailable";
 
 const SIDE_LABEL: Record<ExerciseDef["side"], string> = {
@@ -112,11 +115,17 @@ function drawMediaPipeLandmarks(
  * camera is always optional — the flow never dead-ends.
  */
 export function CalibrationFlow({
-  exerciseId = "seated_arm_raise",
+  exerciseId: initialExerciseId = "seated_arm_raise",
   side = "either",
   providerFactory,
 }: CalibrationFlowProps = {}) {
   const router = useRouter();
+
+  // The exercise being calibrated. Seeded from the query param (when arriving
+  // from /exercise) but user-changeable in the "pick" step so /calibrate works
+  // as a standalone entry point too.
+  const [exerciseId, setExerciseId] =
+    useState<ExerciseDef["id"]>(initialExerciseId);
 
   // Resolve the movement + tracked side once. `poseDef` carries the landmark
   // triple the provider measures; `storeKey` is the library id the range is
@@ -132,7 +141,7 @@ export function CalibrationFlow({
   const existing = useCalibrationStore((state) => state.ranges[storeKey]);
   const exercise = getExerciseById(storeKey);
 
-  const [phase, setPhase] = useState<Phase>("intro");
+  const [phase, setPhase] = useState<Phase>("pick");
   const [status, setStatus] = useState<PoseStatus>("loading");
   const [liveDeg, setLiveDeg] = useState<number | null>(null);
   const [captMin, setCaptMin] = useState<number | null>(null);
@@ -386,6 +395,60 @@ export function CalibrationFlow({
 
   const heading = "Calibrate camera rep counting";
 
+  // ---- Pick exercise -----------------------------------------------------
+  if (phase === "pick") {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+        <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
+        <p className="text-lg text-slate-600">
+          Which exercise are you calibrating? We&apos;ll learn your comfortable
+          range for it so the camera counts reps that fit your body.
+        </p>
+        <fieldset className="flex flex-col gap-3 border-0 p-0">
+          <legend className="sr-only">Choose an exercise to calibrate</legend>
+          <RadioGroup.Root
+            value={exerciseId}
+            onValueChange={(next) => setExerciseId(next as ExerciseDef["id"])}
+            aria-label="Choose an exercise to calibrate"
+            className="flex flex-col gap-3"
+          >
+            {POSE_EXERCISES.map((option) => (
+              <RadioGroup.Item
+                key={option.id}
+                value={option.id}
+                className="flex min-h-14 w-full items-center justify-between gap-4 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-600 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-50"
+              >
+                <span className="text-lg font-semibold text-slate-900">
+                  {option.name}
+                </span>
+                <RadioGroup.Indicator className="shrink-0">
+                  <Check aria-hidden="true" className="h-5 w-5 text-indigo-700" />
+                </RadioGroup.Indicator>
+              </RadioGroup.Item>
+            ))}
+          </RadioGroup.Root>
+        </fieldset>
+        {existing && (
+          <p className="rounded-2xl bg-emerald-50 p-4 text-base text-slate-900">
+            You&apos;ve already calibrated this one ({existing.minDeg}°–
+            {existing.maxDeg}°). Recalibrating replaces it.
+          </p>
+        )}
+        <div className="mt-auto flex flex-col gap-3 pt-4">
+          <Button type="button" onClick={() => setPhase("intro")}>
+            Continue
+          </Button>
+          <Link
+            href="/exercise"
+            className="min-h-12 content-center text-center text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
+          >
+            Back to exercise
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // ---- Intro -------------------------------------------------------------
   if (phase === "intro") {
     return (
@@ -427,6 +490,13 @@ export function CalibrationFlow({
           </Button>
           <Button type="button" variant="secondary" onClick={saveDefault}>
             Skip camera — use a comfortable default
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setPhase("pick")}
+          >
+            Choose a different exercise
           </Button>
         </div>
       </div>
