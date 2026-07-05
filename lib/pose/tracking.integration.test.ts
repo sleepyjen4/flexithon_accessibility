@@ -249,4 +249,35 @@ describe("calibration ↔ counting round-trip (curl)", () => {
     const reps = countReps(calibDef, "left", "curl", range, 2, 140, 4);
     expect(reps).toBe(4);
   });
+
+  it("an 'either' range can be captured from right-arm curls", () => {
+    const calibDef = poseExerciseForSide(BICEP_CURL, "either");
+    const capture = createCalibrationCapture();
+    const feedCapture = (effortDeg: number) => {
+      const frame = buildFrame("curl", "right", effortDeg);
+      const { angle, visibility } = measureActiveSide(frame, calibDef, 1);
+      capture.update({
+        angleDeg: angle ?? Number.NaN,
+        visibility,
+        timestamp: 0,
+      });
+    };
+
+    feedCapture(2);
+    for (let sweep = 0; sweep < 3; sweep += 1) {
+      for (let i = 1; i <= STEPS_PER_RAMP; i += 1) {
+        feedCapture((140 * i) / STEPS_PER_RAMP);
+      }
+      for (let i = 1; i <= STEPS_PER_RAMP; i += 1) {
+        feedCapture(140 - (140 * i) / STEPS_PER_RAMP);
+      }
+    }
+
+    const snapshot = capture.getSnapshot();
+    expect(snapshot.minDeg).not.toBeNull();
+    expect(snapshot.maxDeg).not.toBeNull();
+    const range = computeRange(snapshot.minDeg as number, snapshot.maxDeg as number);
+    expect(range.maxDeg - range.minDeg).toBeGreaterThan(100);
+    expect(countReps(calibDef, "right", "curl", range, 2, 140, 3)).toBe(3);
+  });
 });

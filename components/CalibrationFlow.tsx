@@ -28,9 +28,8 @@ import {
   POSE_EXERCISES,
   getPoseExerciseById,
   poseExerciseForSide,
-  usesInvertedAngle,
 } from "@/lib/pose/exercises";
-import { calculateAngle } from "@/lib/pose/angles";
+import { measureActiveSide } from "@/lib/pose/realProvider";
 import { smoothWithEma } from "@/lib/pose/smoothing";
 import { getStaticAudioUrl } from "@/lib/audioManifest";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
@@ -337,40 +336,22 @@ export function CalibrationFlow({
       canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    const [firstIndex, vertexIndex, thirdIndex] = poseDef.landmarks;
-    const first = landmarks?.[firstIndex];
-    const vertex = landmarks?.[vertexIndex];
-    const third = landmarks?.[thirdIndex];
-    const visibility =
-      first && vertex && third
-        ? Math.min(
-            first.visibility ?? 1,
-            vertex.visibility ?? 1,
-            third.visibility ?? 1,
-          )
-        : 0;
+    const aspect = video.videoWidth / video.videoHeight;
+    const measurement = measureActiveSide(landmarks ?? null, poseDef, aspect);
 
-    if (first && vertex && third && visibility >= MIN_VISIBILITY) {
-      const aspect = video.videoWidth / video.videoHeight;
-      const correct = (point: NormalizedLandmark) => ({
-        x: point.x * aspect,
-        y: point.y,
-      });
-      const rawAngle = calculateAngle(
-        correct(first),
-        correct(vertex),
-        correct(third),
-      );
-      // Match the provider's effort convention so the captured range and the
-      // live counting agree on which direction a rep goes (usesInvertedAngle).
+    if (measurement.angle !== null && measurement.visibility >= MIN_VISIBILITY) {
       handleFrame({
-        angleDeg: usesInvertedAngle(poseDef.id) ? 180 - rawAngle : rawAngle,
-        visibility,
+        angleDeg: measurement.angle,
+        visibility: measurement.visibility,
         timestamp: Date.now(),
       });
     } else {
       smoothedRef.current = null;
-      handleFrame({ angleDeg: Number.NaN, visibility, timestamp: Date.now() });
+      handleFrame({
+        angleDeg: Number.NaN,
+        visibility: measurement.visibility,
+        timestamp: Date.now(),
+      });
     }
 
     animationRef.current = requestAnimationFrame(() => realFrameRef.current());
@@ -583,6 +564,7 @@ export function CalibrationFlow({
             {speechEnabled ? (
               <button
                 type="button"
+                suppressHydrationWarning
                 onClick={toggleReadAloud}
                 aria-pressed={reading}
                 className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
