@@ -4,15 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileAudio } from "lucide-react";
-import type { PersonalRange, SafeMovementStats } from "@/types";
+import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/Button";
-import { getExerciseById } from "@/lib/exercises";
-import { POSE_EXERCISES, getPoseExerciseById } from "@/lib/pose/exercises";
+import { SpeechToggle } from "@/components/SpeechToggle";
+import { getPoseExerciseById } from "@/lib/pose/exercises";
 import { getExerciseAudioUrl } from "@/lib/audioManifest";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
+import { UP_THRESHOLD_FRACTION } from "@/lib/pose/repCounter";
 import { useCalibrationStore } from "@/store/calibration";
+import { useProfileStore } from "@/store/profile";
 import { useSessionStore } from "@/store/session";
+import type { PersonalRange, RepEvent, SafeMovementStats } from "@/types";
 
 const PoseTracker = dynamic(
   () => import("@/components/PoseTracker").then((mod) => mod.PoseTracker),
@@ -20,131 +22,350 @@ const PoseTracker = dynamic(
     ssr: false,
     loading: () => (
       <div className="rounded-2xl bg-white p-4 text-slate-600 shadow-sm ring-1 ring-slate-200">
-        Loading optional camera tracker.
+        Loading the camera tracker...
       </div>
     ),
   },
 );
 
-const SUMMARY_EXERCISE_ID = "seated_lateral_raise";
-const trackerExercise =
-  getPoseExerciseById("seated_arm_raise") ?? POSE_EXERCISES[0];
+// The range calibrated in T08 is stored under the workout-library id for the
+// F9 hero exercise; the pose landmark math uses the matching pose def. These
+// two ids name the same movement in two id namespaces (a known pre-existing
+// wart) -- keep them in lockstep here.
+const CALIBRATION_KEY = "seated_lateral_raise";
+const poseExercise = getPoseExerciseById("seated_arm_raise")!;
 
-const demoRange: PersonalRange = {
-  minDeg: 15,
-  maxDeg: 95,
-};
+const DEFAULT_RANGE: PersonalRange = { minDeg: 15, maxDeg: 95 };
+
+function targetAngle(range: PersonalRange): number {
+  // Single source of truth with the rep counter + RangeArc, so the target can
+  // never drift from the angle a rep actually has to reach.
+  return Math.round(
+    range.minDeg + UP_THRESHOLD_FRACTION * (range.maxDeg - range.minDeg),
+  );
+}
 
 export default function ExercisePage() {
   const router = useRouter();
-  const exercise = getExerciseById(SUMMARY_EXERCISE_ID);
-  const personalRange =
-    useCalibrationStore((state) => state.ranges[SUMMARY_EXERCISE_ID]) ??
-    demoRange;
+  const calibratedRange = useCalibrationStore(
+    (state) => state.ranges[CALIBRATION_KEY],
+  );
+  const recordRom = useSessionStore((state) => state.recordRom);
   const setTrackingSummary = useSessionStore(
     (state) => state.setTrackingSummary,
   );
-  const startedAtRef = useRef<number | null>(null);
-  const [reps, setReps] = useState(0);
-  const [peakAngle, setPeakAngle] = useState(0);
-  const [safeStats, setSafeStats] = useState<SafeMovementStats | null>(null);
+  const speechEnabled = useProfileStore(
+    (state) => state.prefs.speech_enabled !== false,
+  );
+
+  const [active, setActive] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [reps, setReps] = useState(0);
+  const [peak, setPeak] = useState(0);
+  const [liveMessage, setLiveMessage] = useState("");
+  const [reading, setReading] = useState(false);
+  const [sessionKey, setSessionKey] = useState(0);
+
+  const startedAtRef = useRef<number | null>(null);
+  const repsRef = useRef(0);
+  const peakRef = useRef(0);
+  const safeStatsRef = useRef<SafeMovementStats | null>(null);
+
+  // Stop any in-flight speech (rep counts / read-aloud) when leaving the page.
+  useEffect(() => cancelSpeech, []);
 
   useEffect(() => {
     startedAtRef.current = Date.now();
   }, []);
 
-  const readAloud = useCallback(() => {
-    const text = [trackerExercise.name, ...trackerExercise.instructions].join(
-      ". ",
-    );
-    void speakOrPlay(
-      getExerciseAudioUrl({ id: SUMMARY_EXERCISE_ID, audio_url: null }),
-      text,
-      { interrupt: true },
-    );
+  const range = calibratedRange ?? DEFAULT_RANGE;
+
+  // Rep counts are spoken by PoseTracker (T09 announceRepCount, global mute);
+  // here we only mirror events visually and keep the reps/peak read-outs.
+  const handleRepEvent = useCallback((event: RepEvent) => {
+    switch (event.type) {
+      case "rep":
+        repsRef.current = event.count;
+        setReps(event.count);
+        setLiveMessage(`Rep ${event.count} counted.`);
+        break;
+      case "range_reached":
+        setLiveMessage(poseExercise.cues.rangeReached);
+        break;
+      case "tracking_paused":
+        setLiveMessage("Move back into view whenever you can -- no rush.");
+        break;
+      case "tracking_resumed":
+        setLiveMessage("Tracking resumed.");
+        break;
+    }
   }, []);
 
-  useEffect(() => cancelSpeech, []);
+  const handlePeak = useCallback((degrees: number) => {
+    peakRef.current = degrees;
+    setPeak(degrees);
+  }, []);
 
-  const finishSession = useCallback(() => {
+  const handleMovementStats = useCallback((stats: SafeMovementStats) => {
+    safeStatsRef.current = stats;
+  }, []);
+
+  const playInstructions = useCallback(() => {
+    const text = [poseExercise.name, ...poseExercise.instructions].join(". ");
+    // Google AI Studio clip is the primary voice (Section 5c); speakOrPlay
+    // falls back to Web Speech only if the clip is missing or its playback is
+    // blocked. Resolves when it ends, is stopped, or no-ops (muted).
+    setReading(true);
+    void speakOrPlay(
+      getExerciseAudioUrl({ id: poseExercise.id, audio_url: null }),
+      text,
+      { interrupt: true },
+    ).finally(() => setReading(false));
+  }, []);
+
+  const readAloud = useCallback(() => {
+    // Play/stop toggle: a second tap stops the clip mid-way.
+    if (reading) {
+      cancelSpeech();
+      setReading(false);
+      return;
+    }
+    playInstructions();
+  }, [reading, playInstructions]);
+
+  // Autoplay the instructions the first time the screen opens, so an unmuted
+  // user hears them without tapping play -- matching the workout player.
+  // speakOrPlay no-ops while muted, so the corner toggle governs autoplay too.
+  // Deferred a tick so the play-state update lands outside the effect body.
+  useEffect(() => {
+    const timer = setTimeout(playInstructions, 0);
+    return () => clearTimeout(timer);
+  }, [playInstructions]);
+
+  const togglePause = useCallback(() => {
+    setPaused((current) => {
+      const next = !current;
+      if (next) cancelSpeech();
+      setLiveMessage(next ? "Paused." : "Resumed.");
+      return next;
+    });
+  }, []);
+
+  const finish = useCallback(() => {
     if (finished) return;
 
+    const peakToday = peakRef.current;
+    cancelSpeech();
+    setPaused(false);
     setFinished(true);
+    if (peakToday > 0) recordRom(CALIBRATION_KEY, peakToday);
     setTrackingSummary({
-      exerciseId: SUMMARY_EXERCISE_ID,
-      reps,
-      personalRange,
-      peakAngleToday: Math.round(peakAngle),
-      safeStats: safeStats ?? undefined,
+      exerciseId: CALIBRATION_KEY,
+      reps: repsRef.current,
+      personalRange: range,
+      peakAngleToday: Math.round(peakToday),
+      safeStats: safeStatsRef.current ?? undefined,
       startedAt: startedAtRef.current ?? Date.now(),
       endedAt: Date.now(),
     });
+    setLiveMessage("Exercise complete. Nice work showing up today.");
     router.push("/summary");
-  }, [
-    finished,
-    peakAngle,
-    personalRange,
-    reps,
-    router,
-    safeStats,
-    setTrackingSummary,
-  ]);
+  }, [finished, range, recordRom, router, setTrackingSummary]);
+
+  const goAgain = useCallback(() => {
+    startedAtRef.current = Date.now();
+    repsRef.current = 0;
+    peakRef.current = 0;
+    safeStatsRef.current = null;
+    setFinished(false);
+    setReps(0);
+    setPeak(0);
+    setPaused(false);
+    setLiveMessage("");
+    setSessionKey((key) => key + 1); // remount the tracker for a clean count
+    playInstructions();
+  }, [playInstructions]);
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
+    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-bold">Exercise tracker demo</h1>
-          <p className="text-base text-slate-600">
-            Follow the movement instructions. Camera tracking is optional, and
-            manual completion is always available.
+        {/* Page-level so the speech toggle stays visible across every state
+            (setup, tracking, finished) -- otherwise a user who muted elsewhere
+            lands here with no way to turn spoken counts back on. */}
+        <div className="flex items-start justify-between gap-3">
+          <header className="space-y-2">
+            <h1 className="text-3xl font-bold">{poseExercise.name}</h1>
+            <p className="text-base text-slate-600">
+              Hands-free rep counting, scored against your own range. The camera
+              is optional and everything below works if you keep it off.
+            </p>
+          </header>
+          <SpeechToggle />
+        </div>
+
+        {/* Every spoken cue has a visual twin here (AGENTS.md Section 6). */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {liveMessage}
+        </p>
+
+        {finished ? (
+          <FinishedCard
+            reps={reps}
+            peak={peak}
+            target={targetAngle(range)}
+            onGoAgain={goAgain}
+          />
+        ) : (
+          <>
+            {!calibratedRange ? (
+              <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-slate-800">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Counting to a general range
+                </h2>
+                <p className="mt-1 text-base">
+                  For counting tuned to how you move today, calibrate first. You
+                  can also carry on with a general range right now.
+                </p>
+                <Link
+                  href="/calibrate"
+                  className="mt-3 inline-flex min-h-12 items-center font-semibold text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
+                >
+                  Calibrate my range
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-white p-4 text-slate-700 shadow-sm ring-1 ring-slate-200">
+                Counting against your calibrated range:{" "}
+                <span className="font-semibold text-slate-900">
+                  {range.minDeg}°-{range.maxDeg}°
+                </span>{" "}
+                (target {targetAngle(range)}°).{" "}
+                <Link
+                  href="/calibrate"
+                  className="font-semibold text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
+                >
+                  Recalibrate
+                </Link>
+              </div>
+            )}
+
+            <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold">How to move</h2>
+                {/* Hidden while speech is muted -- nothing would play, so the
+                    corner mute toggle is the only relevant control then. */}
+                {speechEnabled ? (
+                  <button
+                    type="button"
+                    onClick={readAloud}
+                    aria-pressed={reading}
+                    className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                    aria-label={
+                      reading
+                        ? `Stop reading the instructions for ${poseExercise.name}`
+                        : `Play the instructions for ${poseExercise.name} from the start`
+                    }
+                  >
+                    {reading ? (
+                      <Pause aria-hidden="true" className="h-6 w-6" />
+                    ) : (
+                      <Play aria-hidden="true" className="h-6 w-6" />
+                    )}
+                  </button>
+                ) : null}
+              </div>
+              <ol className="mt-3 list-decimal space-y-2 pl-6 text-slate-700">
+                {poseExercise.instructions.map((instruction) => (
+                  <li key={instruction}>{instruction}</li>
+                ))}
+              </ol>
+            </section>
+
+            <PoseTracker
+              key={sessionKey}
+              exercise={poseExercise}
+              personalRange={range}
+              paused={paused}
+              onRepEvent={handleRepEvent}
+              onPeakRom={handlePeak}
+              onMovementStats={handleMovementStats}
+              onManualDone={finish}
+              onActiveChange={setActive}
+            />
+
+            <div className="flex flex-col gap-3">
+              <Button
+                type="button"
+                onClick={togglePause}
+                disabled={!active}
+                aria-pressed={paused}
+              >
+                {paused ? "Resume tracking" : "Pause tracking"}
+              </Button>
+
+              <Button type="button" variant="secondary" onClick={finish}>
+                Finish and view summary
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function FinishedCard({
+  reps,
+  peak,
+  target,
+  onGoAgain,
+}: {
+  reps: number;
+  peak: number;
+  target: number;
+  onGoAgain: () => void;
+}) {
+  const reachedTarget = peak >= target;
+
+  return (
+    <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <h2 className="text-2xl font-bold text-slate-900">
+        {reps > 0 ? "That counts. Every rep." : "You showed up today."}
+      </h2>
+      <p className="mt-2 text-base text-slate-600">
+        {reps > 0
+          ? `You moved through ${reps} ${reps === 1 ? "rep" : "reps"} at your own pace.`
+          : "Turning up is the hard part, and you did it."}
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-sm font-medium text-slate-600">Reps</p>
+          <p className="text-3xl font-bold text-slate-900">{reps}</p>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-4">
+          <p className="text-sm font-medium text-slate-600">Peak range today</p>
+          <p className="text-3xl font-bold text-slate-900">{peak}°</p>
+          <p className="mt-1 text-sm text-slate-600">
+            {reachedTarget
+              ? "You reached your target range."
+              : `Target ${target}° -- worth celebrating either way.`}
           </p>
-        </header>
-
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-2xl font-bold">
-              {exercise?.name ?? trackerExercise.name}
-            </h2>
-            <button
-              type="button"
-              onClick={readAloud}
-              className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-              aria-label={`Read aloud the instructions for ${exercise?.name ?? trackerExercise.name}`}
-            >
-              <FileAudio aria-hidden="true" />
-            </button>
-          </div>
-          <ol className="mt-3 list-decimal space-y-2 pl-6 text-slate-700">
-            {trackerExercise.instructions.map((instruction) => (
-              <li key={instruction}>{instruction}</li>
-            ))}
-          </ol>
-        </section>
-
-        <PoseTracker
-          exercise={trackerExercise}
-          personalRange={personalRange}
-          onRepCount={setReps}
-          onPeakRom={setPeakAngle}
-          onMovementStats={setSafeStats}
-          onManualDone={finishSession}
-        />
-
-        <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <p className="text-base text-slate-600">
-            Today&apos;s range target: {personalRange.minDeg}°–
-            {personalRange.maxDeg}°.
-          </p>
-          <Button type="button" onClick={finishSession} disabled={finished}>
-            Finish and view summary
-          </Button>
-          <Button asChild variant="secondary">
-            <Link href="/calibrate">Recalibrate</Link>
-          </Button>
         </div>
       </div>
-    </div>
+
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Button type="button" onClick={onGoAgain}>
+          Go again
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/calibrate">Recalibrate range</Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/summary">View summary</Link>
+        </Button>
+      </div>
+    </section>
   );
 }

@@ -157,6 +157,40 @@ useProfileStore.subscribe((state, prevState) => {
   }
 }
 
+// iOS/Safari block speech and audio until the user has interacted with the
+// page, so an instruction autoplayed on a fresh load (e.g. the first workout
+// exercise) is silently dropped. Priming speechSynthesis inside the first user
+// gesture unlocks later programmatic speech for the rest of the session, so the
+// Web Speech fallback below can be heard even when a clip's autoplay is blocked.
+// Guarded for SSR and the test env, where window has no addEventListener.
+if (
+  typeof window !== "undefined" &&
+  typeof window.addEventListener === "function"
+) {
+  const GESTURE_EVENTS = ["pointerdown", "keydown", "touchstart"] as const;
+  const unlockSpeech = () => {
+    for (const event of GESTURE_EVENTS) {
+      window.removeEventListener(event, unlockSpeech);
+    }
+    const speechSynthesis = getSpeechSynthesis();
+    if (!speechSynthesis) return;
+    try {
+      // A single-space (not empty) utterance at volume 0 primes speech silently
+      // — some engines ignore empty text, which would leave speech locked on
+      // Safari; the immediate cancel keeps it from queueing.
+      const primer = new SpeechSynthesisUtterance(" ");
+      primer.volume = 0;
+      speechSynthesis.speak(primer);
+      speechSynthesis.cancel();
+    } catch {
+      // Non-fatal: worst case autoplay stays gated on this browser.
+    }
+  };
+  for (const event of GESTURE_EVENTS) {
+    window.addEventListener(event, unlockSpeech, { passive: true });
+  }
+}
+
 /**
  * Speak a user-triggered workout update. Longer utterances queue normally;
  * live rep counts use `announceRepCount` so they never lag behind the UI.
@@ -197,7 +231,11 @@ export function speak(text: string, options: SpeakOptions = {}): Promise<void> {
 
 /** Plays a pre-generated instruction clip (Section 5c), taking over from any
  * current speech or clip. Resolves when the clip ends, errors, or is stopped. */
-function playClip(url: string): Promise<void> {
+function playClip(
+  url: string,
+  fallbackText: string,
+  options: SpeakOptions,
+): Promise<void> {
   // Take over from whatever is speaking or playing (interrupt semantics).
   cancelSpeech();
 
@@ -212,9 +250,21 @@ function playClip(url: string): Promise<void> {
       stopCurrentAudio();
     };
 
+    // The clip couldn't start — autoplay blocked (Safari/iOS with no user
+    // gesture yet) or the file is missing. Hand off to Web Speech so the
+    // instruction is still heard instead of being silently dropped.
+    const fallBackToSpeech = () => {
+      if (currentAudio !== audio) return;
+      audio.onended = null;
+      audio.onerror = null;
+      currentAudio = null;
+      currentAudioResolve = null;
+      resolve(speak(fallbackText, options));
+    };
+
     audio.onended = finish;
-    audio.onerror = finish;
-    void audio.play().catch(finish);
+    audio.onerror = fallBackToSpeech;
+    void audio.play().catch(fallBackToSpeech);
   });
 }
 
@@ -234,7 +284,7 @@ export function speakOrPlay(
   }
 
   if (audioUrl && typeof window !== "undefined" && typeof window.Audio !== "undefined") {
-    return playClip(audioUrl);
+    return playClip(audioUrl, fallbackText, options);
   }
 
   return speak(fallbackText, options);
