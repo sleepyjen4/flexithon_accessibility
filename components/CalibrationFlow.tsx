@@ -140,9 +140,8 @@ export function CalibrationFlow({
   // The server page validates query params and passes the initial choice here.
   // Picker changes stay local until Continue so the URL only represents a
   // committed calibration choice.
-  const [exerciseId, setExerciseId] = useState<ExerciseDef["id"]>(
-    initialExerciseId,
-  );
+  const [exerciseId, setExerciseId] =
+    useState<ExerciseDef["id"]>(initialExerciseId);
 
   const replaceWithParams = useCallback(
     (params: URLSearchParams) => {
@@ -168,7 +167,8 @@ export function CalibrationFlow({
   // saved under (see CALIBRATION_KEY_BY_POSE_ID).
   const poseDef = useMemo(() => {
     const base =
-      getPoseExerciseById(exerciseId) ?? getPoseExerciseById("seated_arm_raise")!;
+      getPoseExerciseById(exerciseId) ??
+      getPoseExerciseById("seated_arm_raise")!;
     return poseExerciseForSide(base, side);
   }, [exerciseId, side]);
   const storeKey = CALIBRATION_KEY_BY_POSE_ID[poseDef.id];
@@ -339,7 +339,10 @@ export function CalibrationFlow({
     const aspect = video.videoWidth / video.videoHeight;
     const measurement = measureActiveSide(landmarks ?? null, poseDef, aspect);
 
-    if (measurement.angle !== null && measurement.visibility >= MIN_VISIBILITY) {
+    if (
+      measurement.angle !== null &&
+      measurement.visibility >= MIN_VISIBILITY
+    ) {
       handleFrame({
         angleDeg: measurement.angle,
         visibility: measurement.visibility,
@@ -504,13 +507,16 @@ export function CalibrationFlow({
               <RadioGroup.Item
                 key={option.id}
                 value={option.id}
-                className="flex min-h-14 w-full items-center justify-between gap-4 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-600 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-50"
+                className="flex min-h-14 w-full items-center justify-between gap-4 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-within:outline focus-within:outline-offset-2 focus-within:outline-indigo-600 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-50"
               >
                 <span className="text-lg font-semibold text-slate-900">
                   {option.name}
                 </span>
                 <RadioGroup.Indicator className="shrink-0">
-                  <Check aria-hidden="true" className="h-5 w-5 text-indigo-700" />
+                  <Check
+                    aria-hidden="true"
+                    className="h-5 w-5 text-indigo-700"
+                  />
                 </RadioGroup.Indicator>
               </RadioGroup.Item>
             ))}
