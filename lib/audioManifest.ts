@@ -46,6 +46,8 @@ export const EXERCISE_AUDIO: Record<string, string> = {
   "isometric_glute_contraction": "/audio/isometric_glute_contraction.wav",
   "wheelchair_pushups": "/audio/wheelchair_pushups.wav",
   "seated_adaptive_yoga": "/audio/seated_adaptive_yoga.wav",
+  "supported_weight_shifts": "/audio/supported_weight_shifts.wav",
+  "wheelchair_pushing": "/audio/wheelchair_pushing.wav",
 };
 
 /**

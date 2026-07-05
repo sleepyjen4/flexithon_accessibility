@@ -32,6 +32,16 @@ export const EXERCISE_VIDEO_BY_ID: Record<string, string> = {
   seated_overhead_press: "/graphics/seated_overhead_press",
   seated_side_bend: "/graphics/seated_side_bend",
   seated_wrist_rolls: "/graphics/seated_wrist_rolls",
+  // Third set — filenames already match the exercise id.
+  grip_strengthening: "/graphics/grip_strengthening",
+  seated_tai_chi: "/graphics/seated_tai_chi",
+  wheelchair_seated_dance: "/graphics/wheelchair_seated_dance",
+  wheelchair_pushups: "/graphics/wheelchair_pushups",
+  seated_adaptive_yoga: "/graphics/seated_adaptive_yoga",
+  supported_weight_shifts: "/graphics/supported_weight_shifts",
+  stretching_routine: "/graphics/stretching_routine",
+  standing_chair_squat: "/graphics/standing_chair_squat",
+  seated_deep_breathing: "/graphics/seated_deep_breathing",
 };
 
 /** Base path of an exercise's demo clip, or null when it has none. */
