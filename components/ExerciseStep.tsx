@@ -28,6 +28,10 @@ interface ExerciseStepProps {
   totalSteps: number;
   onDone: () => void;
   onSkip: () => void;
+  /** Timer pause lives in the player (F8) so voice commands can drive it; the
+   * Timer's own Pause button reports back through onPauseChange. */
+  paused: boolean;
+  onPauseChange: (paused: boolean) => void;
 }
 
 export function ExerciseStep({
@@ -37,6 +41,8 @@ export function ExerciseStep({
   totalSteps,
   onDone,
   onSkip,
+  paused,
+  onPauseChange,
 }: ExerciseStepProps) {
   const recordRom = useSessionStore((state) => state.recordRom);
   const personalRange = useCalibrationStore(
@@ -46,7 +52,6 @@ export function ExerciseStep({
     (state) => state.prefs.speech_enabled !== false,
   );
   const [cameraOn, setCameraOn] = useState(false);
-  const [timerPaused, setTimerPaused] = useState(false);
   const [reading, setReading] = useState(false);
 
   const playInstructions = useCallback(() => {
@@ -138,7 +143,8 @@ export function ExerciseStep({
         seconds={step.duration_seconds}
         label={exercise.name}
         onComplete={onDone}
-        onPauseChange={setTimerPaused}
+        paused={paused}
+        onPauseChange={onPauseChange}
       />
 
       {exercise.id === HERO_EXERCISE_ID && (
@@ -152,7 +158,7 @@ export function ExerciseStep({
           </Button>
           {cameraOn && (
             <PoseTracker
-              paused={timerPaused}
+              paused={paused}
               personalRange={personalRange}
               onManualDone={onDone}
               onPeakRom={(degrees) => recordRom(exercise.id, degrees)}

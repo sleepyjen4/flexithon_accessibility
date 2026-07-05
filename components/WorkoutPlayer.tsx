@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import type { VoiceCommand } from "@/types";
 import { getExerciseById } from "@/lib/exercises";
 import { getStaticAudioUrl } from "@/lib/audioManifest";
 import { STATIC_CLIPS } from "@/lib/staticAudio";
@@ -11,6 +12,7 @@ import { ExerciseStep } from "@/components/ExerciseStep";
 import { WorkoutFinish } from "@/components/WorkoutFinish";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
+import { VoiceControl } from "@/components/VoiceControl";
 
 /** F5: one exercise per screen, pause-friendly, skip is always a valid
  * choice. Fully operable with keyboard and screen reader. */
@@ -20,6 +22,12 @@ export function WorkoutPlayer() {
   const completeStep = useSessionStore((state) => state.completeStep);
   const advanceStep = useSessionStore((state) => state.advanceStep);
   const [resting, setResting] = useState(false);
+  // Timer pause lives here (not in the Timer/ExerciseStep) so the "pause" and
+  // "resume" voice commands (F8) can drive whichever timer is on screen.
+  const [timerPaused, setTimerPaused] = useState(false);
+  // Voice-driven pause/resume announcements; button-driven ones come from the
+  // Timer itself, so this only speaks for actions with no button press.
+  const [voiceMessage, setVoiceMessage] = useState("");
 
   // Spoken cue on entry to rest (mirrors the on-screen copy). Prefers the
   // pre-generated Google AI Studio clip (Section 5c) so rest sounds like the
@@ -58,11 +66,13 @@ export function WorkoutPlayer() {
 
   const goNext = () => {
     setResting(false);
+    setTimerPaused(false);
     advanceStep();
   };
 
   const handleDone = () => {
     completeStep(currentStepIndex);
+    setTimerPaused(false);
     if (isLastStep || step.rest_after_seconds === 0) {
       goNext();
     } else {
@@ -70,9 +80,39 @@ export function WorkoutPlayer() {
     }
   };
 
+  // F8: the voice grammar, routed by context. "next" completes the step (or
+  // skips the rest); "skip" moves on without completing — a valid choice.
+  const handleVoiceCommand = (command: VoiceCommand) => {
+    switch (command) {
+      case "pause":
+        if (!timerPaused) {
+          setTimerPaused(true);
+          setVoiceMessage("Paused.");
+        }
+        break;
+      case "resume":
+        if (timerPaused) {
+          setTimerPaused(false);
+          setVoiceMessage("Resumed.");
+        }
+        break;
+      case "next":
+        setVoiceMessage("");
+        if (resting || !exercise) goNext();
+        else handleDone();
+        break;
+      case "skip":
+        setVoiceMessage("");
+        goNext();
+        break;
+    }
+  };
+
+  let content: ReactNode;
+
   if (resting) {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
+    content = (
+      <div className="flex flex-1 flex-col gap-6">
         <h1 className="text-2xl font-bold text-slate-900">Rest</h1>
         <p className="text-lg text-slate-600">
           Take your time, the next exercise waits for you.
@@ -83,19 +123,19 @@ export function WorkoutPlayer() {
           seconds={step.rest_after_seconds}
           label="Rest"
           onComplete={goNext}
+          paused={timerPaused}
+          onPauseChange={setTimerPaused}
         />
         <Button type="button" variant="secondary" onClick={goNext}>
           Skip Rest
         </Button>
       </div>
     );
-  }
-
-  // Seeded library and generator share ids, so this only trips on bad data;
-  // recover by moving on rather than dead-ending the session.
-  if (!exercise) {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
+  } else if (!exercise) {
+    // Seeded library and generator share ids, so this only trips on bad data;
+    // recover by moving on rather than dead-ending the session.
+    content = (
+      <div className="flex flex-1 flex-col gap-6">
         <h1 className="text-2xl font-bold text-slate-900">
           We couldn&apos;t load this exercise
         </h1>
@@ -107,23 +147,43 @@ export function WorkoutPlayer() {
         </Button>
       </div>
     );
+  } else {
+    content = (
+      <>
+        <p aria-live="polite" className="sr-only">
+          Exercise {currentStepIndex + 1} of {workout.steps.length}:{" "}
+          {exercise.name}
+        </p>
+        <ExerciseStep
+          key={currentStepIndex}
+          step={step}
+          exercise={exercise}
+          stepNumber={currentStepIndex + 1}
+          totalSteps={workout.steps.length}
+          onDone={handleDone}
+          onSkip={goNext}
+          paused={timerPaused}
+          onPauseChange={setTimerPaused}
+        />
+      </>
+    );
   }
 
+  // VoiceControl sits OUTSIDE the switching content, in a stable tree
+  // position, so it never remounts between exercise and rest — a remount
+  // would release the mic and silently end hands-free control mid-workout.
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+      {content}
       <p aria-live="polite" className="sr-only">
-        Exercise {currentStepIndex + 1} of {workout.steps.length}:{" "}
-        {exercise.name}
+        {voiceMessage}
       </p>
-      <ExerciseStep
-        key={currentStepIndex}
-        step={step}
-        exercise={exercise}
-        stepNumber={currentStepIndex + 1}
-        totalSteps={workout.steps.length}
-        onDone={handleDone}
-        onSkip={goNext}
-      />
+      <div className="mt-6">
+        <VoiceControl
+          commands={["pause", "resume", "next", "skip"]}
+          onCommand={handleVoiceCommand}
+        />
+      </div>
     </div>
   );
 }

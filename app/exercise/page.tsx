@@ -8,6 +8,7 @@ import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PoseSetup } from "@/components/PoseSetup";
 import { SpeechToggle } from "@/components/SpeechToggle";
+import { VoiceControl } from "@/components/VoiceControl";
 import {
   CALIBRATION_KEY_BY_POSE_ID,
   getPoseExerciseById,
@@ -24,6 +25,7 @@ import type {
   PersonalRange,
   RepEvent,
   SafeMovementStats,
+  VoiceCommand,
 } from "@/types";
 
 type PoseExerciseId = ExerciseDef["id"];
@@ -83,6 +85,7 @@ export default function ExercisePage() {
   const [liveMessage, setLiveMessage] = useState("");
   const [reading, setReading] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
+  const [cameraStartSignal, setCameraStartSignal] = useState(0);
 
   const startedAtRef = useRef<number | null>(null);
   const repsRef = useRef(0);
@@ -229,6 +232,33 @@ export default function ExercisePage() {
     router.push("/summary");
   }, [calibrationKey, finished, range, recordRom, router, setTrackingSummary]);
 
+  // T17/W1: the five-phrase grammar, mapped to this screen's controls. Each
+  // action already announces itself ("Paused.", camera status) via the
+  // existing aria-live regions, so heard commands need no extra announcement.
+  const handleVoiceCommand = useCallback(
+    (command: VoiceCommand) => {
+      switch (command) {
+        case "start":
+          // Camera off -> start it; already tracking but paused -> pick back up.
+          if (!active) setCameraStartSignal((signal) => signal + 1);
+          else if (paused) togglePause();
+          break;
+        case "pause":
+          if (active && !paused) togglePause();
+          break;
+        case "resume":
+          if (active && paused) togglePause();
+          break;
+        case "next":
+        case "finish":
+          // One exercise per screen, so "next" and "finish" both end the set.
+          finish();
+          break;
+      }
+    },
+    [active, paused, togglePause, finish],
+  );
+
   const goAgain = useCallback(() => {
     startedAtRef.current = Date.now();
     repsRef.current = 0;
@@ -362,6 +392,7 @@ export default function ExercisePage() {
               onMovementStats={handleMovementStats}
               onManualDone={finish}
               onActiveChange={setActive}
+              startSignal={cameraStartSignal}
             />
 
             <div className="flex flex-col gap-3">
@@ -378,6 +409,14 @@ export default function ExercisePage() {
                 Finish and view summary
               </Button>
             </div>
+
+            {/* T17/W1: hands-free control. Renders nothing in browsers
+                without SpeechRecognition; unmounts (releasing the mic) when
+                finishing routes to /summary. */}
+            <VoiceControl
+              commands={["start", "pause", "resume", "next", "finish"]}
+              onCommand={handleVoiceCommand}
+            />
           </>
         )}
       </div>

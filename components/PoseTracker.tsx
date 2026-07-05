@@ -48,6 +48,9 @@ interface PoseTrackerProps {
   /** Fires when live tracking starts (true) or stops (false) -- lets a parent
    * screen enable its own pause control only while tracking is active. */
   onActiveChange?: (active: boolean) => void;
+  /** Increment to request a camera start from the parent (the "start" voice
+   * command, T17). Ignored while the camera is already starting or running. */
+  startSignal?: number;
   /** Test/demo escape hatch. Production uses real MediaPipe tracking by default. */
   providerFactory?: () => PoseProvider;
 }
@@ -232,6 +235,7 @@ export function PoseTracker({
   onRepEvent,
   paused = false,
   onActiveChange,
+  startSignal = 0,
   providerFactory,
 }: PoseTrackerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -555,8 +559,11 @@ export function PoseTracker({
       resizeCanvas();
       setCameraState("ready");
       setStatusText(
+        // "Ready when you are" (not "Resume...") keeps the exact command word
+        // out of this aria-live line, so a screen reader speaking it aloud
+        // can't echo-trigger the "resume" voice command (lib/voice.ts).
         paused
-          ? "Tracking is paused. Resume when you are ready."
+          ? "Tracking is paused. Ready when you are."
           : "Camera tracking is on. Video stays on this device.",
       );
     } catch (error: unknown) {
@@ -604,6 +611,20 @@ export function PoseTracker({
   useEffect(() => {
     onActiveChange?.(cameraState === "ready");
   }, [cameraState, onActiveChange]);
+
+  // A parent can request a camera start (voice "start", T17). Track the last
+  // handled value so camera-state changes never replay a stale request --
+  // e.g. turning the camera off must not immediately restart it.
+  const handledStartSignalRef = useRef(0);
+  useEffect(() => {
+    if (!startSignal || startSignal === handledStartSignalRef.current) return;
+    handledStartSignalRef.current = startSignal;
+    if (cameraState === "ready" || cameraState === "requesting") return;
+    // Deferred a tick so startCamera's state updates land outside the effect
+    // body (same pattern as the instruction autoplay on /exercise).
+    const timer = setTimeout(() => void startCamera(), 0);
+    return () => clearTimeout(timer);
+  }, [startSignal, cameraState, startCamera]);
 
   useEffect(() => {
     mountedRef.current = true;

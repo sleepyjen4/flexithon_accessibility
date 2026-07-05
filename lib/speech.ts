@@ -16,12 +16,46 @@ let pendingRepAnnouncement: ReturnType<typeof setTimeout> | null = null;
 // Web Speech — one "stop everything" path for both.
 let currentAudio: HTMLAudioElement | null = null;
 let currentAudioResolve: (() => void) | null = null;
+// The clip's text twin (the same string the build script synthesized), so the
+// voice-control echo guard can compare heard commands against what's playing.
+let currentAudioText: string | null = null;
+
+// Echo guard bookkeeping (T17/F8): SpeechRecognition transcribes OUR OWN
+// narration coming out of the speakers, and its results arrive a beat after
+// the words were spoken — so remember what was said for a short grace window
+// past the end of playback, not only while audio is live.
+let lastSpokenText: string | null = null;
+let lastSpeechEndedAt = 0;
+const ECHO_GRACE_MS = 2000;
+
+function recordSpeechEnded(text: string | null): void {
+  if (!text) return;
+  lastSpokenText = text;
+  lastSpeechEndedAt = Date.now();
+}
+
+/**
+ * The text the app is speaking right now (clip or Web Speech), or spoke within
+ * the last couple of seconds; null when it has been quiet. VoiceControl uses
+ * this to drop heard commands that are really the narration echoing through
+ * the mic (see lib/voice.ts isCommandInText).
+ */
+export function getActiveSpeechText(): string | null {
+  if (currentAudioText !== null) return currentAudioText;
+  if (currentRequest) return currentRequest.text;
+  if (lastSpokenText && Date.now() - lastSpeechEndedAt < ECHO_GRACE_MS) {
+    return lastSpokenText;
+  }
+  return null;
+}
 
 function stopCurrentAudio(): void {
   const audio = currentAudio;
   const resolve = currentAudioResolve;
+  recordSpeechEnded(currentAudioText);
   currentAudio = null;
   currentAudioResolve = null;
+  currentAudioText = null;
 
   if (audio) {
     audio.onended = null;
@@ -211,6 +245,7 @@ export function speak(text: string, options: SpeakOptions = {}): Promise<void> {
 
   if (options.interrupt) {
     stopCurrentAudio();
+    recordSpeechEnded(currentRequest?.text ?? null);
     settleRequest(currentRequest);
     settleQueuedRequests();
     currentRequest = null;
@@ -243,6 +278,9 @@ function playClip(
     const audio = new window.Audio(url);
     currentAudio = audio;
     currentAudioResolve = resolve;
+    // The clip was synthesized from exactly this text (Section 5c), so it
+    // doubles as the transcript for the voice-control echo guard.
+    currentAudioText = fallbackText;
 
     const finish = () => {
       // Ignore late events from a clip that was already superseded/stopped.
@@ -259,6 +297,8 @@ function playClip(
       audio.onerror = null;
       currentAudio = null;
       currentAudioResolve = null;
+      // The clip never played, so there is nothing to echo-guard against.
+      currentAudioText = null;
       resolve(speak(fallbackText, options));
     };
 
@@ -312,6 +352,7 @@ export function cancelSpeech(): void {
   }
 
   stopCurrentAudio();
+  recordSpeechEnded(currentRequest?.text ?? null);
   settleRequest(currentRequest);
   settleQueuedRequests();
   currentRequest = null;
@@ -374,6 +415,7 @@ function finishRequest(request: SpeechRequest): void {
     return;
   }
 
+  recordSpeechEnded(request.text);
   currentRequest = null;
   settleRequest(request);
   processSpeechQueue();

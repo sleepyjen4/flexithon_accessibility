@@ -9,6 +9,10 @@ interface TimerProps {
   label: string;
   onComplete?: () => void;
   onPauseChange?: (paused: boolean) => void;
+  /** Controlled pause (F8 voice control): when set, the timer's running state
+   * follows this prop, and the built-in Pause button only reports the request
+   * through onPauseChange — the parent owns the state. */
+  paused?: boolean;
 }
 
 function formatTime(total: number): string {
@@ -19,12 +23,22 @@ function formatTime(total: number): string {
 
 /** F5 timer: pause-friendly, extendable, announces state changes via
  * aria-live (Section 6, rule 5) — never a per-second announcement. */
-export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps) {
+export function Timer({
+  seconds,
+  label,
+  onComplete,
+  onPauseChange,
+  paused,
+}: TimerProps) {
   const [remaining, setRemaining] = useState(seconds);
-  const [running, setRunning] = useState(true);
+  const [internalRunning, setInternalRunning] = useState(true);
   const [announcement, setAnnouncement] = useState("");
   const haptics = useProfileStore((state) => state.prefs.haptics);
   const completedRef = useRef(false);
+
+  // Uncontrolled by default; a `paused` prop switches to controlled mode so a
+  // parent (e.g. voice control in the workout player) can pause hands-free.
+  const running = paused === undefined ? internalRunning : !paused;
 
   useEffect(() => {
     if (!running) return;
@@ -48,17 +62,19 @@ export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps)
 
   const togglePause = () => {
     // Derive the next state from the current render's `running` and run all
-    // side effects here in the handler — never inside the setRunning updater,
+    // side effects here in the handler — never inside a setState updater,
     // which runs during render and can't notify the parent (onPauseChange).
-    // `paused` is the post-toggle state (running now → paused next), so the
-    // parent (e.g. PoseTracker) receives the value that matches the UI it will
-    // render after this click.
-    const paused = running;
-    setRunning(!running);
+    // `nextPaused` is the post-toggle state (running now → paused next), so
+    // the parent receives the value that matches the UI it will render after
+    // this click. In controlled mode the parent applies it via the prop.
+    const nextPaused = running;
+    if (paused === undefined) setInternalRunning(!running);
     setAnnouncement(
-      paused ? `Paused with ${formatTime(remaining)} left.` : "Timer resumed.",
+      nextPaused
+        ? `Paused with ${formatTime(remaining)} left.`
+        : "Timer resumed.",
     );
-    onPauseChange?.(paused);
+    onPauseChange?.(nextPaused);
   };
 
   const extend = () => {
