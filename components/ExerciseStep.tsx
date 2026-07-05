@@ -14,6 +14,8 @@ import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { CameraLoadBoundary } from "@/components/CameraLoadBoundary";
+import { ExerciseDemo } from "@/components/ExerciseDemo";
+import { getExerciseVideoUrl } from "@/lib/exerciseVideos";
 import { Pause, Play } from "lucide-react";
 
 // F9 lives entirely client-side; loaded only when someone opts in.
@@ -100,6 +102,11 @@ export function ExerciseStep({
   // sticky right column keeps the timer and Done in view while the camera
   // scrolls. Non-hero exercises use the same two columns, minus the camera.
   const isHero = exercise.id === HERO_EXERCISE_ID;
+
+  const demoUrl = getExerciseVideoUrl(exercise.id);
+  const demo = demoUrl ? (
+    <ExerciseDemo videoUrl={demoUrl} name={exercise.name} />
+  ) : null;
 
   const header = (
     <div className="flex flex-col gap-2">
@@ -229,17 +236,18 @@ export function ExerciseStep({
       {/* Header spans the top, full width above both columns. */}
       {header}
 
-      {/* Read + move on the left (instructions, then the optional camera stage
-          right below its toggle); session controls on the right. The right
-          column is short and sticky, so the timer and Done stay in view while
-          the camera scrolls — nothing gets pushed off-screen when it expands. */}
+      {/* Reference on the left (demo + instructions); the "doing" side on the
+          right — camera above the timer, then the actions. The camera toggle
+          sits directly above the camera stage so revealing it on mobile never
+          jumps the view off-screen. */}
       <div className="flex flex-1 flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-8">
         <div className="flex flex-col gap-5">
+          {demo}
           {instructionsCard}
           {/* {adaptationNote} */}
-          {cameraBlock}
         </div>
         <div className="flex flex-col gap-5 lg:sticky lg:top-6">
+          {cameraBlock}
           {timer}
           {actions}
         </div>
