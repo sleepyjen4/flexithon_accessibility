@@ -70,7 +70,7 @@ export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps)
   return (
     <div className="flex flex-col items-center gap-4">
       <p
-        className="text-5xl font-bold tabular-nums text-slate-900"
+        className="text-5xl font-bold tabular-nums text-ink"
         aria-hidden="true"
       >
         {formatTime(remaining)}

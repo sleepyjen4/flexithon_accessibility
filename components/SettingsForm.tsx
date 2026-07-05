@@ -35,25 +35,25 @@ export function SettingsForm() {
   return (
     <div className="flex flex-col gap-8">
       <Card className="shadow-[0_18px_38px_rgba(15,23,42,0.08)]">
-        <h2 className="text-xl font-black text-slate-950">Movement tracking</h2>
-        <p className="mt-3 text-base leading-7 text-slate-700">
+        <h2 className="text-xl font-black text-ink">Movement tracking</h2>
+        <p className="mt-3 text-base leading-7 text-ink-soft">
           Set once when you start out — the app learns your comfortable range so
           hands-free rep-counting fits how you move. Recalibrate anytime.
         </p>
         <Link
           href="/calibrate"
-          className="mt-4 grid min-h-14 grid-cols-[1fr_auto] items-center rounded-xl border border-slate-300 px-4 text-center text-base font-black text-slate-950 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          className="mt-4 grid min-h-14 grid-cols-[1fr_auto] items-center rounded-xl border-2 border-line-strong px-4 text-center text-base font-black text-ink hover:bg-cream"
         >
           <span>Recalibrate movement range</span>
-          <span className="pl-4 text-sm font-black text-slate-500">Start</span>
+          <span className="pl-4 text-sm font-black text-ink-soft">Start</span>
         </Link>
       </Card>
 
       <Card className="shadow-[0_18px_38px_rgba(15,23,42,0.08)]">
-        <h2 className="text-xl font-black text-slate-950">Display & accessibility</h2>
+        <h2 className="text-xl font-black text-ink">Display & accessibility</h2>
 
         <div className="mt-6 flex flex-col gap-3">
-          <h3 className="text-lg font-black text-slate-950" id="text-size-label">
+          <h3 className="text-lg font-black text-ink" id="text-size-label">
             Text size
           </h3>
           <RadioGroup.Root
@@ -62,13 +62,13 @@ export function SettingsForm() {
               update({ ...prefs, text_size: value as AccessibilityPrefs["text_size"] })
             }
             aria-labelledby="text-size-label"
-            className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1"
+            className="grid grid-cols-3 gap-1 rounded-xl bg-cream p-1"
           >
             {TEXT_SIZES.map((size) => (
               <RadioGroup.Item
                 key={size.value}
                 value={size.value}
-                className="flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 text-center text-[13px] font-black leading-none text-slate-900 hover:bg-white/70 data-[state=checked]:bg-[#41637f] data-[state=checked]:text-white sm:text-sm md:text-base"
+                className="flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 text-center text-[13px] font-black leading-none text-ink hover:bg-surface data-[state=checked]:bg-evergreen data-[state=checked]:text-milk sm:text-sm md:text-base"
               >
                 <span className="whitespace-nowrap">{size.label}</span>
               </RadioGroup.Item>
@@ -80,16 +80,16 @@ export function SettingsForm() {
           {TOGGLES.map((toggle) => (
             <div key={toggle.key} className="flex items-center justify-between gap-4">
               <label htmlFor={`setting-${toggle.key}`} className="flex flex-col">
-                <span className="text-lg font-black text-slate-950">{toggle.label}</span>
-                <span className="text-sm text-slate-600">{toggle.description}</span>
+                <span className="text-lg font-black text-ink">{toggle.label}</span>
+                <span className="text-sm text-ink-soft">{toggle.description}</span>
               </label>
               <Switch.Root
                 id={`setting-${toggle.key}`}
                 checked={prefs[toggle.key]}
                 onCheckedChange={(checked) => update({ ...prefs, [toggle.key]: checked })}
-                className="relative h-9 w-16 shrink-0 rounded-full bg-slate-300 p-1 transition-colors data-[state=checked]:bg-[#41637f]"
+                className="relative h-9 w-16 shrink-0 rounded-full bg-line-strong p-1 transition-colors data-[state=checked]:bg-evergreen"
               >
-                <Switch.Thumb className="block h-7 w-7 rounded-full bg-white shadow-sm transition-transform data-[state=checked]:translate-x-7" />
+                <Switch.Thumb className="block h-7 w-7 rounded-full bg-milk shadow-sm transition-transform data-[state=checked]:translate-x-7" />
               </Switch.Root>
             </div>
           ))}

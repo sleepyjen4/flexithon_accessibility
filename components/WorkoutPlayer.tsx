@@ -37,8 +37,8 @@ export function WorkoutPlayer() {
   if (!workout) {
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">No workout yet</h1>
-        <p className="text-lg text-slate-600">
+        <h1 className="font-display text-2xl font-bold text-ink">No workout yet</h1>
+        <p className="text-lg text-ink-soft">
           Check in with today&apos;s energy and we&apos;ll build one that fits.
         </p>
         <Button asChild>
@@ -73,8 +73,8 @@ export function WorkoutPlayer() {
   if (resting) {
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">Rest</h1>
-        <p className="text-lg text-slate-600">
+        <h1 className="font-display text-2xl font-bold text-ink">Rest</h1>
+        <p className="text-lg text-ink-soft">
           Take your time, the next exercise waits for you.
         </p>
         {/* Keyed so each rest period gets a fresh timer instance. */}
@@ -96,10 +96,10 @@ export function WorkoutPlayer() {
   if (!exercise) {
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="font-display text-2xl font-bold text-ink">
           We couldn&apos;t load this exercise
         </h1>
-        <p className="text-lg text-slate-600">
+        <p className="text-lg text-ink-soft">
           Not your fault — let&apos;s move to the next one.
         </p>
         <Button type="button" onClick={goNext}>
@@ -110,7 +110,7 @@ export function WorkoutPlayer() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col lg:max-w-4xl">
       <p aria-live="polite" className="sr-only">
         Exercise {currentStepIndex + 1} of {workout.steps.length}:{" "}
         {exercise.name}
