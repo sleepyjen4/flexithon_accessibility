@@ -1,20 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/Button";
+import { PoseSetup } from "@/components/PoseSetup";
 import { SpeechToggle } from "@/components/SpeechToggle";
-import { getPoseExerciseById } from "@/lib/pose/exercises";
+import {
+  CALIBRATION_KEY_BY_POSE_ID,
+  getPoseExerciseById,
+  poseExerciseForSide,
+} from "@/lib/pose/exercises";
 import { getExerciseAudioUrl } from "@/lib/audioManifest";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
 import { UP_THRESHOLD_FRACTION } from "@/lib/pose/repCounter";
 import { useCalibrationStore } from "@/store/calibration";
 import { useProfileStore } from "@/store/profile";
 import { useSessionStore } from "@/store/session";
-import type { PersonalRange, RepEvent, SafeMovementStats } from "@/types";
+import type {
+  ExerciseDef,
+  PersonalRange,
+  RepEvent,
+  SafeMovementStats,
+} from "@/types";
+
+type PoseExerciseId = ExerciseDef["id"];
+type TrackedSide = ExerciseDef["side"];
 
 const PoseTracker = dynamic(
   () => import("@/components/PoseTracker").then((mod) => mod.PoseTracker),
@@ -28,13 +41,10 @@ const PoseTracker = dynamic(
   },
 );
 
-// The range calibrated in T08 is stored under the workout-library id for the
-// F9 hero exercise; the pose landmark math uses the matching pose def. These
-// two ids name the same movement in two id namespaces (a known pre-existing
-// wart) -- keep them in lockstep here.
-const CALIBRATION_KEY = "seated_lateral_raise";
-const poseExercise = getPoseExerciseById("seated_arm_raise")!;
-
+// Pre-calibration fallback only: rep counting is range-relative, so once a user
+// calibrates (T08) their own range replaces this for whichever movement they
+// pick. Each movement's calibration is keyed per exercise via
+// CALIBRATION_KEY_BY_POSE_ID (the store lives under the workout-library id).
 const DEFAULT_RANGE: PersonalRange = { minDeg: 15, maxDeg: 95 };
 
 function targetAngle(range: PersonalRange): number {
@@ -47,8 +57,15 @@ function targetAngle(range: PersonalRange): number {
 
 export default function ExercisePage() {
   const router = useRouter();
+
+  const [exerciseId, setExerciseId] = useState<PoseExerciseId>(
+    "seated_arm_raise",
+  );
+  const [side, setSide] = useState<TrackedSide>("either");
+
+  const calibrationKey = CALIBRATION_KEY_BY_POSE_ID[exerciseId];
   const calibratedRange = useCalibrationStore(
-    (state) => state.ranges[CALIBRATION_KEY],
+    (state) => state.ranges[calibrationKey],
   );
   const recordRom = useSessionStore((state) => state.recordRom);
   const setTrackingSummary = useSessionStore(
@@ -75,11 +92,44 @@ export default function ExercisePage() {
   // Stop any in-flight speech (rep counts / read-aloud) when leaving the page.
   useEffect(() => cancelSpeech, []);
 
+  // The chosen movement, resolved to a single tracked side (T13 single-limb).
+  const poseExercise = useMemo(
+    () => poseExerciseForSide(getPoseExerciseById(exerciseId)!, side),
+    [exerciseId, side],
+  );
+
   useEffect(() => {
     startedAtRef.current = Date.now();
   }, []);
 
   const range = calibratedRange ?? DEFAULT_RANGE;
+
+  // Switching movement or side is a fresh set: clear the read-outs and drop out
+  // of the finished/paused state. The tracker itself remounts via `key` below,
+  // which tears the camera down so the user restarts it for the new setup.
+  const resetSession = useCallback(() => {
+    setReps(0);
+    setPeak(0);
+    setPaused(false);
+    setFinished(false);
+    setLiveMessage("");
+  }, []);
+
+  const changeExercise = useCallback(
+    (id: PoseExerciseId) => {
+      setExerciseId(id);
+      resetSession();
+    },
+    [resetSession],
+  );
+
+  const changeSide = useCallback(
+    (next: TrackedSide) => {
+      setSide(next);
+      resetSession();
+    },
+    [resetSession],
+  );
 
   // Rep counts are spoken by PoseTracker (T09 announceRepCount, global mute);
   // here we only mirror events visually and keep the reps/peak read-outs.
@@ -100,7 +150,7 @@ export default function ExercisePage() {
         setLiveMessage("Tracking resumed.");
         break;
     }
-  }, []);
+  }, [poseExercise]);
 
   const handlePeak = useCallback((degrees: number) => {
     peakRef.current = degrees;
@@ -122,7 +172,7 @@ export default function ExercisePage() {
       text,
       { interrupt: true },
     ).finally(() => setReading(false));
-  }, []);
+  }, [poseExercise]);
 
   const readAloud = useCallback(() => {
     // Play/stop toggle: a second tap stops the clip mid-way.
@@ -137,11 +187,17 @@ export default function ExercisePage() {
   // Autoplay the instructions the first time the screen opens, so an unmuted
   // user hears them without tapping play -- matching the workout player.
   // speakOrPlay no-ops while muted, so the corner toggle governs autoplay too.
-  // Deferred a tick so the play-state update lands outside the effect body.
+  // Keyed on the movement only (via a ref for the latest player): switching
+  // sides doesn't change the instruction text, so it must not re-narrate.
+  const playInstructionsRef = useRef(playInstructions);
   useEffect(() => {
-    const timer = setTimeout(playInstructions, 0);
-    return () => clearTimeout(timer);
+    playInstructionsRef.current = playInstructions;
   }, [playInstructions]);
+  useEffect(() => {
+    // Deferred a tick so the play-state update lands outside the effect body.
+    const timer = setTimeout(() => playInstructionsRef.current(), 0);
+    return () => clearTimeout(timer);
+  }, [exerciseId]);
 
   const togglePause = useCallback(() => {
     setPaused((current) => {
@@ -159,9 +215,9 @@ export default function ExercisePage() {
     cancelSpeech();
     setPaused(false);
     setFinished(true);
-    if (peakToday > 0) recordRom(CALIBRATION_KEY, peakToday);
+    if (peakToday > 0) recordRom(calibrationKey, peakToday);
     setTrackingSummary({
-      exerciseId: CALIBRATION_KEY,
+      exerciseId: calibrationKey,
       reps: repsRef.current,
       personalRange: range,
       peakAngleToday: Math.round(peakToday),
@@ -171,7 +227,7 @@ export default function ExercisePage() {
     });
     setLiveMessage("Exercise complete. Nice work showing up today.");
     router.push("/summary");
-  }, [finished, range, recordRom, router, setTrackingSummary]);
+  }, [calibrationKey, finished, range, recordRom, router, setTrackingSummary]);
 
   const goAgain = useCallback(() => {
     startedAtRef.current = Date.now();
@@ -186,6 +242,10 @@ export default function ExercisePage() {
     setSessionKey((key) => key + 1); // remount the tracker for a clean count
     playInstructions();
   }, [playInstructions]);
+
+  // Carry the current movement and side into calibration so it captures the
+  // range for exactly what the user is about to track (T13 single-limb).
+  const calibrateHref = `/calibrate?exercise=${exerciseId}&side=${side}`;
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
@@ -214,10 +274,19 @@ export default function ExercisePage() {
             reps={reps}
             peak={peak}
             target={targetAngle(range)}
+            calibrateHref={calibrateHref}
             onGoAgain={goAgain}
           />
         ) : (
           <>
+            <PoseSetup
+              exerciseId={exerciseId}
+              side={side}
+              onExerciseChange={changeExercise}
+              onSideChange={changeSide}
+              disabled={active}
+            />
+
             {!calibratedRange ? (
               <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-slate-800">
                 <h2 className="text-lg font-semibold text-slate-900">
@@ -228,7 +297,7 @@ export default function ExercisePage() {
                   can also carry on with a general range right now.
                 </p>
                 <Link
-                  href="/calibrate"
+                  href={calibrateHref}
                   className="mt-3 inline-flex min-h-12 items-center font-semibold text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
                 >
                   Calibrate my range
@@ -242,7 +311,7 @@ export default function ExercisePage() {
                 </span>{" "}
                 (target {targetAngle(range)}°).{" "}
                 <Link
-                  href="/calibrate"
+                  href={calibrateHref}
                   className="font-semibold text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
                 >
                   Recalibrate
@@ -258,6 +327,7 @@ export default function ExercisePage() {
                 {speechEnabled ? (
                   <button
                     type="button"
+                    suppressHydrationWarning
                     onClick={readAloud}
                     aria-pressed={reading}
                     className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
@@ -283,7 +353,7 @@ export default function ExercisePage() {
             </section>
 
             <PoseTracker
-              key={sessionKey}
+              key={`${exerciseId}:${side}:${sessionKey}`}
               exercise={poseExercise}
               personalRange={range}
               paused={paused}
@@ -319,11 +389,13 @@ function FinishedCard({
   reps,
   peak,
   target,
+  calibrateHref,
   onGoAgain,
 }: {
   reps: number;
   peak: number;
   target: number;
+  calibrateHref: string;
   onGoAgain: () => void;
 }) {
   const reachedTarget = peak >= target;
@@ -360,7 +432,7 @@ function FinishedCard({
           Go again
         </Button>
         <Button asChild variant="secondary">
-          <Link href="/calibrate">Recalibrate range</Link>
+          <Link href={calibrateHref}>Recalibrate range</Link>
         </Button>
         <Button asChild variant="secondary">
           <Link href="/summary">View summary</Link>

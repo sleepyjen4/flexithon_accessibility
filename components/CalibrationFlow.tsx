@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import * as RadioGroup from "@radix-ui/react-radio-group";
+import { Check, Pause, Play } from "lucide-react";
 import type {
   NormalizedLandmark,
   PoseLandmarker,
@@ -21,9 +23,19 @@ import {
   isUsableSweep,
 } from "@/lib/calibration";
 import { getExerciseById } from "@/lib/exercises";
-import { calculateAngle } from "@/lib/pose/angles";
+import {
+  CALIBRATION_KEY_BY_POSE_ID,
+  POSE_EXERCISES,
+  getPoseExerciseById,
+  poseExerciseForSide,
+} from "@/lib/pose/exercises";
+import { measureActiveSide } from "@/lib/pose/realProvider";
 import { smoothWithEma } from "@/lib/pose/smoothing";
+import { getStaticAudioUrl } from "@/lib/audioManifest";
+import { cancelSpeech, speakOrPlay } from "@/lib/speech";
+import type { StaticClipId } from "@/lib/staticAudio";
 import { useCalibrationStore } from "@/store/calibration";
+import { useProfileStore } from "@/store/profile";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 
@@ -35,37 +47,34 @@ const MODEL_URL =
 const WASM_URL =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
 
-/** The one exercise with hands-free rep counting (Section 5b, F9). */
-const HERO_EXERCISE_ID = "seated_lateral_raise";
 const TARGET_SWEEPS = 3; // three guided movements (T08).
 const MIN_VISIBILITY = 0.6; // pause capture silently below this (matches T06).
 
-type Phase = "intro" | "capture" | "review";
+type Phase = "pick" | "intro" | "capture" | "review";
 type PoseStatus = "loading" | "tracking" | "paused" | "unavailable";
 
-/**
- * Minimal pose descriptor handed to the provider. The T03 mock ignores it; the
- * real provider (T11) will use the landmark triple. Keeping calibration on the
- * `PoseProvider` contract is what lets the whole flow run with zero MediaPipe
- * code today and swap mock → real with a one-line factory change.
- */
-const HERO_POSE_DEF: ExerciseDef = {
-  id: "seated_arm_raise",
-  name: "Seated lateral raise",
-  landmarks: [13, 11, 23], // elbow, shoulder, hip: lateral-raise shoulder angle
-  side: "either",
-  instructions: [
-    "Sit so your head and arms are in view.",
-    "Raise your arms out to the side as far as is comfortable.",
-    "Lower them gently and repeat.",
-  ],
-  cues: {
-    rangeReached: "That's your range.",
-    encourage: ["Nice and gentle.", "Only as far as is comfortable."],
-  },
+const SIDE_LABEL: Record<ExerciseDef["side"], string> = {
+  left: "your left side",
+  right: "your right side",
+  either: "either side",
+};
+
+// Pre-generated Gemini clip for each movement's intro read-aloud (Section 5c).
+// The wording lives in STATIC_CLIPS; the fallback text below is composed from
+// the same pieces the screen renders so clip and Web Speech never drift.
+const CALIBRATION_CLIP_BY_POSE_ID: Record<ExerciseDef["id"], StaticClipId> = {
+  seated_arm_raise: "calibrate_seated_arm_raise",
+  seated_bicep_curl: "calibrate_seated_bicep_curl",
 };
 
 interface CalibrationFlowProps {
+  /** Which movement to calibrate (T13). Defaults to the arm-raise hero. */
+  exerciseId?: ExerciseDef["id"];
+  /** Specific exercise links skip the picker and open the spoken intro. */
+  startInIntro?: boolean;
+  /** Which side to track while calibrating, so the captured range matches the
+   * side the user will actually exercise (T13 single-limb). */
+  side?: ExerciseDef["side"];
   /** Test/demo escape hatch. Production uses real MediaPipe tracking by default. */
   providerFactory?: () => PoseProvider;
 }
@@ -119,21 +128,131 @@ function drawMediaPipeLandmarks(
  * camera is always optional — the flow never dead-ends.
  */
 export function CalibrationFlow({
+  exerciseId: initialExerciseId = "seated_arm_raise",
+  startInIntro = false,
+  side = "either",
   providerFactory,
 }: CalibrationFlowProps = {}) {
+  const pathname = usePathname();
   const router = useRouter();
-  const setRange = useCalibrationStore((state) => state.setRange);
-  const existing = useCalibrationStore(
-    (state) => state.ranges[HERO_EXERCISE_ID],
-  );
-  const exercise = getExerciseById(HERO_EXERCISE_ID);
+  const searchParams = useSearchParams();
 
-  const [phase, setPhase] = useState<Phase>("intro");
+  // The server page validates query params and passes the initial choice here.
+  // Picker changes stay local until Continue so the URL only represents a
+  // committed calibration choice.
+  const [exerciseId, setExerciseId] = useState<ExerciseDef["id"]>(
+    initialExerciseId,
+  );
+
+  const replaceWithParams = useCallback(
+    (params: URLSearchParams) => {
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router],
+  );
+
+  const replaceExerciseQuery = useCallback(
+    (nextExerciseId: ExerciseDef["id"]) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("exercise", nextExerciseId);
+      replaceWithParams(params);
+    },
+    [replaceWithParams, searchParams],
+  );
+
+  // Resolve the movement + tracked side once. `poseDef` carries the landmark
+  // triple the provider measures; `storeKey` is the library id the range is
+  // saved under (see CALIBRATION_KEY_BY_POSE_ID).
+  const poseDef = useMemo(() => {
+    const base =
+      getPoseExerciseById(exerciseId) ?? getPoseExerciseById("seated_arm_raise")!;
+    return poseExerciseForSide(base, side);
+  }, [exerciseId, side]);
+  const storeKey = CALIBRATION_KEY_BY_POSE_ID[poseDef.id];
+
+  const setRange = useCalibrationStore((state) => state.setRange);
+  const existing = useCalibrationStore((state) => state.ranges[storeKey]);
+  const exercise = getExerciseById(storeKey);
+
+  const [phase, setPhase] = useState<Phase>(startInIntro ? "intro" : "pick");
   const [status, setStatus] = useState<PoseStatus>("loading");
   const [liveDeg, setLiveDeg] = useState<number | null>(null);
   const [captMin, setCaptMin] = useState<number | null>(null);
   const [captMax, setCaptMax] = useState<number | null>(null);
   const [sweeps, setSweeps] = useState(0);
+
+  const continueToIntro = useCallback(() => {
+    replaceExerciseQuery(exerciseId);
+    setPhase("intro");
+  }, [exerciseId, replaceExerciseQuery]);
+
+  const chooseDifferentExercise = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("exercise");
+    params.delete("side");
+    replaceWithParams(params);
+    setPhase("pick");
+  }, [replaceWithParams, searchParams]);
+
+  // Read the intro instructions aloud in the warm Gemini voice (Section 5c).
+  const speechEnabled = useProfileStore(
+    (state) => state.prefs.speech_enabled !== false,
+  );
+  const [reading, setReading] = useState(false);
+  const readAloudClipId = CALIBRATION_CLIP_BY_POSE_ID[poseDef.id];
+  // Compose the spoken text from the same pieces the "What happens" list shows,
+  // so the Web Speech fallback matches the pre-generated clip word for word.
+  const readAloudText = useMemo(
+    () =>
+      [
+        "Here's what happens.",
+        "Sit so your head and arms are in view.",
+        ...poseDef.instructions,
+        `Repeat gently ${TARGET_SWEEPS} times. We'll do the measuring.`,
+      ].join(" "),
+    [poseDef],
+  );
+
+  const playIntroInstructions = useCallback(() => {
+    // Prefer the pre-generated Gemini clip; speakOrPlay falls back to the Web
+    // Speech API (with the same text) when no clip has been generated yet, so
+    // read-aloud always works. Resolves when it ends, stops, or no-ops (muted).
+    setReading(true);
+    void speakOrPlay(getStaticAudioUrl(readAloudClipId), readAloudText, {
+      interrupt: true,
+    }).finally(() => setReading(false));
+  }, [readAloudClipId, readAloudText]);
+
+  // Autoplay the intro only when /calibrate is opened for a specific movement,
+  // so plain /calibrate stays silent on the chooser. The global speech toggle
+  // still governs this because speakOrPlay no-ops while muted.
+  const playIntroInstructionsRef = useRef(playIntroInstructions);
+  useEffect(() => {
+    playIntroInstructionsRef.current = playIntroInstructions;
+  }, [playIntroInstructions]);
+  useEffect(() => {
+    if (!startInIntro || phase !== "intro") return;
+
+    const timer = setTimeout(() => playIntroInstructionsRef.current(), 0);
+    return () => clearTimeout(timer);
+  }, [startInIntro, phase, exerciseId]);
+
+  // Play/stop toggle: a second tap stops the read-aloud mid-way.
+  const toggleReadAloud = useCallback(() => {
+    if (reading) {
+      cancelSpeech();
+      setReading(false);
+      return;
+    }
+    playIntroInstructions();
+  }, [reading, playIntroInstructions]);
+
+  // Stop any intro read-aloud when the phase changes (e.g. into capture) or the
+  // flow unmounts, so the warm voice never trails into the camera step.
+  useEffect(() => () => cancelSpeech(), [phase]);
 
   // Running capture lives in refs so 30fps updates never re-render.
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -163,7 +282,7 @@ export function CalibrationFlow({
     setCaptMax(snapshot.maxDeg === null ? null : Math.round(snapshot.maxDeg));
     setSweeps(snapshot.sweeps);
     if (snapshot.sweeps >= TARGET_SWEEPS) setPhase("review");
-  }, []);
+  }, [setPhase]);
 
   const handleCaptureEvent = useCallback((event: RepEvent) => {
     if (event.type === "tracking_paused") setStatus("paused");
@@ -217,41 +336,26 @@ export function CalibrationFlow({
       canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    const [firstIndex, vertexIndex, thirdIndex] = HERO_POSE_DEF.landmarks;
-    const first = landmarks?.[firstIndex];
-    const vertex = landmarks?.[vertexIndex];
-    const third = landmarks?.[thirdIndex];
-    const visibility =
-      first && vertex && third
-        ? Math.min(
-            first.visibility ?? 1,
-            vertex.visibility ?? 1,
-            third.visibility ?? 1,
-          )
-        : 0;
+    const aspect = video.videoWidth / video.videoHeight;
+    const measurement = measureActiveSide(landmarks ?? null, poseDef, aspect);
 
-    if (first && vertex && third && visibility >= MIN_VISIBILITY) {
-      const aspect = video.videoWidth / video.videoHeight;
-      const correct = (point: NormalizedLandmark) => ({
-        x: point.x * aspect,
-        y: point.y,
-      });
+    if (measurement.angle !== null && measurement.visibility >= MIN_VISIBILITY) {
       handleFrame({
-        angleDeg: calculateAngle(
-          correct(first),
-          correct(vertex),
-          correct(third),
-        ),
-        visibility,
+        angleDeg: measurement.angle,
+        visibility: measurement.visibility,
         timestamp: Date.now(),
       });
     } else {
       smoothedRef.current = null;
-      handleFrame({ angleDeg: Number.NaN, visibility, timestamp: Date.now() });
+      handleFrame({
+        angleDeg: Number.NaN,
+        visibility: measurement.visibility,
+        timestamp: Date.now(),
+      });
     }
 
     animationRef.current = requestAnimationFrame(() => realFrameRef.current());
-  }, [handleFrame, resizeCanvas]);
+  }, [handleFrame, poseDef, resizeCanvas]);
 
   useEffect(() => {
     realFrameRef.current = handleRealFrame;
@@ -295,10 +399,7 @@ export function CalibrationFlow({
             if (frame.visibility < MIN_VISIBILITY) smoothedRef.current = null;
             handleFrame(frame);
           });
-          provider.start(
-            video ?? document.createElement("video"),
-            HERO_POSE_DEF,
-          );
+          provider.start(video ?? document.createElement("video"), poseDef);
         } else {
           const { FilesetResolver, PoseLandmarker: PoseLandmarkerFactory } =
             await import("@mediapipe/tasks-vision");
@@ -352,7 +453,7 @@ export function CalibrationFlow({
       stream?.getTracks().forEach((track) => track.stop());
       stopStream(activeVideo);
     };
-  }, [phase, providerFactory, handleFrame, stopAnimation]);
+  }, [phase, poseDef, providerFactory, handleFrame, stopAnimation]);
 
   const beginCapture = () => {
     captureRef.current = createCalibrationCapture();
@@ -373,7 +474,7 @@ export function CalibrationFlow({
   };
 
   const save = (range: PersonalRange) => {
-    setRange(HERO_EXERCISE_ID, range);
+    setRange(storeKey, range);
     router.push("/exercise");
   };
 
@@ -382,6 +483,60 @@ export function CalibrationFlow({
 
   const heading = "Calibrate camera rep counting";
 
+  // ---- Pick exercise -----------------------------------------------------
+  if (phase === "pick") {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+        <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
+        <p className="text-lg text-slate-600">
+          Which exercise are you calibrating? We&apos;ll learn your comfortable
+          range for it so the camera counts reps that fit your body.
+        </p>
+        <fieldset className="flex flex-col gap-3 border-0 p-0">
+          <legend className="sr-only">Choose an exercise to calibrate</legend>
+          <RadioGroup.Root
+            value={exerciseId}
+            onValueChange={(next) => setExerciseId(next as ExerciseDef["id"])}
+            aria-label="Choose an exercise to calibrate"
+            className="flex flex-col gap-3"
+          >
+            {POSE_EXERCISES.map((option) => (
+              <RadioGroup.Item
+                key={option.id}
+                value={option.id}
+                className="flex min-h-14 w-full items-center justify-between gap-4 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-600 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-50"
+              >
+                <span className="text-lg font-semibold text-slate-900">
+                  {option.name}
+                </span>
+                <RadioGroup.Indicator className="shrink-0">
+                  <Check aria-hidden="true" className="h-5 w-5 text-indigo-700" />
+                </RadioGroup.Indicator>
+              </RadioGroup.Item>
+            ))}
+          </RadioGroup.Root>
+        </fieldset>
+        {existing && (
+          <p className="rounded-2xl bg-emerald-50 p-4 text-base text-slate-900">
+            You&apos;ve already calibrated this one ({existing.minDeg}°–
+            {existing.maxDeg}°). Recalibrating replaces it.
+          </p>
+        )}
+        <div className="mt-auto flex flex-col gap-3 pt-4">
+          <Button type="button" onClick={continueToIntro}>
+            Continue
+          </Button>
+          <Link
+            href="/exercise"
+            className="min-h-12 content-center text-center text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
+          >
+            Back to exercise
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // ---- Intro -------------------------------------------------------------
   if (phase === "intro") {
     return (
@@ -389,7 +544,8 @@ export function CalibrationFlow({
         <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
         <p className="text-lg text-slate-600">
           We&apos;ll learn your comfortable range for the{" "}
-          <strong>{exercise?.name ?? "hero exercise"}</strong> so the camera
+          <strong>{exercise?.name ?? "hero exercise"}</strong>
+          {side !== "either" ? ` on ${SIDE_LABEL[side]}` : ""} so the camera
           counts reps that fit your body, not the other way around.
         </p>
         {existing && (
@@ -399,15 +555,38 @@ export function CalibrationFlow({
           </p>
         )}
         <Card>
-          <h2 className="mb-3 text-lg font-semibold text-slate-900">
-            What happens
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">
+              What happens
+            </h2>
+            {/* Hidden while speech is muted — nothing would play. Mirrors the
+                workout player's read-aloud control (ExerciseStep). */}
+            {speechEnabled ? (
+              <button
+                type="button"
+                suppressHydrationWarning
+                onClick={toggleReadAloud}
+                aria-pressed={reading}
+                className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                aria-label={
+                  reading
+                    ? "Stop reading the instructions"
+                    : "Read the instructions aloud"
+                }
+              >
+                {reading ? (
+                  <Pause aria-hidden="true" className="h-6 w-6" />
+                ) : (
+                  <Play aria-hidden="true" className="h-6 w-6" />
+                )}
+              </button>
+            ) : null}
+          </div>
           <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg text-slate-900">
             <li>Sit so your head and arms are in view.</li>
-            <li>
-              Raise both arms out to the side as far as is comfortable, then
-              lower.
-            </li>
+            {poseDef.instructions.map((instruction) => (
+              <li key={instruction}>{instruction}</li>
+            ))}
             <li>
               Repeat gently {TARGET_SWEEPS} times. We&apos;ll do the measuring.
             </li>
@@ -423,6 +602,13 @@ export function CalibrationFlow({
           </Button>
           <Button type="button" variant="secondary" onClick={saveDefault}>
             Skip camera — use a comfortable default
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={chooseDifferentExercise}
+          >
+            Choose a different exercise
           </Button>
         </div>
       </div>
@@ -466,7 +652,7 @@ export function CalibrationFlow({
         <p className="text-lg text-slate-600">
           {status === "loading" && "Starting camera…"}
           {status === "tracking" &&
-            "Raise your arms out to the side, then lower. Nice and gentle."}
+            "Move through the exercise, then return. Nice and gentle."}
           {status === "paused" &&
             "Tracking paused. Move back into view when ready."}
         </p>
