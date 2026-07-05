@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { ExerciseDef } from "@/types";
 import {
+  CALIBRATION_KEY_BY_POSE_ID,
   POSE_EXERCISES,
   getPoseExerciseById,
   mirrorLandmarkTriple,
   poseExerciseForSide,
+  usesInvertedAngle,
 } from "./exercises";
 
 const EXPECTED_IDS: ExerciseDef["id"][] = ["seated_arm_raise", "seated_bicep_curl"];
@@ -63,6 +65,33 @@ describe("mirrorLandmarkTriple", () => {
       const mirrored = mirrorLandmarkTriple(exercise.landmarks);
       expect(new Set(mirrored).size).toBe(3);
     }
+  });
+});
+
+describe("usesInvertedAngle", () => {
+  it("inverts the bicep curl (effort = a smaller elbow angle)", () => {
+    expect(usesInvertedAngle("seated_bicep_curl")).toBe(true);
+  });
+
+  it("does not invert the arm raise (effort = a larger shoulder angle)", () => {
+    expect(usesInvertedAngle("seated_arm_raise")).toBe(false);
+  });
+});
+
+describe("CALIBRATION_KEY_BY_POSE_ID", () => {
+  it("maps every pose exercise to a workout-library key", () => {
+    for (const exercise of POSE_EXERCISES) {
+      expect(CALIBRATION_KEY_BY_POSE_ID[exercise.id]).toBeTruthy();
+    }
+  });
+
+  it("keeps the arm-raise two-namespace mapping and the curl's shared id", () => {
+    expect(CALIBRATION_KEY_BY_POSE_ID.seated_arm_raise).toBe(
+      "seated_lateral_raise",
+    );
+    expect(CALIBRATION_KEY_BY_POSE_ID.seated_bicep_curl).toBe(
+      "seated_bicep_curl",
+    );
   });
 });
 
