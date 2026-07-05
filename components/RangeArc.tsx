@@ -128,12 +128,13 @@ export function RangeArc({
           <circle cx={currentPoint.x} cy={currentPoint.y} r={8} fill="#4f46e5" />
         ) : null}
 
-        {/* Center read-out */}
+        {/* Center read-out. Explicit fill attributes (not Tailwind fill-*
+            classes) so the text colours are reliable on SVG across browsers. */}
         <text
           x={CENTER_X}
           y={CENTER_Y - 18}
           textAnchor="middle"
-          className="fill-slate-900"
+          fill="#0f172a"
           fontSize={30}
           fontWeight={700}
         >
@@ -143,7 +144,7 @@ export function RangeArc({
           x={CENTER_X}
           y={CENTER_Y}
           textAnchor="middle"
-          className="fill-slate-600"
+          fill="#475569"
           fontSize={11}
         >
           of {Math.round(range.maxDeg)}° range
