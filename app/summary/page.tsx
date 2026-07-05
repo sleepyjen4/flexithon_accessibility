@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, Clock, Gauge, RotateCcw } from "lucide-react";
+import { Activity, CheckCircle2, Clock, Gauge, Home, RotateCcw } from "lucide-react";
 import { Button } from "@/components/Button";
 import { getExerciseById } from "@/lib/exercises";
 import { useSessionStore } from "@/store/session";
@@ -102,6 +102,12 @@ export default function SummaryPage() {
           </Button>
           <Button asChild variant="secondary">
             <Link href="/calibrate">Recalibrate</Link>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link href="/" aria-label="Return to dashboard" className="gap-2">
+              <Home aria-hidden="true" className="h-5 w-5" />
+              <span>Dashboard</span>
+            </Link>
           </Button>
         </div>
       </div>
@@ -277,6 +283,12 @@ export default function SummaryPage() {
 
         <div className="mt-auto flex flex-col gap-3 pt-2 sm:flex-row">
           <Button asChild>
+            <Link href="/" aria-label="Finish and return to dashboard" className="gap-2">
+              <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
+              <span>Finish</span>
+            </Link>
+          </Button>
+          <Button asChild variant="secondary">
             <Link href="/exercise">Go again</Link>
           </Button>
           <Button asChild variant="secondary">

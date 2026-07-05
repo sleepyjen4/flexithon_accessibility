@@ -88,7 +88,7 @@ export function OnboardingFlow() {
       },
     };
     setProfile(displayName.trim() || null, abilities);
-    router.push("/check-in");
+    router.push("/");
   };
 
   const next = () => (step === STEPS.length - 1 ? finish() : setStep(step + 1));
