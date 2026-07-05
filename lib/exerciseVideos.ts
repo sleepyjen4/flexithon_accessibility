@@ -16,6 +16,22 @@ export const EXERCISE_VIDEO_BY_ID: Record<string, string> = {
   lying_band_chest_press: "/graphics/lying_band_chest_press",
   lying_heel_slides: "/graphics/lying_heel_slides",
   wheelchair_pushing: "/graphics/wheelchair_pushing",
+  // Second set — filenames already match the exercise id.
+  isometric_glute_contraction: "/graphics/isometric_glute_contraction",
+  seated_arm_circles: "/graphics/seated_arm_circles",
+  seated_band_chest_press: "/graphics/seated_band_chest_press",
+  seated_band_overhead_pull: "/graphics/seated_band_overhead_pull",
+  seated_band_pull_apart: "/graphics/seated_band_pull_apart",
+  seated_band_shoulder_rotation: "/graphics/seated_band_shoulder_rotation",
+  seated_bicep_curl: "/graphics/seated_bicep_curl",
+  seated_boxer_punches: "/graphics/seated_boxer_punches",
+  seated_forward_fold: "/graphics/seated_forward_fold",
+  seated_heel_raises: "/graphics/seated_heel_raises",
+  seated_knee_extension: "/graphics/seated_knee_extension",
+  seated_neck_stretch: "/graphics/seated_neck_stretch",
+  seated_overhead_press: "/graphics/seated_overhead_press",
+  seated_side_bend: "/graphics/seated_side_bend",
+  seated_wrist_rolls: "/graphics/seated_wrist_rolls",
 };
 
 /** Base path of an exercise's demo clip, or null when it has none. */

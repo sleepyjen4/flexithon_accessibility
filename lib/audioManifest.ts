@@ -30,7 +30,6 @@ export const EXERCISE_AUDIO: Record<string, string> = {
   "seated_heel_raises": "/audio/seated_heel_raises.wav",
   "seated_forward_fold": "/audio/seated_forward_fold.wav",
   "seated_band_shoulder_rotation": "/audio/seated_band_shoulder_rotation.wav",
-  "lying_glute_bridge": "/audio/lying_glute_bridge.wav",
   "lying_side_leg_lift": "/audio/lying_side_leg_lift.wav",
   "lying_arm_reach_cross": "/audio/lying_arm_reach_cross.wav",
   "lying_band_leg_press": "/audio/lying_band_leg_press.wav",
@@ -44,6 +43,9 @@ export const EXERCISE_AUDIO: Record<string, string> = {
   "standing_wall_slide": "/audio/standing_wall_slide.wav",
   "seated_deep_breathing": "/audio/seated_deep_breathing.wav",
   "seated_arm_raise": "/audio/seated_arm_raise.wav",
+  "isometric_glute_contraction": "/audio/isometric_glute_contraction.wav",
+  "wheelchair_pushups": "/audio/wheelchair_pushups.wav",
+  "seated_adaptive_yoga": "/audio/seated_adaptive_yoga.wav",
 };
 
 /**
