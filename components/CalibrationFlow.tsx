@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type {
@@ -21,6 +21,12 @@ import {
   isUsableSweep,
 } from "@/lib/calibration";
 import { getExerciseById } from "@/lib/exercises";
+import {
+  CALIBRATION_KEY_BY_POSE_ID,
+  getPoseExerciseById,
+  poseExerciseForSide,
+  usesInvertedAngle,
+} from "@/lib/pose/exercises";
 import { calculateAngle } from "@/lib/pose/angles";
 import { smoothWithEma } from "@/lib/pose/smoothing";
 import { useCalibrationStore } from "@/store/calibration";
@@ -35,37 +41,24 @@ const MODEL_URL =
 const WASM_URL =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
 
-/** The one exercise with hands-free rep counting (Section 5b, F9). */
-const HERO_EXERCISE_ID = "seated_lateral_raise";
 const TARGET_SWEEPS = 3; // three guided movements (T08).
 const MIN_VISIBILITY = 0.6; // pause capture silently below this (matches T06).
 
 type Phase = "intro" | "capture" | "review";
 type PoseStatus = "loading" | "tracking" | "paused" | "unavailable";
 
-/**
- * Minimal pose descriptor handed to the provider. The T03 mock ignores it; the
- * real provider (T11) will use the landmark triple. Keeping calibration on the
- * `PoseProvider` contract is what lets the whole flow run with zero MediaPipe
- * code today and swap mock → real with a one-line factory change.
- */
-const HERO_POSE_DEF: ExerciseDef = {
-  id: "seated_arm_raise",
-  name: "Seated lateral raise",
-  landmarks: [13, 11, 23], // elbow, shoulder, hip: lateral-raise shoulder angle
-  side: "either",
-  instructions: [
-    "Sit so your head and arms are in view.",
-    "Raise your arms out to the side as far as is comfortable.",
-    "Lower them gently and repeat.",
-  ],
-  cues: {
-    rangeReached: "That's your range.",
-    encourage: ["Nice and gentle.", "Only as far as is comfortable."],
-  },
+const SIDE_LABEL: Record<ExerciseDef["side"], string> = {
+  left: "your left side",
+  right: "your right side",
+  either: "either side",
 };
 
 interface CalibrationFlowProps {
+  /** Which movement to calibrate (T13). Defaults to the arm-raise hero. */
+  exerciseId?: ExerciseDef["id"];
+  /** Which side to track while calibrating, so the captured range matches the
+   * side the user will actually exercise (T13 single-limb). */
+  side?: ExerciseDef["side"];
   /** Test/demo escape hatch. Production uses real MediaPipe tracking by default. */
   providerFactory?: () => PoseProvider;
 }
@@ -119,14 +112,25 @@ function drawMediaPipeLandmarks(
  * camera is always optional — the flow never dead-ends.
  */
 export function CalibrationFlow({
+  exerciseId = "seated_arm_raise",
+  side = "either",
   providerFactory,
 }: CalibrationFlowProps = {}) {
   const router = useRouter();
+
+  // Resolve the movement + tracked side once. `poseDef` carries the landmark
+  // triple the provider measures; `storeKey` is the library id the range is
+  // saved under (see CALIBRATION_KEY_BY_POSE_ID).
+  const poseDef = useMemo(() => {
+    const base =
+      getPoseExerciseById(exerciseId) ?? getPoseExerciseById("seated_arm_raise")!;
+    return poseExerciseForSide(base, side);
+  }, [exerciseId, side]);
+  const storeKey = CALIBRATION_KEY_BY_POSE_ID[poseDef.id];
+
   const setRange = useCalibrationStore((state) => state.setRange);
-  const existing = useCalibrationStore(
-    (state) => state.ranges[HERO_EXERCISE_ID],
-  );
-  const exercise = getExerciseById(HERO_EXERCISE_ID);
+  const existing = useCalibrationStore((state) => state.ranges[storeKey]);
+  const exercise = getExerciseById(storeKey);
 
   const [phase, setPhase] = useState<Phase>("intro");
   const [status, setStatus] = useState<PoseStatus>("loading");
@@ -217,7 +221,7 @@ export function CalibrationFlow({
       canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    const [firstIndex, vertexIndex, thirdIndex] = HERO_POSE_DEF.landmarks;
+    const [firstIndex, vertexIndex, thirdIndex] = poseDef.landmarks;
     const first = landmarks?.[firstIndex];
     const vertex = landmarks?.[vertexIndex];
     const third = landmarks?.[thirdIndex];
@@ -236,12 +240,15 @@ export function CalibrationFlow({
         x: point.x * aspect,
         y: point.y,
       });
+      const rawAngle = calculateAngle(
+        correct(first),
+        correct(vertex),
+        correct(third),
+      );
+      // Match the provider's effort convention so the captured range and the
+      // live counting agree on which direction a rep goes (usesInvertedAngle).
       handleFrame({
-        angleDeg: calculateAngle(
-          correct(first),
-          correct(vertex),
-          correct(third),
-        ),
+        angleDeg: usesInvertedAngle(poseDef.id) ? 180 - rawAngle : rawAngle,
         visibility,
         timestamp: Date.now(),
       });
@@ -251,7 +258,7 @@ export function CalibrationFlow({
     }
 
     animationRef.current = requestAnimationFrame(() => realFrameRef.current());
-  }, [handleFrame, resizeCanvas]);
+  }, [handleFrame, poseDef, resizeCanvas]);
 
   useEffect(() => {
     realFrameRef.current = handleRealFrame;
@@ -295,10 +302,7 @@ export function CalibrationFlow({
             if (frame.visibility < MIN_VISIBILITY) smoothedRef.current = null;
             handleFrame(frame);
           });
-          provider.start(
-            video ?? document.createElement("video"),
-            HERO_POSE_DEF,
-          );
+          provider.start(video ?? document.createElement("video"), poseDef);
         } else {
           const { FilesetResolver, PoseLandmarker: PoseLandmarkerFactory } =
             await import("@mediapipe/tasks-vision");
@@ -352,7 +356,7 @@ export function CalibrationFlow({
       stream?.getTracks().forEach((track) => track.stop());
       stopStream(activeVideo);
     };
-  }, [phase, providerFactory, handleFrame, stopAnimation]);
+  }, [phase, poseDef, providerFactory, handleFrame, stopAnimation]);
 
   const beginCapture = () => {
     captureRef.current = createCalibrationCapture();
@@ -373,7 +377,7 @@ export function CalibrationFlow({
   };
 
   const save = (range: PersonalRange) => {
-    setRange(HERO_EXERCISE_ID, range);
+    setRange(storeKey, range);
     router.push("/exercise");
   };
 
@@ -389,7 +393,8 @@ export function CalibrationFlow({
         <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
         <p className="text-lg text-slate-600">
           We&apos;ll learn your comfortable range for the{" "}
-          <strong>{exercise?.name ?? "hero exercise"}</strong> so the camera
+          <strong>{exercise?.name ?? "hero exercise"}</strong>
+          {side !== "either" ? ` on ${SIDE_LABEL[side]}` : ""} so the camera
           counts reps that fit your body, not the other way around.
         </p>
         {existing && (
@@ -404,10 +409,9 @@ export function CalibrationFlow({
           </h2>
           <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg text-slate-900">
             <li>Sit so your head and arms are in view.</li>
-            <li>
-              Raise both arms out to the side as far as is comfortable, then
-              lower.
-            </li>
+            {poseDef.instructions.map((instruction) => (
+              <li key={instruction}>{instruction}</li>
+            ))}
             <li>
               Repeat gently {TARGET_SWEEPS} times. We&apos;ll do the measuring.
             </li>
@@ -466,7 +470,7 @@ export function CalibrationFlow({
         <p className="text-lg text-slate-600">
           {status === "loading" && "Starting camera…"}
           {status === "tracking" &&
-            "Raise your arms out to the side, then lower. Nice and gentle."}
+            "Move through the exercise, then return. Nice and gentle."}
           {status === "paused" &&
             "Tracking paused. Move back into view when ready."}
         </p>

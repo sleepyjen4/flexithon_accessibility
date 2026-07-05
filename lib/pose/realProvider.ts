@@ -10,6 +10,7 @@ import type {
   RepEvent,
 } from "@/types";
 import { calculateAngle } from "./angles";
+import { mirrorLandmarkTriple, usesInvertedAngle } from "./exercises";
 import { smoothWithEma } from "./smoothing";
 import {
   createRepCounter,
@@ -81,6 +82,84 @@ export function reportsErrors(
   provider: PoseProvider,
 ): provider is RealPoseProvider {
   return "onError" in provider;
+}
+
+/** Smoothed joint angle + min landmark visibility for one 3-landmark triple. */
+interface SideMeasurement {
+  angle: number | null;
+  visibility: number;
+}
+
+/**
+ * Angle at the vertex of one landmark triple, or null when any of the three
+ * points is missing or below the visibility threshold (counting pauses silently
+ * in that case). MediaPipe normalizes x and y to the frame independently, so a
+ * non-square video distorts angles — x is aspect-corrected before measuring.
+ */
+function measureTriple(
+  landmarks: LandmarkFrame,
+  triple: readonly [number, number, number],
+  aspect: number,
+): SideMeasurement {
+  const first = landmarks?.[triple[0]];
+  const vertex = landmarks?.[triple[1]];
+  const third = landmarks?.[triple[2]];
+  if (!first || !vertex || !third) return { angle: null, visibility: 0 };
+
+  const visibility = Math.min(
+    first.visibility ?? 1,
+    vertex.visibility ?? 1,
+    third.visibility ?? 1,
+  );
+  if (visibility < VISIBILITY_THRESHOLD) return { angle: null, visibility };
+
+  const correct = (point: NormalizedLandmark) => ({
+    x: point.x * aspect,
+    y: point.y,
+  });
+  const angle = calculateAngle(correct(first), correct(vertex), correct(third));
+  return { angle, visibility };
+}
+
+/** Convert a raw joint angle to the effort-oriented value (see
+ * `usesInvertedAngle`): flexing movements are measured as `180 - angle`. */
+function toEffortAngle(measurement: SideMeasurement, invert: boolean): SideMeasurement {
+  if (!invert || measurement.angle === null) return measurement;
+  return { angle: 180 - measurement.angle, visibility: measurement.visibility };
+}
+
+/**
+ * The angle to count against for this frame, resolved for single-limb tracking
+ * (T13). An explicit `left`/`right` side tracks exactly its one triple. `either`
+ * tracks whichever arm is actually working: it measures both sides and takes the
+ * higher shoulder angle among those in frame, so raising *either* arm counts.
+ * This is arm selection, never a left-vs-right comparison or judgment
+ * (AGENTS.md §5b). Visibility is the better of the two sides, so one arm out of
+ * frame never pauses counting.
+ */
+export function measureActiveSide(
+  landmarks: LandmarkFrame,
+  exercise: ExerciseDef,
+  aspect: number,
+): SideMeasurement {
+  const invert = usesInvertedAngle(exercise.id);
+  const primary = toEffortAngle(
+    measureTriple(landmarks, exercise.landmarks, aspect),
+    invert,
+  );
+  if (exercise.side !== "either") return primary;
+
+  const mirrored = toEffortAngle(
+    measureTriple(landmarks, mirrorLandmarkTriple(exercise.landmarks), aspect),
+    invert,
+  );
+  const angles = [primary.angle, mirrored.angle].filter(
+    (angle): angle is number => angle !== null,
+  );
+  return {
+    angle: angles.length ? Math.max(...angles) : null,
+    visibility: Math.max(primary.visibility, mirrored.visibility),
+  };
 }
 
 export function createRealPoseProvider(): RealPoseProvider {
@@ -253,33 +332,15 @@ class RealMediaPipeProvider implements RealPoseProvider {
 
     this.emitLandmarks(landmarks);
 
-    const [firstIndex, vertexIndex, thirdIndex] = exercise.landmarks;
-    const first = landmarks?.[firstIndex];
-    const vertex = landmarks?.[vertexIndex];
-    const third = landmarks?.[thirdIndex];
-    const visibility =
-      first && vertex && third
-        ? Math.min(
-            first.visibility ?? 1,
-            vertex.visibility ?? 1,
-            third.visibility ?? 1,
-          )
-        : 0;
+    const aspect = video.videoWidth / video.videoHeight || 1;
+    const { angle: rawAngle, visibility } = measureActiveSide(
+      landmarks,
+      exercise,
+      aspect,
+    );
 
     let angleDeg: number | null = null;
-    if (first && vertex && third && visibility >= VISIBILITY_THRESHOLD) {
-      // MediaPipe normalizes x and y to the frame independently, so a
-      // non-square video distorts angles — aspect-correct x before measuring.
-      const aspect = video.videoWidth / video.videoHeight || 1;
-      const correct = (point: NormalizedLandmark) => ({
-        x: point.x * aspect,
-        y: point.y,
-      });
-      const rawAngle = calculateAngle(
-        correct(first),
-        correct(vertex),
-        correct(third),
-      );
+    if (rawAngle !== null) {
       this.smoothedAngle = smoothWithEma(this.smoothedAngle, rawAngle);
       angleDeg = this.smoothedAngle;
     } else {

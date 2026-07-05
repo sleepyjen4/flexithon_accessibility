@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ExerciseDef } from "@/types";
-import { POSE_EXERCISES, getPoseExerciseById } from "./exercises";
+import {
+  POSE_EXERCISES,
+  getPoseExerciseById,
+  mirrorLandmarkTriple,
+  poseExerciseForSide,
+} from "./exercises";
 
-const EXPECTED_IDS: ExerciseDef["id"][] = ["seated_arm_raise", "seated_torso_twist"];
+const EXPECTED_IDS: ExerciseDef["id"][] = ["seated_arm_raise", "seated_bicep_curl"];
 
 describe("POSE_EXERCISES", () => {
   it("defines exactly the two hero exercises from the ExerciseDef contract", () => {
@@ -36,5 +41,53 @@ describe("getPoseExerciseById", () => {
     for (const id of EXPECTED_IDS) {
       expect(getPoseExerciseById(id)?.id).toBe(id);
     }
+  });
+});
+
+describe("mirrorLandmarkTriple", () => {
+  it("swaps each upper-body landmark for its left/right twin", () => {
+    // left elbow/shoulder/hip -> right elbow/shoulder/hip
+    expect(mirrorLandmarkTriple([13, 11, 23])).toEqual([14, 12, 24]);
+  });
+
+  it("is its own inverse (mirroring twice returns the original)", () => {
+    for (const exercise of POSE_EXERCISES) {
+      expect(mirrorLandmarkTriple(mirrorLandmarkTriple(exercise.landmarks))).toEqual(
+        exercise.landmarks,
+      );
+    }
+  });
+
+  it("still yields a non-degenerate triple (three distinct indices)", () => {
+    for (const exercise of POSE_EXERCISES) {
+      const mirrored = mirrorLandmarkTriple(exercise.landmarks);
+      expect(new Set(mirrored).size).toBe(3);
+    }
+  });
+});
+
+describe("poseExerciseForSide", () => {
+  const armRaise = getPoseExerciseById("seated_arm_raise") as ExerciseDef;
+
+  it("tracks the canonical (left) triple for 'left' and 'either'", () => {
+    expect(poseExerciseForSide(armRaise, "left").landmarks).toEqual(
+      armRaise.landmarks,
+    );
+    expect(poseExerciseForSide(armRaise, "either").landmarks).toEqual(
+      armRaise.landmarks,
+    );
+  });
+
+  it("tracks the mirrored triple for 'right'", () => {
+    expect(poseExerciseForSide(armRaise, "right").landmarks).toEqual(
+      mirrorLandmarkTriple(armRaise.landmarks),
+    );
+  });
+
+  it("records the chosen side and never mutates the source definition", () => {
+    const resolved = poseExerciseForSide(armRaise, "right");
+    expect(resolved.side).toBe("right");
+    expect(armRaise.side).toBe("either"); // source untouched
+    expect(armRaise.landmarks).toEqual([13, 11, 23]);
   });
 });
