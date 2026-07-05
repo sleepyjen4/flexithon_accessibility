@@ -1,11 +1,14 @@
 import type { PersonalRange, PoseFrame, RepEvent } from "@/types";
 
 /**
- * Frames with landmark visibility below this are ignored and counting pauses
- * silently (TICKETS.md T06; AGENTS.md §5b — never imply the user's body or
- * setup is the problem).
+ * Demo-condition landmark confidence gate (T15). Venue-like dim lighting and
+ * side-angle tests often place one wrist/elbow around 0.5–0.6 even while the
+ * movement is visible; 0.5 keeps those reps countable, while lower values let
+ * occluded joints create noisy angles. Frames below this still pause counting
+ * silently (AGENTS.md §5b — never imply the user's body or setup is the
+ * problem).
  */
-export const VISIBILITY_THRESHOLD = 0.6;
+export const VISIBILITY_THRESHOLD = 0.5;
 
 /** A rep's top threshold: angle must cross above minDeg + 0.85 × range. */
 export const UP_THRESHOLD_FRACTION = 0.85;

@@ -7,8 +7,8 @@ describe("smoothWithEma", () => {
   });
 
   it("blends toward the new sample using the default alpha", () => {
-    // alpha * sample + (1 - alpha) * previous = 0.3 * 100 + 0.7 * 0 = 30
-    expect(smoothWithEma(0, 100)).toBeCloseTo(30, 10);
+    // alpha * sample + (1 - alpha) * previous = 0.22 * 100 + 0.78 * 0 = 22
+    expect(smoothWithEma(0, 100)).toBeCloseTo(22, 10);
   });
 
   it("returns the previous value unchanged when the sample matches it", () => {
@@ -29,14 +29,14 @@ describe("smoothWithEma", () => {
   });
 
   it("dampens a single noisy spike more with a lower alpha", () => {
-    const highAlphaResult = smoothWithEma(20, 120, 0.3);
+    const highAlphaResult = smoothWithEma(20, 120, DEFAULT_ALPHA);
     const lowAlphaResult = smoothWithEma(20, 120, 0.15);
     expect(Math.abs(lowAlphaResult - 20)).toBeLessThan(
-      Math.abs(highAlphaResult - 20)
+      Math.abs(highAlphaResult - 20),
     );
   });
 
-  it("exports 0.3 as the default alpha", () => {
-    expect(DEFAULT_ALPHA).toBe(0.3);
+  it("exports 0.22 as the demo-condition default alpha", () => {
+    expect(DEFAULT_ALPHA).toBe(0.22);
   });
 });

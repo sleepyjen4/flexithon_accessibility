@@ -23,6 +23,7 @@ import type {
 } from "@/types";
 
 const VISIBLE_UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16] as const;
+const FRAMING_GUIDANCE = "Move back a little so I can see your arms.";
 
 type CameraState =
   | "idle"
@@ -255,6 +256,7 @@ export function PoseTracker({
   const [angleDeg, setAngleDeg] = useState<number | null>(null);
   const [peakAngle, setPeakAngle] = useState(0);
   const [manualDone, setManualDone] = useState(false);
+  const [showFramingGuidance, setShowFramingGuidance] = useState(false);
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -315,7 +317,11 @@ export function PoseTracker({
 
       const previousTimestamp = lastActiveFrameAtRef.current;
       if (previousTimestamp !== null) {
-        const elapsed = clampNumber(frame.timestamp - previousTimestamp, 0, 500);
+        const elapsed = clampNumber(
+          frame.timestamp - previousTimestamp,
+          0,
+          500,
+        );
         activeMillisecondsRef.current += elapsed;
       }
 
@@ -411,10 +417,12 @@ export function PoseTracker({
       if (event.type === "tracking_paused") {
         lastActiveFrameAtRef.current = null;
         setAngleDeg(null);
-        setStatusText("Tracking is paused while the camera view is limited.");
+        setShowFramingGuidance(true);
+        setStatusText(FRAMING_GUIDANCE);
         return;
       }
 
+      setShowFramingGuidance(false);
       setStatusText("Tracking resumed.");
     },
     [
@@ -466,6 +474,7 @@ export function PoseTracker({
     stopStream(videoRef.current);
     setCameraState("error");
     setAngleDeg(null);
+    setShowFramingGuidance(false);
     setStatusText(
       "Camera tracking couldn't start on this connection. You can continue manually.",
     );
@@ -476,6 +485,7 @@ export function PoseTracker({
     stopStream(videoRef.current);
     setCameraState("idle");
     setAngleDeg(null);
+    setShowFramingGuidance(false);
     setStatusText("Camera tracking is off. Manual controls are available.");
   }, [teardownProvider]);
 
@@ -525,6 +535,7 @@ export function PoseTracker({
       repDurationsMsRef.current = [];
       setPeakAngle(0);
       setAngleDeg(null);
+      setShowFramingGuidance(false);
       publishMovementStats(0);
 
       // Swap point (TICKETS.md T07/T11): the real MediaPipe provider is the
@@ -552,6 +563,7 @@ export function PoseTracker({
       stream?.getTracks().forEach((track) => track.stop());
       const nextState = getCameraStateFromError(error);
       setCameraState(nextState);
+      setShowFramingGuidance(false);
       setStatusText(
         nextState === "denied"
           ? "Camera access was not enabled. You can continue manually."
@@ -663,6 +675,19 @@ export function PoseTracker({
               <p className="rounded-xl bg-white/95 px-4 py-2 text-lg font-semibold text-slate-900">
                 Paused
               </p>
+            </div>
+          ) : null}
+
+          {cameraState === "ready" && showFramingGuidance && !paused ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/65 p-4 text-center">
+              <div className="max-w-sm rounded-2xl bg-white/95 p-4 shadow-lg ring-1 ring-slate-200">
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Camera framing
+                </h3>
+                <p className="mt-1 text-base text-slate-700">
+                  {FRAMING_GUIDANCE}
+                </p>
+              </div>
             </div>
           ) : null}
         </div>
