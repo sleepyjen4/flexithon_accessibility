@@ -47,6 +47,8 @@ class FakeSynth {
 class FakeAudio {
   static created: FakeAudio[] = [];
   static playCalls = 0;
+  // Simulate the browser autoplay policy blocking playback (Safari/iOS).
+  static rejectPlay = false;
   onended: (() => void) | null = null;
   onerror: (() => void) | null = null;
   paused = false;
@@ -57,7 +59,9 @@ class FakeAudio {
   }
   play(): Promise<void> {
     FakeAudio.playCalls += 1;
-    return Promise.resolve();
+    return FakeAudio.rejectPlay
+      ? Promise.reject(new Error("autoplay blocked"))
+      : Promise.resolve();
   }
   pause(): void {
     this.paused = true;
@@ -84,6 +88,7 @@ function installGlobals(voices: FakeVoice[]): void {
   synth = new FakeSynth(voices);
   FakeAudio.created = [];
   FakeAudio.playCalls = 0;
+  FakeAudio.rejectPlay = false;
   // The profile store persists via localStorage, which node lacks.
   const localStorage = makeLocalStorage();
   (globalThis as Record<string, unknown>).localStorage = localStorage;
@@ -264,6 +269,18 @@ describe("speakOrPlay clip vs fallback", () => {
     await flush();
 
     expect(FakeAudio.created).toHaveLength(0);
+    expect(synth.spoken.map((u) => u.text)).toEqual(["spoken fallback"]);
+  });
+
+  it("falls back to Web Speech when the clip's autoplay is blocked", async () => {
+    const { speech } = await loadModule();
+    FakeAudio.rejectPlay = true; // simulate Safari blocking autoplay
+    void speech.speakOrPlay("/audio/seated_band_row.wav", "spoken fallback");
+    await flush();
+
+    // The clip was attempted, then handed off to Web Speech rather than silence.
+    expect(FakeAudio.created).toHaveLength(1);
+    expect(FakeAudio.playCalls).toBe(1);
     expect(synth.spoken.map((u) => u.text)).toEqual(["spoken fallback"]);
   });
 
