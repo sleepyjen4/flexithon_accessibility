@@ -13,6 +13,13 @@ export const EquipmentSchema = z.enum([
   "dumbbell",
   "chair",
   "wall",
+  "wheelchair",
+  "bench",
+  "ankle_weights",
+  "support_surface",
+  "mobility_aid",
+  "pool_access",
+  "gripper_putty",
 ]);
 export type Equipment = z.infer<typeof EquipmentSchema>;
 
@@ -68,14 +75,61 @@ export interface ExerciseInstructionStep {
   audio_url?: string;
 }
 
+export const ExerciseCategorySchema = z.enum([
+  "strength",
+  "cardio",
+  "flexibility",
+  "core",
+  "balance",
+]);
+export type ExerciseCategory = z.infer<typeof ExerciseCategorySchema>;
+
+export const TrackingModeSchema = z.enum([
+  "camera_manual",
+  "timer",
+  "manual",
+]);
+export type TrackingMode = z.infer<typeof TrackingModeSchema>;
+
+export const ExerciseMetricSchema = z.enum([
+  "reps",
+  "reps_sets_weight",
+  "reps_sets",
+  "reps_or_time",
+  "reps_per_leg",
+  "reps_or_hold_time",
+  "reps_or_hold_seconds",
+  "session_duration",
+  "duration_per_stretch",
+  "hold_time_sets",
+  "duration_effort",
+  "distance_time",
+  "laps_duration",
+  "time_or_reps",
+]);
+export type ExerciseMetric = z.infer<typeof ExerciseMetricSchema>;
+
+export const ExerciseInteractionGroupSchema = z.enum([
+  "counter",
+  "timer",
+  "manual_entry",
+]);
+export type ExerciseInteractionGroup = z.infer<
+  typeof ExerciseInteractionGroupSchema
+>;
+
 export interface Exercise {
   id: string;
   name: string;
   description: string;
+  category: ExerciseCategory;
+  interaction_group: ExerciseInteractionGroup;
   positions: Position[];
   equipment: Equipment[];
   body_regions: BodyRegion[];
   intensity: 1 | 2 | 3 | 4 | 5;
+  tracking_modes: TrackingMode[];
+  metric_logged: ExerciseMetric;
   instructions: ExerciseInstructionStep[];
   audio_url: string | null;
   image_url: string | null;
