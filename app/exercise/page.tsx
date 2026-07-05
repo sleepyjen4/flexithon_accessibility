@@ -91,9 +91,9 @@ export default function ExercisePage() {
 
   const playInstructions = useCallback(() => {
     const text = [poseExercise.name, ...poseExercise.instructions].join(". ");
-    // Prefer the pre-generated clip (Section 5c); speakOrPlay falls back to the
-    // Web Speech API when no clip exists. Resolves when it ends, is stopped, or
-    // no-ops (speech muted) — reset to the idle state either way.
+    // Google AI Studio clip is the primary voice (Section 5c); speakOrPlay
+    // falls back to Web Speech only if the clip is missing or its playback is
+    // blocked. Resolves when it ends, is stopped, or no-ops (muted).
     setReading(true);
     void speakOrPlay(
       getExerciseAudioUrl({ id: poseExercise.id, audio_url: null }),
