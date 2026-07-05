@@ -224,7 +224,11 @@ export type VoiceCommand =
   | "resume"
   | "next"
   | "skip"
-  | "finish";
+  | "finish"
+  | "extend"
+  | "repeat"
+  | "mute"
+  | "unmute";
 
 /**
  * Section 0 contract: summary of one completed tracking session, consumed by

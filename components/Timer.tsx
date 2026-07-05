@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useProfileStore } from "@/store/profile";
 import { Button } from "@/components/Button";
 
@@ -13,6 +13,9 @@ interface TimerProps {
    * follows this prop, and the built-in Pause button only reports the request
    * through onPauseChange — the parent owns the state. */
   paused?: boolean;
+  /** Increment to add 30 seconds from the parent (the "add time" voice
+   * command) — same effect as the +30 seconds button. */
+  extendSignal?: number;
 }
 
 function formatTime(total: number): string {
@@ -29,6 +32,7 @@ export function Timer({
   onComplete,
   onPauseChange,
   paused,
+  extendSignal = 0,
 }: TimerProps) {
   const [remaining, setRemaining] = useState(seconds);
   const [internalRunning, setInternalRunning] = useState(true);
@@ -77,11 +81,22 @@ export function Timer({
     onPauseChange?.(nextPaused);
   };
 
-  const extend = () => {
+  const extend = useCallback(() => {
     completedRef.current = false;
     setRemaining((current) => current + 30);
     setAnnouncement("Added 30 seconds.");
-  };
+  }, []);
+
+  // Voice-driven +30 seconds. Initialized to the mounting value so a timer
+  // keyed in mid-session (next step's timer) ignores past signals; deferred a
+  // tick so the state updates land outside the effect body.
+  const handledExtendSignalRef = useRef(extendSignal);
+  useEffect(() => {
+    if (extendSignal === handledExtendSignalRef.current) return;
+    handledExtendSignalRef.current = extendSignal;
+    const timer = setTimeout(extend, 0);
+    return () => clearTimeout(timer);
+  }, [extendSignal, extend]);
 
   return (
     <div className="flex flex-col items-center gap-4">

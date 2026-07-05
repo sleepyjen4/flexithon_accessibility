@@ -89,6 +89,13 @@ export const VOICE_COMMAND_PHRASES: Readonly<
   next: ["next", "done"],
   skip: ["skip"],
   finish: ["finish", "finished"],
+  extend: ["add time", "more time", "extend"],
+  // Several spoken instructions contain the word "repeat" ("Release slowly
+  // and repeat.") — the echo guard covers them, and it's also what stops a
+  // replayed narration from re-triggering this command in a loop.
+  repeat: ["repeat", "again"],
+  mute: ["mute"],
+  unmute: ["unmute"],
 };
 
 /**
@@ -106,51 +113,92 @@ const VOICE_COMMAND_SOUND_ALIKES: Readonly<
   next: ["text", "necks", "nest", "dawn"],
   skip: ["ship"],
   finish: ["finnish"],
+  extend: [],
+  repeat: [],
+  mute: ["moot"],
+  // "unmute" often comes back as two words; the longer phrase wins the tie
+  // against plain "mute" so it can't invert the user's intent.
+  unmute: ["un mute", "on mute", "unmuted"],
 };
 
-/** Every word that can match a command: its phrases plus its sound-alikes. */
-function matchableWords(command: VoiceCommand): readonly string[] {
-  return [
-    ...VOICE_COMMAND_PHRASES[command],
-    ...VOICE_COMMAND_SOUND_ALIKES[command],
-  ];
+/** Every phrase that can match a command (its displayed phrases plus its
+ * sound-alikes), pre-split into words — phrases may be multi-word. */
+interface MatchablePhrase {
+  command: VoiceCommand;
+  words: readonly string[];
 }
 
-const COMMAND_BY_WORD: ReadonlyMap<string, VoiceCommand> = new Map(
-  (Object.keys(VOICE_COMMAND_PHRASES) as VoiceCommand[]).flatMap((command) =>
-    matchableWords(command).map((word) => [word, command] as const),
-  ),
+const MATCHABLE_PHRASES: readonly MatchablePhrase[] = (
+  Object.keys(VOICE_COMMAND_PHRASES) as VoiceCommand[]
+).flatMap((command) =>
+  [
+    ...VOICE_COMMAND_PHRASES[command],
+    ...VOICE_COMMAND_SOUND_ALIKES[command],
+  ].map((phrase) => ({ command, words: phrase.split(" ") })),
 );
+
+function normalizeWords(text: string): string[] {
+  return text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+}
+
+/** Last position (index of the phrase's final word) where the phrase appears
+ * as a whole-word sequence in `words`, or -1 when it never does. */
+function lastPhraseEnd(
+  words: readonly string[],
+  phrase: readonly string[],
+): number {
+  outer: for (let start = words.length - phrase.length; start >= 0; start -= 1) {
+    for (let offset = 0; offset < phrase.length; offset += 1) {
+      if (words[start + offset] !== phrase[offset]) continue outer;
+    }
+    return start + phrase.length - 1;
+  }
+  return -1;
+}
 
 /**
  * Extracts a command from a recognized utterance, or null when it contains
- * none. Scans words from the end so the most recent instruction wins when
- * someone corrects themselves ("pause — no wait, resume").
+ * none. The match ending latest in the utterance wins, so the most recent
+ * instruction survives a self-correction ("pause — no wait, resume"); on a
+ * tie the longer phrase wins, so "un mute" is never read as "mute".
  */
 export function parseVoiceCommand(transcript: string): VoiceCommand | null {
-  const words = transcript.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  const words = normalizeWords(transcript);
 
-  for (let index = words.length - 1; index >= 0; index -= 1) {
-    const word = words[index];
-    if (!word) continue;
-    const command = COMMAND_BY_WORD.get(word);
-    if (command) return command;
+  let best: VoiceCommand | null = null;
+  let bestEnd = -1;
+  let bestLength = 0;
+
+  for (const { command, words: phraseWords } of MATCHABLE_PHRASES) {
+    const end = lastPhraseEnd(words, phraseWords);
+    if (
+      end > bestEnd ||
+      (end === bestEnd && end >= 0 && phraseWords.length > bestLength)
+    ) {
+      best = command;
+      bestEnd = end;
+      bestLength = phraseWords.length;
+    }
   }
 
-  return null;
+  return best;
 }
 
 /**
- * Whether any word that can match this command (phrases AND sound-alikes)
- * appears as a whole word in the given text. The echo guard: a command heard
- * while the app is speaking text containing that same word is almost
- * certainly the narration coming back through the mic — e.g. the rest cue
- * "the next exercise waits for you" must not voice-skip the rest — so it is
- * dropped. Commands whose words are NOT in the narration work mid-speech.
+ * Whether any phrase that can match this command (displayed phrases AND
+ * sound-alikes) appears as a whole-word sequence in the given text. The echo
+ * guard: a command heard while the app is speaking text containing that same
+ * phrase is almost certainly the narration coming back through the mic —
+ * e.g. the rest cue "the next exercise waits for you" must not voice-skip
+ * the rest — so it is dropped. Commands whose phrases are NOT in the
+ * narration work mid-speech.
  */
 export function isCommandInText(command: VoiceCommand, text: string): boolean {
-  const words = new Set(text.toLowerCase().split(/[^a-z]+/));
-  return matchableWords(command).some((word) => words.has(word));
+  const words = normalizeWords(text);
+  return MATCHABLE_PHRASES.some(
+    (phrase) =>
+      phrase.command === command && lastPhraseEnd(words, phrase.words) !== -1,
+  );
 }
 
 // A command repeated within this window is treated as the same utterance —

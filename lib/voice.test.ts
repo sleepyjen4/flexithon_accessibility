@@ -15,6 +15,10 @@ const ALL_COMMANDS: readonly VoiceCommand[] = [
   "next",
   "skip",
   "finish",
+  "extend",
+  "repeat",
+  "mute",
+  "unmute",
 ];
 
 describe("parseVoiceCommand", () => {
@@ -28,6 +32,29 @@ describe("parseVoiceCommand", () => {
     expect(parseVoiceCommand("done")).toBe("next");
     expect(parseVoiceCommand("skip")).toBe("skip");
     expect(parseVoiceCommand("finish")).toBe("finish");
+    expect(parseVoiceCommand("extend")).toBe("extend");
+    expect(parseVoiceCommand("repeat")).toBe("repeat");
+    expect(parseVoiceCommand("again")).toBe("repeat");
+    expect(parseVoiceCommand("say that again")).toBe("repeat");
+    expect(parseVoiceCommand("mute")).toBe("mute");
+    expect(parseVoiceCommand("unmute")).toBe("unmute");
+  });
+
+  it("matches multi-word phrases as whole-word sequences", () => {
+    expect(parseVoiceCommand("add time")).toBe("extend");
+    expect(parseVoiceCommand("more time")).toBe("extend");
+    expect(parseVoiceCommand("can you add time please")).toBe("extend");
+    // The words alone (or out of sequence) must not match — the rest cue
+    // says "Take your time" and must not extend the timer.
+    expect(parseVoiceCommand("time")).toBeNull();
+    expect(parseVoiceCommand("take your time")).toBeNull();
+    expect(parseVoiceCommand("time to add a rep")).toBeNull();
+  });
+
+  it("prefers the longer phrase on a tie, so 'un mute' is never read as 'mute'", () => {
+    expect(parseVoiceCommand("un mute")).toBe("unmute");
+    expect(parseVoiceCommand("on mute")).toBe("unmute");
+    expect(parseVoiceCommand("unmuted")).toBe("unmute");
   });
 
   it("maps curated sound-alike mistranscriptions to their command", () => {
@@ -96,6 +123,19 @@ describe("isCommandInText (echo guard)", () => {
     expect(isCommandInText("pause", "Stop if you feel shoulder pain.")).toBe(
       true,
     );
+  });
+
+  it("treats multi-word phrases as sequences, not bags of words", () => {
+    expect(isCommandInText("extend", "Take your time — no rush.")).toBe(false);
+    expect(isCommandInText("extend", "You can add time whenever.")).toBe(true);
+  });
+
+  it("stops a replayed narration from re-triggering 'repeat' in a loop", () => {
+    // Real spoken copy: instructions and the calibration intro say "repeat".
+    expect(isCommandInText("repeat", "Release slowly and repeat.")).toBe(true);
+    expect(
+      isCommandInText("repeat", "Repeat gently 3 times. We'll do the measuring."),
+    ).toBe(true);
   });
 });
 

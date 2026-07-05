@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { Exercise, WorkoutStep } from "@/types";
@@ -32,6 +32,10 @@ interface ExerciseStepProps {
    * Timer's own Pause button reports back through onPauseChange. */
   paused: boolean;
   onPauseChange: (paused: boolean) => void;
+  /** Passed through to the step timer (the "add time" voice command). */
+  extendSignal: number;
+  /** Increment to replay the instructions (the "repeat" voice command). */
+  repeatSignal: number;
 }
 
 export function ExerciseStep({
@@ -43,6 +47,8 @@ export function ExerciseStep({
   onSkip,
   paused,
   onPauseChange,
+  extendSignal,
+  repeatSignal,
 }: ExerciseStepProps) {
   const recordRom = useSessionStore((state) => state.recordRom);
   const personalRange = useCalibrationStore(
@@ -90,6 +96,17 @@ export function ExerciseStep({
       cancelSpeech();
     };
   }, [playInstructions]);
+
+  // Voice-driven "repeat": replay the instructions from the start. Initialized
+  // to the mounting value so a new step ignores signals from earlier steps;
+  // deferred a tick so the play-state update lands outside the effect body.
+  const handledRepeatSignalRef = useRef(repeatSignal);
+  useEffect(() => {
+    if (repeatSignal === handledRepeatSignalRef.current) return;
+    handledRepeatSignalRef.current = repeatSignal;
+    const timer = setTimeout(playInstructions, 0);
+    return () => clearTimeout(timer);
+  }, [repeatSignal, playInstructions]);
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -145,6 +162,7 @@ export function ExerciseStep({
         onComplete={onDone}
         paused={paused}
         onPauseChange={onPauseChange}
+        extendSignal={extendSignal}
       />
 
       {exercise.id === HERO_EXERCISE_ID && (

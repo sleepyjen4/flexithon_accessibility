@@ -208,7 +208,9 @@ export function VoiceControl({ commands, onCommand }: VoiceControlProps) {
       {listening && heard ? (
         "command" in heard ? (
           <p className="mt-1 text-base font-semibold text-slate-900">
-            Heard “{heard.command}”.
+            {/* The primary phrase, not the command id — "add time", never
+                the internal "extend". */}
+            Heard “{VOICE_COMMAND_PHRASES[heard.command][0]}”.
           </p>
         ) : (
           <p className="mt-1 text-base text-slate-600">

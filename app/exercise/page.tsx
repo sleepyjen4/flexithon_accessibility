@@ -16,6 +16,7 @@ import {
 } from "@/lib/pose/exercises";
 import { getExerciseAudioUrl } from "@/lib/audioManifest";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
+import { setSpeechEnabled } from "@/lib/prefs";
 import { UP_THRESHOLD_FRACTION } from "@/lib/pose/repCounter";
 import { useCalibrationStore } from "@/store/calibration";
 import { useProfileStore } from "@/store/profile";
@@ -249,14 +250,24 @@ export default function ExercisePage() {
         case "resume":
           if (active && paused) togglePause();
           break;
-        case "next":
         case "finish":
-          // One exercise per screen, so "next" and "finish" both end the set.
           finish();
+          break;
+        case "repeat":
+          // Replay the instructions from the start (same as the play button).
+          playInstructions();
+          break;
+        case "mute":
+          setSpeechEnabled(false);
+          setLiveMessage("Spoken instructions off.");
+          break;
+        case "unmute":
+          setSpeechEnabled(true);
+          setLiveMessage("Spoken instructions on.");
           break;
       }
     },
-    [active, paused, togglePause, finish],
+    [active, paused, togglePause, finish, playInstructions],
   );
 
   const goAgain = useCallback(() => {
@@ -412,9 +423,18 @@ export default function ExercisePage() {
 
             {/* T17/W1: hands-free control. Renders nothing in browsers
                 without SpeechRecognition; unmounts (releasing the mic) when
-                finishing routes to /summary. */}
+                finishing routes to /summary. No "next" here — with one
+                exercise per screen it would duplicate "finish". */}
             <VoiceControl
-              commands={["start", "pause", "resume", "next", "finish"]}
+              commands={[
+                "start",
+                "pause",
+                "resume",
+                "finish",
+                "repeat",
+                "mute",
+                "unmute",
+              ]}
               onCommand={handleVoiceCommand}
             />
           </>

@@ -7,6 +7,7 @@ import { getExerciseById } from "@/lib/exercises";
 import { getStaticAudioUrl } from "@/lib/audioManifest";
 import { STATIC_CLIPS } from "@/lib/staticAudio";
 import { speakOrPlay } from "@/lib/speech";
+import { setSpeechEnabled } from "@/lib/prefs";
 import { useSessionStore } from "@/store/session";
 import { ExerciseStep } from "@/components/ExerciseStep";
 import { WorkoutFinish } from "@/components/WorkoutFinish";
@@ -23,8 +24,11 @@ export function WorkoutPlayer() {
   const advanceStep = useSessionStore((state) => state.advanceStep);
   const [resting, setResting] = useState(false);
   // Timer pause lives here (not in the Timer/ExerciseStep) so the "pause" and
-  // "resume" voice commands (F8) can drive whichever timer is on screen.
+  // "resume" voice commands (F8) can drive whichever timer is on screen; the
+  // extend signal does the same for the "add time" command (+30 seconds).
   const [timerPaused, setTimerPaused] = useState(false);
+  const [extendSignal, setExtendSignal] = useState(0);
+  const [repeatSignal, setRepeatSignal] = useState(0);
   // Voice-driven pause/resume announcements; button-driven ones come from the
   // Timer itself, so this only speaks for actions with no button press.
   const [voiceMessage, setVoiceMessage] = useState("");
@@ -105,6 +109,31 @@ export function WorkoutPlayer() {
         setVoiceMessage("");
         goNext();
         break;
+      case "extend":
+        // The on-screen timer announces "Added 30 seconds." itself.
+        setVoiceMessage("");
+        setExtendSignal((signal) => signal + 1);
+        break;
+      case "repeat":
+        setVoiceMessage("");
+        if (resting) {
+          // Replay the rest cue; during a step the ExerciseStep replays its
+          // instructions off the signal below.
+          void speakOrPlay(getStaticAudioUrl("rest"), STATIC_CLIPS.rest, {
+            interrupt: true,
+          });
+        } else {
+          setRepeatSignal((signal) => signal + 1);
+        }
+        break;
+      case "mute":
+        setSpeechEnabled(false);
+        setVoiceMessage("Spoken instructions off.");
+        break;
+      case "unmute":
+        setSpeechEnabled(true);
+        setVoiceMessage("Spoken instructions on.");
+        break;
     }
   };
 
@@ -125,6 +154,7 @@ export function WorkoutPlayer() {
           onComplete={goNext}
           paused={timerPaused}
           onPauseChange={setTimerPaused}
+          extendSignal={extendSignal}
         />
         <Button type="button" variant="secondary" onClick={goNext}>
           Skip Rest
@@ -164,6 +194,8 @@ export function WorkoutPlayer() {
           onSkip={goNext}
           paused={timerPaused}
           onPauseChange={setTimerPaused}
+          extendSignal={extendSignal}
+          repeatSignal={repeatSignal}
         />
       </>
     );
@@ -180,7 +212,16 @@ export function WorkoutPlayer() {
       </p>
       <div className="mt-6">
         <VoiceControl
-          commands={["pause", "resume", "next", "skip"]}
+          commands={[
+            "pause",
+            "resume",
+            "next",
+            "skip",
+            "repeat",
+            "extend",
+            "mute",
+            "unmute",
+          ]}
           onCommand={handleVoiceCommand}
         />
       </div>

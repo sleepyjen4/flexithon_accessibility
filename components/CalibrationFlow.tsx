@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import * as RadioGroup from "@radix-ui/react-radio-group";
@@ -15,6 +22,7 @@ import type {
   PoseFrame,
   PoseProvider,
   RepEvent,
+  VoiceCommand,
 } from "@/types";
 import {
   DEFAULT_RANGE,
@@ -34,11 +42,13 @@ import { measureActiveSide } from "@/lib/pose/realProvider";
 import { smoothWithEma } from "@/lib/pose/smoothing";
 import { getStaticAudioUrl } from "@/lib/audioManifest";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
+import { setSpeechEnabled } from "@/lib/prefs";
 import type { StaticClipId } from "@/lib/staticAudio";
 import { useCalibrationStore } from "@/store/calibration";
 import { useProfileStore } from "@/store/profile";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { VoiceControl } from "@/components/VoiceControl";
 
 const VISIBLE_UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16] as const;
 
@@ -185,6 +195,9 @@ export function CalibrationFlow({
   const [captMin, setCaptMin] = useState<number | null>(null);
   const [captMax, setCaptMax] = useState<number | null>(null);
   const [sweeps, setSweeps] = useState(0);
+  // Voice-driven announcements (mute/unmute); actions with visible buttons
+  // announce through their own existing live regions.
+  const [voiceMessage, setVoiceMessage] = useState("");
 
   const continueToIntro = useCallback(() => {
     replaceExerciseQuery(exerciseId);
@@ -513,10 +526,72 @@ export function CalibrationFlow({
 
   const heading = "Calibrate camera rep counting";
 
+  // Review outcome, computed up front so the voice handler can use it too.
+  const usable =
+    captMin !== null && captMax !== null && isUsableSweep(captMin, captMax);
+  const range = usable
+    ? computeRange(captMin as number, captMax as number)
+    : null;
+
+  const captureUnavailable = phase === "capture" && status === "unavailable";
+
+  // T17/F8: voice control across the whole flow. The grammar shifts with the
+  // phase, and every voice action mirrors a visible button on that screen.
+  const handleVoiceCommand = (command: VoiceCommand) => {
+    switch (command) {
+      case "start":
+        if (phase === "pick") continueToIntro();
+        else if (phase === "intro" || captureUnavailable) beginCapture();
+        else if (phase === "review") {
+          if (range) save(range);
+          else beginCapture();
+        }
+        break;
+      case "repeat":
+        if (phase === "intro") playIntroInstructions();
+        break;
+      case "finish":
+        if (phase === "capture" && !captureUnavailable) setPhase("review");
+        break;
+      case "skip":
+        if (
+          phase === "intro" ||
+          captureUnavailable ||
+          (phase === "review" && !range)
+        ) {
+          saveDefault();
+        }
+        break;
+      case "mute":
+        setSpeechEnabled(false);
+        setVoiceMessage("Spoken instructions off.");
+        break;
+      case "unmute":
+        setSpeechEnabled(true);
+        setVoiceMessage("Spoken instructions on.");
+        break;
+    }
+  };
+
+  const voiceCommands: readonly VoiceCommand[] =
+    phase === "pick"
+      ? ["start", "mute", "unmute"]
+      : phase === "intro"
+        ? ["start", "repeat", "skip", "mute", "unmute"]
+        : captureUnavailable
+          ? ["start", "skip", "mute", "unmute"]
+          : phase === "capture"
+            ? ["finish", "mute", "unmute"]
+            : range
+              ? ["start", "mute", "unmute"]
+              : ["start", "skip", "mute", "unmute"];
+
+  let content: ReactNode;
+
   // ---- Pick exercise -----------------------------------------------------
   if (phase === "pick") {
-    return (
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+    content = (
+      <div className="flex flex-1 flex-col gap-6">
         <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
         <p className="text-lg text-slate-600">
           Which exercise are you calibrating? We&apos;ll learn your comfortable
@@ -571,9 +646,9 @@ export function CalibrationFlow({
   }
 
   // ---- Intro -------------------------------------------------------------
-  if (phase === "intro") {
-    return (
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+  else if (phase === "intro") {
+    content = (
+      <div className="flex flex-1 flex-col gap-6">
         <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
         <p className="text-lg text-slate-600">
           We&apos;ll learn your comfortable range for the{" "}
@@ -649,10 +724,10 @@ export function CalibrationFlow({
   }
 
   // ---- Capture -----------------------------------------------------------
-  if (phase === "capture") {
+  else if (phase === "capture") {
     if (status === "unavailable") {
-      return (
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+      content = (
+        <div className="flex flex-1 flex-col gap-6">
           <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
           <p className="rounded-2xl bg-slate-50 p-4 text-lg text-slate-600">
             The camera isn&apos;t available right now. That&apos;s completely
@@ -676,11 +751,10 @@ export function CalibrationFlow({
           </div>
         </div>
       );
-    }
-
-    const captured = Math.min(sweeps, TARGET_SWEEPS);
-    return (
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6">
+    } else {
+      const captured = Math.min(sweeps, TARGET_SWEEPS);
+      content = (
+        <div className="flex flex-1 flex-col gap-6">
         <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
         <p className="text-lg text-slate-600">
           {status === "loading" && "Starting camera…"}
@@ -737,18 +811,14 @@ export function CalibrationFlow({
           </Button>
         </div>
       </div>
-    );
+      );
+    }
   }
 
   // ---- Review ------------------------------------------------------------
-  const usable =
-    captMin !== null && captMax !== null && isUsableSweep(captMin, captMax);
-  const range = usable
-    ? computeRange(captMin as number, captMax as number)
-    : null;
-
-  return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6">
+  else {
+    content = (
+      <div className="flex flex-1 flex-col gap-6">
       <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
       {range ? (
         <>
@@ -794,6 +864,26 @@ export function CalibrationFlow({
       >
         Skip for now
       </Link>
+      </div>
+    );
+  }
+
+  // VoiceControl sits OUTSIDE the switching phase content, in a stable tree
+  // position, so the mic never drops between intro, capture, and review
+  // (same reasoning as the workout player).
+  return (
+    <div
+      className={`mx-auto flex w-full ${
+        phase === "capture" && !captureUnavailable ? "max-w-4xl" : "max-w-3xl"
+      } flex-1 flex-col`}
+    >
+      {content}
+      <p aria-live="polite" className="sr-only">
+        {voiceMessage}
+      </p>
+      <div className="mt-6">
+        <VoiceControl commands={voiceCommands} onCommand={handleVoiceCommand} />
+      </div>
     </div>
   );
 }
