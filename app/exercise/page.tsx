@@ -309,7 +309,23 @@ export default function ExercisePage() {
               is optional and everything below works if you keep it off.
             </p>
           </header>
-          <SpeechToggle />
+          {/* Voice + mute controls together in the stable page header, so the
+              mic never drops between tracking and finished states. */}
+          <div className="flex shrink-0 items-center gap-2">
+            <VoiceControl
+              commands={[
+                "start",
+                "pause",
+                "resume",
+                "finish",
+                "repeat",
+                "mute",
+                "unmute",
+              ]}
+              onCommand={handleVoiceCommand}
+            />
+            <SpeechToggle />
+          </div>
         </div>
 
         {/* Every spoken cue has a visual twin here (AGENTS.md Section 6). */}
@@ -326,143 +342,124 @@ export default function ExercisePage() {
             onGoAgain={goAgain}
           />
         ) : (
-          <>
-            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-              {/* The camera stage leads on every screen size: it is the product's
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+            {/* The camera stage leads on every screen size: it is the product's
                 hero, so it sits first in reading order and dominates the grid. */}
-              <div className="rise-in rise-in-2 flex flex-col gap-4">
-                <PoseTracker
-                  key={`${exerciseId}:${side}:${sessionKey}`}
-                  exercise={poseExercise}
-                  personalRange={range}
-                  paused={paused}
-                  onRepEvent={handleRepEvent}
-                  onPeakRom={handlePeak}
-                  onMovementStats={handleMovementStats}
-                  onManualDone={finish}
-                  onActiveChange={setActive}
-                  startSignal={cameraStartSignal}
-                />
+            <div className="rise-in rise-in-2 flex flex-col gap-4">
+              <PoseTracker
+                key={`${exerciseId}:${side}:${sessionKey}`}
+                exercise={poseExercise}
+                personalRange={range}
+                paused={paused}
+                onRepEvent={handleRepEvent}
+                onPeakRom={handlePeak}
+                onMovementStats={handleMovementStats}
+                onManualDone={finish}
+                onActiveChange={setActive}
+                startSignal={cameraStartSignal}
+              />
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button
-                    type="button"
-                    onClick={togglePause}
-                    disabled={!active}
-                    aria-pressed={paused}
-                  >
-                    {paused ? "Resume tracking" : "Pause tracking"}
-                  </Button>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  type="button"
+                  onClick={togglePause}
+                  disabled={!active}
+                  aria-pressed={paused}
+                >
+                  {paused ? "Resume tracking" : "Pause tracking"}
+                </Button>
 
-                  <Button type="button" variant="secondary" onClick={finish}>
-                    Finish and view summary
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rise-in rise-in-3 flex flex-col gap-4">
-                <PoseSetup
-                  exerciseId={exerciseId}
-                  side={side}
-                  onExerciseChange={changeExercise}
-                  onSideChange={changeSide}
-                  disabled={active}
-                />
-
-                {!calibratedRange ? (
-                  <div className="rounded-3xl bg-lavender p-5">
-                    <h2 className="font-display text-lg font-bold text-ink">
-                      Counting to a general range
-                    </h2>
-                    <p className="mt-1 text-base text-ink">
-                      For counting tuned to how you move today, calibrate first.
-                      You can also carry on with a general range right now.
-                    </p>
-                    <Link
-                      href={calibrateHref}
-                      className="mt-2 inline-flex min-h-12 items-center font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
-                    >
-                      Calibrate my range
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="rounded-3xl border border-line bg-surface p-5 text-ink-soft shadow-card">
-                    Counting against your calibrated range:{" "}
-                    <span className="font-semibold text-ink">
-                      {range.minDeg}°-{range.maxDeg}°
-                    </span>{" "}
-                    (target {targetAngle(range)}°).{" "}
-                    <Link
-                      href={calibrateHref}
-                      className="font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
-                    >
-                      Recalibrate
-                    </Link>
-                  </div>
-                )}
-
-                <section className="rounded-3xl border border-line bg-surface p-5 shadow-card">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="font-display text-xl font-bold">
-                      How to move
-                    </h2>
-                    {/* Hidden while speech is muted -- nothing would play, so the
-                      corner mute toggle is the only relevant control then. */}
-                    {speechEnabled ? (
-                      <button
-                        type="button"
-                        suppressHydrationWarning
-                        onClick={readAloud}
-                        aria-pressed={reading}
-                        className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-surface text-ink transition-colors hover:bg-mint"
-                        aria-label={
-                          reading
-                            ? `Stop reading the instructions for ${poseExercise.name}`
-                            : `Play the instructions for ${poseExercise.name} from the start`
-                        }
-                      >
-                        {reading ? (
-                          <Pause aria-hidden="true" className="h-6 w-6" />
-                        ) : (
-                          <Play aria-hidden="true" className="h-6 w-6" />
-                        )}
-                      </button>
-                    ) : null}
-                  </div>
-                  <ol className="mt-4 flex flex-col gap-3 text-ink">
-                    {poseExercise.instructions.map((instruction, index) => (
-                      <li key={instruction} className="flex items-start gap-3">
-                        <span
-                          aria-hidden="true"
-                          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-marigold-soft text-base font-bold text-marigold-deep"
-                        >
-                          {index + 1}
-                        </span>
-                        <span>{instruction}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
+                <Button type="button" variant="secondary" onClick={finish}>
+                  Finish and view summary
+                </Button>
               </div>
             </div>
 
-            {/* T17/W1: hands-free control. Renders nothing in browsers
-                without SpeechRecognition; unmounts (releasing the mic) when
-                finishing routes to /summary. No "next" here — with one
-                exercise per screen it would duplicate "finish". */}
-            <VoiceControl
-              commands={[
-                "start",
-                "pause",
-                "resume",
-                "finish",
-                "repeat",
-                "mute",
-                "unmute",
-              ]}
-              onCommand={handleVoiceCommand}
-            />
-          </>
+            <div className="rise-in rise-in-3 flex flex-col gap-4">
+              <PoseSetup
+                exerciseId={exerciseId}
+                side={side}
+                onExerciseChange={changeExercise}
+                onSideChange={changeSide}
+                disabled={active}
+              />
+
+              {!calibratedRange ? (
+                <div className="rounded-3xl bg-lavender p-5">
+                  <h2 className="font-display text-lg font-bold text-ink">
+                    Counting to a general range
+                  </h2>
+                  <p className="mt-1 text-base text-ink">
+                    For counting tuned to how you move today, calibrate first.
+                    You can also carry on with a general range right now.
+                  </p>
+                  <Link
+                    href={calibrateHref}
+                    className="mt-2 inline-flex min-h-12 items-center font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
+                  >
+                    Calibrate my range
+                  </Link>
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-line bg-surface p-5 text-ink-soft shadow-card">
+                  Counting against your calibrated range:{" "}
+                  <span className="font-semibold text-ink">
+                    {range.minDeg}°-{range.maxDeg}°
+                  </span>{" "}
+                  (target {targetAngle(range)}°).{" "}
+                  <Link
+                    href={calibrateHref}
+                    className="font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
+                  >
+                    Recalibrate
+                  </Link>
+                </div>
+              )}
+
+              <section className="rounded-3xl border border-line bg-surface p-5 shadow-card">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="font-display text-xl font-bold">
+                    How to move
+                  </h2>
+                  {/* Hidden while speech is muted -- nothing would play, so the
+                      corner mute toggle is the only relevant control then. */}
+                  {speechEnabled ? (
+                    <button
+                      type="button"
+                      suppressHydrationWarning
+                      onClick={readAloud}
+                      aria-pressed={reading}
+                      className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-surface text-ink transition-colors hover:bg-mint"
+                      aria-label={
+                        reading
+                          ? `Stop reading the instructions for ${poseExercise.name}`
+                          : `Play the instructions for ${poseExercise.name} from the start`
+                      }
+                    >
+                      {reading ? (
+                        <Pause aria-hidden="true" className="h-6 w-6" />
+                      ) : (
+                        <Play aria-hidden="true" className="h-6 w-6" />
+                      )}
+                    </button>
+                  ) : null}
+                </div>
+                <ol className="mt-4 flex flex-col gap-3 text-ink">
+                  {poseExercise.instructions.map((instruction, index) => (
+                    <li key={instruction} className="flex items-start gap-3">
+                      <span
+                        aria-hidden="true"
+                        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-marigold-soft text-base font-bold text-marigold-deep"
+                      >
+                        {index + 1}
+                      </span>
+                      <span>{instruction}</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            </div>
+          </div>
         )}
       </div>
     </div>

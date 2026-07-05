@@ -14,6 +14,7 @@ import { WorkoutFinish } from "@/components/WorkoutFinish";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { VoiceControl } from "@/components/VoiceControl";
+import { SpeechToggle } from "@/components/SpeechToggle";
 
 /** F5: one exercise per screen, pause-friendly, skip is always a valid
  * choice. Fully operable with keyboard and screen reader. */
@@ -201,16 +202,13 @@ export function WorkoutPlayer() {
     );
   }
 
-  // VoiceControl sits OUTSIDE the switching content, in a stable tree
-  // position, so it never remounts between exercise and rest — a remount
-  // would release the mic and silently end hands-free control mid-workout.
+  // The control row (voice mic + mute) and VoiceControl sit OUTSIDE the
+  // switching content, in a stable tree position, so the mic never remounts
+  // between exercise and rest — a remount would release the mic and silently
+  // end hands-free control mid-workout.
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
-      {content}
-      <p aria-live="polite" className="sr-only">
-        {voiceMessage}
-      </p>
-      <div className="mt-6">
+      <div className="mb-6 flex items-center justify-end gap-2">
         <VoiceControl
           commands={[
             "pause",
@@ -224,7 +222,12 @@ export function WorkoutPlayer() {
           ]}
           onCommand={handleVoiceCommand}
         />
+        <SpeechToggle />
       </div>
+      {content}
+      <p aria-live="polite" className="sr-only">
+        {voiceMessage}
+      </p>
     </div>
   );
 }

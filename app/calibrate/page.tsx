@@ -1,5 +1,4 @@
 import { CalibrationFlow } from "@/components/CalibrationFlow";
-import { SpeechToggle } from "@/components/SpeechToggle";
 import { getPoseExerciseById } from "@/lib/pose/exercises";
 import type { ExerciseDef } from "@/types";
 
@@ -26,9 +25,6 @@ export default async function CalibratePage({
 
   return (
     <div className="flex flex-1 flex-col bg-cream px-5 py-8 sm:px-6 sm:py-10">
-      <div className="mx-auto flex w-full max-w-3xl justify-end">
-        <SpeechToggle />
-      </div>
       <CalibrationFlow
         key={`${exerciseId}:${trackedSide ?? "either"}:${startsFromExerciseQuery ? "intro" : "pick"}`}
         exerciseId={exerciseId}

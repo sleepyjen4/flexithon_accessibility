@@ -57,6 +57,7 @@ import { useProfileStore } from "@/store/profile";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { VoiceControl } from "@/components/VoiceControl";
+import { SpeechToggle } from "@/components/SpeechToggle";
 
 const VISIBLE_UPPER_BODY_INDICES = [11, 12, 13, 14, 15, 16] as const;
 
@@ -965,22 +966,23 @@ export function CalibrationFlow({
     );
   }
 
-  // VoiceControl sits OUTSIDE the switching phase content, in a stable tree
-  // position, so the mic never drops between intro, capture, and review
-  // (same reasoning as the workout player).
+  // The control row (voice mic + mute) and VoiceControl sit OUTSIDE the
+  // switching phase content, in a stable tree position, so the mic never drops
+  // between intro, capture, and review (same reasoning as the workout player).
   return (
     <div
       className={`mx-auto flex w-full ${
         phase === "capture" && !captureUnavailable ? "max-w-4xl" : "max-w-3xl"
       } flex-1 flex-col`}
     >
+      <div className="mb-6 flex items-center justify-end gap-2">
+        <VoiceControl commands={voiceCommands} onCommand={handleVoiceCommand} />
+        <SpeechToggle />
+      </div>
       {content}
       <p aria-live="polite" className="sr-only">
         {voiceMessage}
       </p>
-      <div className="mt-6">
-        <VoiceControl commands={voiceCommands} onCommand={handleVoiceCommand} />
-      </div>
     </div>
   );
 }
