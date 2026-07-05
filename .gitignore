@@ -24,6 +24,12 @@
 .DS_Store
 *.pem
 
+# editor local-history snapshots
+.history/
+
+# local agent tooling
+.claude/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
