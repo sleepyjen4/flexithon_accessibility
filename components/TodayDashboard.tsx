@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LibraryBig } from "lucide-react";
 import type { Abilities, EnergyLevel } from "@/types";
 import { generateWorkout } from "@/lib/ai";
 import { useCalibrationStore } from "@/store/calibration";
@@ -70,14 +70,14 @@ export function TodayDashboard() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:items-start">
-      <header className="space-y-2 lg:col-span-2">
-        <p className="text-xs font-bold uppercase tracking-[0.32em] text-[#41637f]">
+      <header className="rise-in space-y-2 lg:col-span-2">
+        <p className="text-xs font-bold uppercase tracking-[0.32em] text-raspberry">
           Adaptive Fitness
         </p>
-        <h1 className="text-[1.55rem] font-black leading-tight text-slate-950 sm:text-4xl lg:text-5xl">
+        <h1 className="font-display text-[1.7rem] font-extrabold leading-tight text-ink sm:text-4xl lg:text-5xl">
           {displayName ? `Ready, ${displayName}` : "Ready when you are"}
         </h1>
-        <p className="text-sm font-bold uppercase tracking-wide text-slate-400">
+        <p className="text-sm font-bold uppercase tracking-wide text-ink-soft">
           {DATE_FORMAT.format(new Date())}
         </p>
       </header>
@@ -86,23 +86,31 @@ export function TodayDashboard() {
 
       <section
         aria-labelledby="today-energy-title"
-        className="rounded-[1.35rem] border border-slate-200 bg-white p-6 shadow-[0_18px_38px_rgba(15,23,42,0.08)] lg:p-8"
+        className="rise-in rise-in-2 rounded-3xl border border-line bg-surface p-6 shadow-card lg:p-8"
       >
         <div className="space-y-5">
           <div className="space-y-4">
-            <h2 id="today-energy-title" className="text-xl font-black text-slate-950">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
+              Daily check-in
+            </p>
+            <h2
+              id="today-energy-title"
+              className="font-display text-xl font-bold text-ink"
+            >
               How&apos;s your energy?
             </h2>
-            <div className="flex items-baseline gap-3 text-slate-950">
-              <span className="text-4xl font-black leading-none">{energy}</span>
-              <span className="text-lg font-black">{ENERGY_LABELS[energy]}</span>
+            <div className="flex items-baseline gap-3 text-ink">
+              <span className="font-display text-4xl font-extrabold leading-none">
+                {energy}
+              </span>
+              <span className="text-lg font-bold">{ENERGY_LABELS[energy]}</span>
             </div>
           </div>
 
           <fieldset>
             <legend className="sr-only">Choose today&apos;s energy level</legend>
             <div className="flex items-center gap-3">
-              <div className="grid flex-1 grid-cols-5 gap-2 rounded-2xl border-2 border-slate-300 bg-white p-2 shadow-inner">
+              <div className="grid flex-1 grid-cols-5 gap-2 rounded-2xl border-2 border-line-strong bg-surface p-2 shadow-inner">
                 {([1, 2, 3, 4, 5] as EnergyLevel[]).map((level) => (
                   <button
                     key={level}
@@ -110,18 +118,26 @@ export function TodayDashboard() {
                     aria-pressed={energy === level}
                     aria-label={`${level}: ${ENERGY_LABELS[level]}`}
                     onClick={() => setEnergy(level)}
-                    className={`h-14 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${level <= energy ? "bg-[#41637f]" : "bg-slate-200"
-                      } ${energy === level ? "ring-2 ring-slate-950 ring-offset-2" : ""}`}
+                    className={`h-14 rounded-lg transition-colors ${
+                      level <= energy ? "bg-raspberry" : "bg-line"
+                    } ${energy === level ? "ring-2 ring-ink ring-offset-2 ring-offset-surface" : ""}`}
                   />
                 ))}
               </div>
-              <div aria-hidden="true" className="h-7 w-1.5 rounded-full bg-slate-300" />
+              <div
+                aria-hidden="true"
+                className="h-7 w-1.5 rounded-full bg-line-strong"
+              />
             </div>
           </fieldset>
 
           <p
             aria-live="polite"
-            className={status === "idle" ? "sr-only" : "text-base font-semibold text-slate-700"}
+            className={
+              status === "idle"
+                ? "sr-only"
+                : "text-base font-semibold text-ink-soft"
+            }
           >
             {status === "loading" && "Building a workout that fits today."}
             {status === "error" && "Something went wrong. Your check-in is saved, so try again when ready."}
@@ -131,7 +147,7 @@ export function TodayDashboard() {
             type="button"
             onClick={createWorkout}
             disabled={status === "loading"}
-            className="min-h-14 w-full rounded-xl bg-[#41637f] px-3 text-base font-black text-white transition-colors hover:bg-[#34516a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-14 w-full rounded-full bg-ink px-6 text-lg font-bold text-milk transition-colors hover:bg-[#3a332b] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "loading" ? "Creating today's workout" : "Create today's workout"}
           </button>
@@ -139,7 +155,7 @@ export function TodayDashboard() {
           {workout && status !== "loading" && (
             <Link
               href="/exercise"
-              className="block min-h-12 rounded-xl border border-slate-300 px-4 py-3 text-center text-base font-bold text-[#41637f] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              className="flex min-h-12 items-center justify-center rounded-full border-2 border-ink px-4 text-center text-base font-bold text-ink transition-colors hover:bg-mint"
             >
               Continue tracked exercise
             </Link>
@@ -149,14 +165,20 @@ export function TodayDashboard() {
 
       <section
         aria-labelledby="movement-session-title"
-        className="rounded-[1.35rem] border border-slate-200 bg-white p-6 shadow-[0_18px_38px_rgba(15,23,42,0.08)] lg:p-8"
+        className="rise-in rise-in-3 rounded-3xl border border-line bg-surface p-6 shadow-card lg:p-8"
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <h2 id="movement-session-title" className="text-xl font-black text-slate-950">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-evergreen">
+              Hands-free counting
+            </p>
+            <h2
+              id="movement-session-title"
+              className="font-display text-xl font-bold text-ink"
+            >
               Movement session
             </h2>
-            <p className="text-base leading-7 text-slate-700">
+            <p className="text-base leading-7 text-ink-soft">
               {calibratedRange
                 ? `Range saved: ${calibratedRange.minDeg}°-${calibratedRange.maxDeg}°.`
                 : "Set your comfortable range before the hands-free exercise, or start with the general range."}
@@ -173,6 +195,31 @@ export function TodayDashboard() {
           </div>
         </div>
       </section>
+
+      <Link
+        href="/library"
+        className="rise-in rise-in-4 flex items-center gap-4 rounded-3xl border border-line bg-surface p-6 shadow-card transition-colors hover:bg-mint lg:col-span-2 lg:p-8"
+      >
+        <span
+          aria-hidden="true"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-lavender text-[#4f4a78]"
+        >
+          <LibraryBig className="h-7 w-7" />
+        </span>
+        <span className="flex-1">
+          <span className="block font-display text-xl font-bold text-ink">
+            Exercise library
+          </span>
+          <span className="block text-base text-ink-soft">
+            30+ exercises, browsable by position, equipment, body region, or
+            category.
+          </span>
+        </span>
+        <ArrowRight
+          aria-hidden="true"
+          className="h-6 w-6 shrink-0 text-raspberry"
+        />
+      </Link>
     </div>
   );
 }
@@ -181,22 +228,25 @@ function OnboardingPrompt() {
   return (
     <section
       aria-labelledby="onboarding-title"
-      className="rounded-[1.35rem] border-2 border-[#41637f] bg-white p-5 shadow-[0_18px_38px_rgba(15,23,42,0.08)] lg:col-span-2 lg:p-8"
+      className="rise-in rise-in-2 rounded-3xl bg-raspberry-soft p-5 shadow-card lg:col-span-2 lg:p-8"
     >
       <div className="space-y-3">
-        <p className="text-sm font-black uppercase tracking-[0.18em] text-[#41637f]">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
           First visit
         </p>
-        <h2 id="onboarding-title" className="text-xl font-black text-slate-950">
+        <h2
+          id="onboarding-title"
+          className="font-display text-xl font-bold text-ink"
+        >
           Set up your ability profile
         </h2>
-        <p className="text-base leading-7 text-slate-700">
+        <p className="text-base leading-7 text-ink">
           Choose positions, equipment, movement limits, and sensory preferences
           before today&apos;s workout is built.
         </p>
         <Link
           href="/onboarding"
-          className="flex min-h-12 items-center justify-center rounded-xl bg-[#41637f] px-4 text-base font-black text-white hover:bg-[#34516a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          className="flex min-h-12 items-center justify-center rounded-full bg-ink px-6 text-base font-bold text-milk transition-colors hover:bg-[#3a332b]"
         >
           Start onboarding
         </Link>
@@ -209,10 +259,10 @@ function DashboardActionLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="flex min-h-12 items-center justify-between rounded-xl border border-slate-300 px-4 text-base font-black text-slate-950 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+      className="flex min-h-12 items-center justify-between rounded-2xl border-2 border-line-strong bg-surface px-4 text-base font-bold text-ink transition-colors hover:bg-cream"
     >
       <span>{label}</span>
-      <ArrowRight aria-hidden="true" className="h-5 w-5 text-slate-400" />
+      <ArrowRight aria-hidden="true" className="h-5 w-5 text-raspberry" />
     </Link>
   );
 }

@@ -65,9 +65,11 @@ export function RangeArc({
   const peakFraction = fractionFor(peakAngle, range);
   const peakReachedTarget = peakFraction >= targetFraction;
 
+  // Rendered inside the dark camera stage, so colors come from the dark end of
+  // the token set: raspberry-bright progress, marigold markers, milk read-out.
   return (
     <figure
-      className={`rounded-2xl bg-slate-50 p-4 text-center ${className ?? ""}`}
+      className={`rounded-2xl bg-white/5 p-4 text-center ${className ?? ""}`}
     >
       <svg
         viewBox="0 0 200 128"
@@ -78,7 +80,7 @@ export function RangeArc({
         <path
           d={arcPath(0, 1, RADIUS)}
           fill="none"
-          stroke="#e2e8f0"
+          stroke="#4a4438"
           strokeWidth={14}
           strokeLinecap="round"
         />
@@ -88,7 +90,7 @@ export function RangeArc({
           <path
             d={arcPath(0, currentFraction, RADIUS)}
             fill="none"
-            stroke="#4f46e5"
+            stroke="#e8798f"
             strokeWidth={14}
             strokeLinecap="round"
           />
@@ -100,7 +102,7 @@ export function RangeArc({
           y1={targetInner.y}
           x2={targetOuter.x}
           y2={targetOuter.y}
-          stroke={peakReachedTarget ? "#047857" : "#334155"}
+          stroke={peakReachedTarget ? "#7ec8a8" : "#d6ccbb"}
           strokeWidth={4}
           strokeLinecap="round"
         />
@@ -108,7 +110,7 @@ export function RangeArc({
           cx={target.x}
           cy={target.y}
           r={4}
-          fill={peakReachedTarget ? "#047857" : "#334155"}
+          fill={peakReachedTarget ? "#7ec8a8" : "#d6ccbb"}
         />
 
         {/* Peak-so-far marker */}
@@ -118,14 +120,14 @@ export function RangeArc({
             cy={pointOnArc(peakFraction, RADIUS).y}
             r={6}
             fill="none"
-            stroke="#047857"
+            stroke="#e5a83c"
             strokeWidth={3}
           />
         ) : null}
 
         {/* Live position dot */}
         {currentPoint ? (
-          <circle cx={currentPoint.x} cy={currentPoint.y} r={8} fill="#4f46e5" />
+          <circle cx={currentPoint.x} cy={currentPoint.y} r={8} fill="#e8798f" />
         ) : null}
 
         {/* Center read-out. Explicit fill attributes (not Tailwind fill-*
@@ -134,7 +136,7 @@ export function RangeArc({
           x={CENTER_X}
           y={CENTER_Y - 18}
           textAnchor="middle"
-          fill="#0f172a"
+          fill="#fff9ee"
           fontSize={30}
           fontWeight={700}
         >
@@ -144,14 +146,14 @@ export function RangeArc({
           x={CENTER_X}
           y={CENTER_Y}
           textAnchor="middle"
-          fill="#475569"
+          fill="#d6ccbb"
           fontSize={11}
         >
           of {Math.round(range.maxDeg)}° range
         </text>
       </svg>
 
-      <figcaption className="mt-1 text-sm font-medium text-slate-600">
+      <figcaption className="mt-1 text-sm font-medium text-milk-soft">
         {peakReachedTarget
           ? "You're reaching your target range."
           : "The mark shows your target — move toward it at your own pace."}

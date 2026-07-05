@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@/components/Button";
+import { Camera } from "lucide-react";
 import { RangeArc } from "@/components/RangeArc";
 import { announceRepCount } from "@/lib/speech";
 import { POSE_EXERCISES } from "@/lib/pose/exercises";
@@ -129,7 +129,8 @@ function drawMediaPipeLandmarks(
   context.clearRect(0, 0, width, height);
   if (!landmarks) return;
 
-  context.fillStyle = "#00ff88";
+  // Marigold from the design tokens, so the overlay reads as part of the brand.
+  context.fillStyle = "#e5a83c";
   for (const index of VISIBLE_UPPER_BODY_INDICES) {
     const point = landmarks[index];
     if (!point) continue;
@@ -195,8 +196,8 @@ function drawSyntheticSkeleton(
   context.lineCap = "round";
   context.lineJoin = "round";
   context.lineWidth = 6;
-  context.strokeStyle = visible ? "#4F46E5" : "#64748B";
-  context.fillStyle = visible ? "#4F46E5" : "#64748B";
+  context.strokeStyle = visible ? "#e8798f" : "#8a7d66";
+  context.fillStyle = visible ? "#e8798f" : "#8a7d66";
 
   drawLimb(context, [
     leftShoulder,
@@ -624,26 +625,33 @@ export function PoseTracker({
     cameraState === "unavailable" ||
     cameraState === "error";
 
+  // Stage buttons live on the dark surface, so they use milk styles instead of
+  // the cream Button component. Focus rings flip to milk via .on-dark.
+  const stagePrimary =
+    "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-milk px-6 text-lg font-bold text-ink transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50";
+  const stageSecondary =
+    "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full border-2 border-milk px-6 text-lg font-bold text-milk transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50";
+
   return (
     <section
-      className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+      className="on-dark rounded-3xl bg-stage p-4 shadow-card sm:p-5"
       aria-labelledby="pose-tracker-title"
     >
-      <div className="space-y-2">
+      <div className="space-y-1">
         <h2
           id="pose-tracker-title"
-          className="text-xl font-bold text-slate-900"
+          className="font-display text-xl font-bold text-milk"
         >
           Optional camera tracking
         </h2>
-        <p className="text-base text-slate-600">
+        <p className="text-base text-milk-soft">
           Start the camera for hands-free rep counting. Video is processed on
           this device and is not uploaded.
         </p>
       </div>
 
       <div
-        className="mt-4 overflow-hidden rounded-2xl bg-slate-50"
+        className="mt-4 overflow-hidden rounded-2xl bg-[#3a332b]"
         role="img"
         aria-label="Live camera preview with shoulder, elbow, and wrist landmarks for rep tracking."
       >
@@ -662,8 +670,14 @@ export function PoseTracker({
           />
 
           {cameraState !== "ready" ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-50 p-4 text-center text-slate-600">
-              <p>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#3a332b] p-4 text-center text-milk-soft">
+              <span
+                aria-hidden="true"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10"
+              >
+                <Camera className="h-6 w-6" />
+              </span>
+              <p className="max-w-xs">
                 Camera tracking is optional. Use the controls below to start
                 tracking or continue manually.
               </p>
@@ -671,20 +685,20 @@ export function PoseTracker({
           ) : null}
 
           {cameraState === "ready" && paused ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/60 p-4 text-center">
-              <p className="rounded-xl bg-white/95 px-4 py-2 text-lg font-semibold text-slate-900">
+            <div className="absolute inset-0 flex items-center justify-center bg-stage/70 p-4 text-center">
+              <p className="rounded-full bg-milk px-6 py-2 text-lg font-bold text-ink">
                 Paused
               </p>
             </div>
           ) : null}
 
           {cameraState === "ready" && showFramingGuidance && !paused ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/65 p-4 text-center">
-              <div className="max-w-sm rounded-2xl bg-white/95 p-4 shadow-lg ring-1 ring-slate-200">
-                <h3 className="text-lg font-semibold text-slate-900">
+            <div className="absolute inset-0 flex items-center justify-center bg-stage/70 p-4 text-center">
+              <div className="max-w-sm rounded-2xl bg-milk p-4 shadow-card">
+                <h3 className="font-display text-lg font-bold text-ink">
                   Camera framing
                 </h3>
-                <p className="mt-1 text-base text-slate-700">
+                <p className="mt-1 text-base text-ink-soft">
                   {FRAMING_GUIDANCE}
                 </p>
               </div>
@@ -702,54 +716,65 @@ export function PoseTracker({
         />
       ) : null}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-600">Reps</p>
-          <p className="text-3xl font-bold text-slate-900">{repCount}</p>
+      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="rounded-2xl bg-mint p-3">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-evergreen">
+            Reps
+          </p>
+          <p className="text-3xl font-bold tabular-nums text-ink">{repCount}</p>
         </div>
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-600">Current angle</p>
-          <p className="text-3xl font-bold text-slate-900">
-            {angleDeg === null ? "-" : `${Math.round(angleDeg)}°`}
+        <div className="rounded-2xl bg-marigold-soft p-3">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-marigold-deep">
+            Angle
+          </p>
+          <p className="text-3xl font-bold tabular-nums text-ink">
+            {angleDeg === null ? "–" : `${Math.round(angleDeg)}°`}
           </p>
         </div>
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-600">Peak today</p>
-          <p className="text-3xl font-bold text-slate-900">
+        <div className="rounded-2xl bg-lavender p-3">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4f4a78]">
+            Peak
+          </p>
+          <p className="text-3xl font-bold tabular-nums text-ink">
             {Math.round(peakAngle)}°
           </p>
         </div>
       </div>
 
-      <p className="mt-4 text-base text-slate-600" aria-live="polite">
+      <p className="mt-4 text-base text-milk-soft" aria-live="polite">
         {statusText}
       </p>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         {cameraState === "ready" ? (
-          <Button type="button" variant="secondary" onClick={stopCamera}>
+          <button type="button" className={stageSecondary} onClick={stopCamera}>
             Turn camera off
-          </Button>
+          </button>
         ) : (
-          <Button
+          <button
             type="button"
+            className={stagePrimary}
             onClick={startCamera}
             disabled={cameraState === "requesting"}
           >
             {cameraState === "requesting"
               ? "Starting camera"
               : "Start camera tracking"}
-          </Button>
+          </button>
         )}
 
-        <Button type="button" variant="secondary" onClick={completeManually}>
+        <button
+          type="button"
+          className={stageSecondary}
+          onClick={completeManually}
+        >
           {manualDone ? "Marked complete" : "Done manually"}
-        </Button>
+        </button>
       </div>
 
       {cameraUnavailable ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-700">
-          <h3 className="font-semibold text-slate-900">
+        <div className="mt-4 rounded-2xl bg-white/10 p-4 text-milk-soft">
+          <h3 className="font-display font-bold text-milk">
             Continue without camera
           </h3>
           <p className="mt-1">
