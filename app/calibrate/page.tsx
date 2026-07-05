@@ -7,10 +7,11 @@ const SIDES: ExerciseDef["side"][] = ["left", "right", "either"];
 const DEFAULT_CALIBRATION_EXERCISE: ExerciseDef["id"] = "seated_arm_raise";
 
 /**
- * The exercise screen links here with `?exercise=&side=` so calibration
- * captures the range for exactly the movement and side the user is about to
- * track (T13). Both params are validated; anything unexpected falls back to the
- * arm-raise hero on either side, so a hand-typed URL never breaks the flow.
+ * The standalone picker writes `?exercise=` only after Continue; the exercise
+ * screen also includes `side=` so calibration captures the exact movement and
+ * side the user is about to track (T13). Params are validated; anything
+ * unexpected falls back to the standalone picker so a hand-typed URL never
+ * breaks the flow.
  */
 export default async function CalibratePage({
   searchParams,
@@ -18,10 +19,10 @@ export default async function CalibratePage({
   searchParams: Promise<{ exercise?: string; side?: string }>;
 }) {
   const { exercise, side } = await searchParams;
-  const exerciseId =
-    getPoseExerciseById(exercise as ExerciseDef["id"])?.id ??
-    DEFAULT_CALIBRATION_EXERCISE;
+  const requestedExercise = getPoseExerciseById(exercise as ExerciseDef["id"]);
+  const exerciseId = requestedExercise?.id ?? DEFAULT_CALIBRATION_EXERCISE;
   const trackedSide = SIDES.find((value) => value === side);
+  const startsFromExerciseQuery = Boolean(requestedExercise);
 
   return (
     <div className="flex flex-1 flex-col bg-white px-6 py-10">
@@ -29,8 +30,9 @@ export default async function CalibratePage({
         <SpeechToggle />
       </div>
       <CalibrationFlow
+        key={`${exerciseId}:${trackedSide ?? "either"}:${startsFromExerciseQuery ? "intro" : "pick"}`}
         exerciseId={exerciseId}
-        startInIntro
+        startInIntro={startsFromExerciseQuery}
         side={trackedSide}
       />
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import { Check, Pause, Play } from "lucide-react";
@@ -134,13 +134,35 @@ export function CalibrationFlow({
   side = "either",
   providerFactory,
 }: CalibrationFlowProps = {}) {
+  const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // The exercise being calibrated. Seeded from the query param (when arriving
-  // from /exercise) but user-changeable in the "pick" step so /calibrate works
-  // as a standalone entry point too.
-  const [exerciseId, setExerciseId] =
-    useState<ExerciseDef["id"]>(initialExerciseId);
+  // The server page validates query params and passes the initial choice here.
+  // Picker changes stay local until Continue so the URL only represents a
+  // committed calibration choice.
+  const [exerciseId, setExerciseId] = useState<ExerciseDef["id"]>(
+    initialExerciseId,
+  );
+
+  const replaceWithParams = useCallback(
+    (params: URLSearchParams) => {
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router],
+  );
+
+  const replaceExerciseQuery = useCallback(
+    (nextExerciseId: ExerciseDef["id"]) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("exercise", nextExerciseId);
+      replaceWithParams(params);
+    },
+    [replaceWithParams, searchParams],
+  );
 
   // Resolve the movement + tracked side once. `poseDef` carries the landmark
   // triple the provider measures; `storeKey` is the library id the range is
@@ -162,6 +184,19 @@ export function CalibrationFlow({
   const [captMin, setCaptMin] = useState<number | null>(null);
   const [captMax, setCaptMax] = useState<number | null>(null);
   const [sweeps, setSweeps] = useState(0);
+
+  const continueToIntro = useCallback(() => {
+    replaceExerciseQuery(exerciseId);
+    setPhase("intro");
+  }, [exerciseId, replaceExerciseQuery]);
+
+  const chooseDifferentExercise = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("exercise");
+    params.delete("side");
+    replaceWithParams(params);
+    setPhase("pick");
+  }, [replaceWithParams, searchParams]);
 
   // Read the intro instructions aloud in the warm Gemini voice (Section 5c).
   const speechEnabled = useProfileStore(
@@ -248,7 +283,7 @@ export function CalibrationFlow({
     setCaptMax(snapshot.maxDeg === null ? null : Math.round(snapshot.maxDeg));
     setSweeps(snapshot.sweeps);
     if (snapshot.sweeps >= TARGET_SWEEPS) setPhase("review");
-  }, []);
+  }, [setPhase]);
 
   const handleCaptureEvent = useCallback((event: RepEvent) => {
     if (event.type === "tracking_paused") setStatus("paused");
@@ -507,7 +542,7 @@ export function CalibrationFlow({
           </p>
         )}
         <div className="mt-auto flex flex-col gap-3 pt-4">
-          <Button type="button" onClick={() => setPhase("intro")}>
+          <Button type="button" onClick={continueToIntro}>
             Continue
           </Button>
           <Link
@@ -589,7 +624,7 @@ export function CalibrationFlow({
           <Button
             type="button"
             variant="secondary"
-            onClick={() => setPhase("pick")}
+            onClick={chooseDifferentExercise}
           >
             Choose a different exercise
           </Button>
