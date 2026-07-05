@@ -343,21 +343,6 @@ export default function ExercisePage() {
                 onManualDone={finish}
                 onActiveChange={setActive}
               />
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button
-                  type="button"
-                  onClick={togglePause}
-                  disabled={!active}
-                  aria-pressed={paused}
-                >
-                  {paused ? "Resume tracking" : "Pause tracking"}
-                </Button>
-
-                <Button type="button" variant="secondary" onClick={finish}>
-                  Finish and view summary
-                </Button>
-              </div>
             </div>
 
             <div className="rise-in rise-in-4 flex flex-col gap-4">
@@ -401,6 +386,24 @@ export default function ExercisePage() {
                 </div>
               )}
             </div>
+            </div>
+
+            {/* Primary session controls: set apart at the bottom of the flow
+                with a divider so they read as the main actions on every screen,
+                distinct from the setup and in-camera controls above. */}
+            <div className="rise-in rise-in-4 flex flex-col gap-3 border-t-2 border-line-strong pt-6 sm:flex-row">
+              <Button
+                type="button"
+                onClick={togglePause}
+                disabled={!active}
+                aria-pressed={paused}
+              >
+                {paused ? "Resume tracking" : "Pause tracking"}
+              </Button>
+
+              <Button type="button" variant="secondary" onClick={finish}>
+                Finish and view summary
+              </Button>
             </div>
           </>
         )}

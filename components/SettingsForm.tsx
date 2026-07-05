@@ -11,7 +11,7 @@ import { Card } from "@/components/Card";
 const TEXT_SIZES: { value: AccessibilityPrefs["text_size"]; label: string }[] = [
   { value: "normal", label: "Normal" },
   { value: "large", label: "Large" },
-  { value: "x-large", label: "Larger" },
+  { value: "x-large", label: "Extra Large" },
 ];
 
 const TOGGLES: { key: "high_contrast" | "reduced_motion" | "haptics" | "speech_enabled"; label: string; description: string }[] = [
