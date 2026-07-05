@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Pause, Play } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PoseSetup } from "@/components/PoseSetup";
 import { SpeechToggle } from "@/components/SpeechToggle";
@@ -80,14 +80,11 @@ export default function ExercisePage() {
 
   const [active, setActive] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [finished, setFinished] = useState(false);
-  const [reps, setReps] = useState(0);
-  const [peak, setPeak] = useState(0);
   const [liveMessage, setLiveMessage] = useState("");
   const [reading, setReading] = useState(false);
-  const [sessionKey, setSessionKey] = useState(0);
   const [cameraStartSignal, setCameraStartSignal] = useState(0);
 
+  const finishedRef = useRef(false);
   const startedAtRef = useRef<number | null>(null);
   const repsRef = useRef(0);
   const peakRef = useRef(0);
@@ -108,14 +105,13 @@ export default function ExercisePage() {
 
   const range = calibratedRange ?? DEFAULT_RANGE;
 
-  // Switching movement or side is a fresh set: clear the read-outs and drop out
-  // of the finished/paused state. The tracker itself remounts via `key` below,
+  // Switching movement or side is a fresh set: clear the counts and drop out
+  // of the paused state. The tracker itself remounts via `key` below,
   // which tears the camera down so the user restarts it for the new setup.
   const resetSession = useCallback(() => {
-    setReps(0);
-    setPeak(0);
+    repsRef.current = 0;
+    peakRef.current = 0;
     setPaused(false);
-    setFinished(false);
     setLiveMessage("");
   }, []);
 
@@ -142,7 +138,6 @@ export default function ExercisePage() {
       switch (event.type) {
         case "rep":
           repsRef.current = event.count;
-          setReps(event.count);
           setLiveMessage(`Rep ${event.count} counted.`);
           break;
         case "range_reached":
@@ -161,7 +156,6 @@ export default function ExercisePage() {
 
   const handlePeak = useCallback((degrees: number) => {
     peakRef.current = degrees;
-    setPeak(degrees);
   }, []);
 
   const handleMovementStats = useCallback((stats: SafeMovementStats) => {
@@ -215,13 +209,15 @@ export default function ExercisePage() {
     });
   }, []);
 
+  // Records the set and goes straight to /summary — no intermediate screen,
+  // so the page never flashes a different state while navigation is underway.
   const finish = useCallback(() => {
-    if (finished) return;
+    if (finishedRef.current) return;
+    finishedRef.current = true;
 
     const peakToday = peakRef.current;
     cancelSpeech();
     setPaused(false);
-    setFinished(true);
     if (peakToday > 0) recordRom(calibrationKey, peakToday);
     setTrackingSummary({
       exerciseId: calibrationKey,
@@ -234,7 +230,7 @@ export default function ExercisePage() {
     });
     setLiveMessage("Exercise complete. Nice work showing up today.");
     router.push("/summary");
-  }, [calibrationKey, finished, range, recordRom, router, setTrackingSummary]);
+  }, [calibrationKey, range, recordRom, router, setTrackingSummary]);
 
   // T17/W1: the five-phrase grammar, mapped to this screen's controls. Each
   // action already announces itself ("Paused.", camera status) via the
@@ -272,20 +268,6 @@ export default function ExercisePage() {
     },
     [active, paused, togglePause, finish, playInstructions],
   );
-
-  const goAgain = useCallback(() => {
-    startedAtRef.current = Date.now();
-    repsRef.current = 0;
-    peakRef.current = 0;
-    safeStatsRef.current = null;
-    setFinished(false);
-    setReps(0);
-    setPeak(0);
-    setPaused(false);
-    setLiveMessage("");
-    setSessionKey((key) => key + 1); // remount the tracker for a clean count
-    playInstructions();
-  }, [playInstructions]);
 
   // Carry the current movement and side into calibration so it captures the
   // range for exactly what the user is about to track (T13 single-limb).
@@ -334,16 +316,7 @@ export default function ExercisePage() {
           {liveMessage}
         </p>
 
-        {finished ? (
-          <FinishedCard
-            reps={reps}
-            peak={peak}
-            target={targetAngle(range)}
-            calibrateHref={calibrateHref}
-            onGoAgain={goAgain}
-          />
-        ) : (
-          <>
+        <>
             {/* Instructions sit above everything so users see how to move right
                 away -- before the camera or setup, on every screen size. The
                 marigold border and full-width band make it stand out. */}
@@ -402,7 +375,7 @@ export default function ExercisePage() {
                 }
               >
                 <PoseTracker
-                  key={`${exerciseId}:${side}:${sessionKey}`}
+                  key={`${exerciseId}:${side}`}
                   exercise={poseExercise}
                   personalRange={range}
                   paused={paused}
@@ -476,93 +449,8 @@ export default function ExercisePage() {
                 Finish and view summary
               </Button>
             </div>
-          </>
-        )}
+        </>
       </div>
     </div>
-  );
-}
-
-function FinishedCard({
-  reps,
-  peak,
-  target,
-  calibrateHref,
-  onGoAgain,
-}: {
-  reps: number;
-  peak: number;
-  target: number;
-  calibrateHref: string;
-  onGoAgain: () => void;
-}) {
-  const reachedTarget = peak >= target;
-
-  return (
-    <section className="on-dark rise-in mx-auto w-full max-w-2xl rounded-3xl bg-evergreen p-6 shadow-card sm:p-8">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-milk-soft">
-        Session done
-      </p>
-      <h2 className="mt-2 font-display text-3xl font-extrabold text-milk">
-        {reps > 0 ? "That counts. Every rep." : "You showed up today."}
-      </h2>
-      <p className="mt-2 text-base text-milk">
-        {reps > 0
-          ? `You moved through ${reps} ${reps === 1 ? "rep" : "reps"} at your own pace.`
-          : "Turning up is the hard part, and you did it."}
-      </p>
-
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl bg-mint p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-evergreen">
-            Reps
-          </p>
-          <p className="text-3xl font-bold tabular-nums text-ink">{reps}</p>
-        </div>
-        <div className="rounded-2xl bg-mint p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-evergreen">
-            Peak range today
-          </p>
-          <p className="text-3xl font-bold tabular-nums text-ink">{peak}°</p>
-          <p className="mt-1 text-sm text-ink">
-            {reachedTarget
-              ? "You reached your target range."
-              : `Target ${target}° -- worth celebrating either way.`}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6 flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={onGoAgain}
-          className="inline-flex min-h-14 w-full items-center justify-center rounded-full bg-milk px-6 text-lg font-bold text-ink transition-colors hover:bg-cream"
-        >
-          Go again
-        </button>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Link
-            href={calibrateHref}
-            className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-milk px-4 text-center text-base font-bold text-milk transition-colors hover:bg-white/10"
-          >
-            Recalibrate
-          </Link>
-          <Link
-            href="/summary"
-            className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-milk px-4 text-center text-base font-bold text-milk transition-colors hover:bg-white/10"
-          >
-            View summary
-          </Link>
-          <Link
-            href="/"
-            aria-label="Finish and return to dashboard"
-            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full border-2 border-milk px-4 text-center text-base font-bold text-milk transition-colors hover:bg-white/10"
-          >
-            <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
-            <span>Finish</span>
-          </Link>
-        </div>
-      </div>
-    </section>
   );
 }
