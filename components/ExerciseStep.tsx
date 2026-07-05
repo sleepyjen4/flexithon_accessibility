@@ -13,12 +13,20 @@ import { getExerciseAudioUrl } from "@/lib/audioManifest";
 import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { CameraLoadBoundary } from "@/components/CameraLoadBoundary";
 import { Pause, Play } from "lucide-react";
 
 // F9 lives entirely client-side; loaded only when someone opts in.
 const PoseTracker = dynamic(
   () => import("@/components/PoseTracker").then((mod) => mod.PoseTracker),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-2xl border-2 border-line-strong bg-surface p-4 text-base text-ink-soft">
+        Loading the camera…
+      </div>
+    ),
+  },
 );
 
 interface ExerciseStepProps {
@@ -178,12 +186,21 @@ export function ExerciseStep({
         {cameraOn ? "Turn camera off" : "Count reps with camera"}
       </Button>
       {cameraOn && (
-        <PoseTracker
-          paused={timerPaused}
-          personalRange={personalRange}
-          onManualDone={onDone}
-          onPeakRom={(degrees) => recordRom(exercise.id, degrees)}
-        />
+        <CameraLoadBoundary
+          fallback={
+            <div className="rounded-2xl border-2 border-line-strong bg-surface p-4 text-base text-ink-soft">
+              The camera add-on couldn&apos;t load. You can keep going and tap
+              &ldquo;Done!&rdquo; as you finish each set.
+            </div>
+          }
+        >
+          <PoseTracker
+            paused={timerPaused}
+            personalRange={personalRange}
+            onManualDone={onDone}
+            onPeakRom={(degrees) => recordRom(exercise.id, degrees)}
+          />
+        </CameraLoadBoundary>
       )}
       <Link
         href="/calibrate"
@@ -219,7 +236,7 @@ export function ExerciseStep({
       <div className="flex flex-1 flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-8">
         <div className="flex flex-col gap-5">
           {instructionsCard}
-          {adaptationNote}
+          {/* {adaptationNote} */}
           {cameraBlock}
         </div>
         <div className="flex flex-col gap-5 lg:sticky lg:top-6">

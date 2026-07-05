@@ -9,6 +9,9 @@ interface TimerProps {
   label: string;
   onComplete?: () => void;
   onPauseChange?: (paused: boolean) => void;
+  /** "plain" (default) shows the big number; "ring" shows a circular countdown
+   * that depletes as time runs out — used on the rest screen. */
+  variant?: "plain" | "ring";
 }
 
 function formatTime(total: number): string {
@@ -17,10 +20,25 @@ function formatTime(total: number): string {
   return `${minutes}:${String(secs).padStart(2, "0")}`;
 }
 
+// Ring geometry (viewBox is 120×120, so a radius of 48 leaves room for the
+// 14-unit stroke). The circumference is the dash length we animate against.
+const RING_RADIUS = 48;
+const RING_STROKE = 14;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
 /** F5 timer: pause-friendly, extendable, announces state changes via
  * aria-live (Section 6, rule 5) — never a per-second announcement. */
-export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps) {
+export function Timer({
+  seconds,
+  label,
+  onComplete,
+  onPauseChange,
+  variant = "plain",
+}: TimerProps) {
   const [remaining, setRemaining] = useState(seconds);
+  // Denominator for the ring's progress; grows with "+30 seconds" so the ring
+  // stays proportional. Unused by the plain variant.
+  const [total, setTotal] = useState(seconds);
   const [running, setRunning] = useState(true);
   const [announcement, setAnnouncement] = useState("");
   const haptics = useProfileStore((state) => state.prefs.haptics);
@@ -64,8 +82,78 @@ export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps)
   const extend = () => {
     completedRef.current = false;
     setRemaining((current) => current + 30);
+    setTotal((current) => current + 30);
     setAnnouncement("Added 30 seconds.");
   };
+
+  const liveRegion = (
+    <p aria-live="polite" className="sr-only">
+      {announcement}
+    </p>
+  );
+
+  const controls = (
+    <div className="flex w-full gap-3">
+      <Button type="button" variant="secondary" onClick={togglePause}>
+        {running ? "Pause" : "Resume"}
+      </Button>
+      <Button type="button" variant="secondary" onClick={extend}>
+        +30 seconds
+      </Button>
+    </div>
+  );
+
+  if (variant === "ring") {
+    const fraction =
+      total > 0 ? Math.min(1, Math.max(0, remaining / total)) : 0;
+    const dashoffset = RING_CIRCUMFERENCE * (1 - fraction);
+
+    return (
+      <div className="flex flex-col items-center gap-6">
+        <div className="relative h-56 w-56">
+          <svg
+            viewBox="0 0 120 120"
+            className="h-full w-full -rotate-90"
+            aria-hidden="true"
+          >
+            <circle
+              cx="60"
+              cy="60"
+              r={RING_RADIUS}
+              fill="none"
+              stroke="var(--line)"
+              strokeWidth={RING_STROKE}
+            />
+            <circle
+              cx="60"
+              cy="60"
+              r={RING_RADIUS}
+              fill="none"
+              stroke="var(--raspberry)"
+              strokeWidth={RING_STROKE}
+              strokeLinecap="round"
+              strokeDasharray={RING_CIRCUMFERENCE}
+              strokeDashoffset={dashoffset}
+              className="transition-[stroke-dashoffset] duration-1000 ease-linear motion-reduce:transition-none"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span
+              className="font-display text-5xl font-extrabold tabular-nums text-ink"
+              aria-hidden="true"
+            >
+              {formatTime(remaining)}
+            </span>
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-soft">
+              {label}
+            </span>
+          </div>
+        </div>
+        {liveRegion}
+        {controls}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -75,17 +163,8 @@ export function Timer({ seconds, label, onComplete, onPauseChange }: TimerProps)
       >
         {formatTime(remaining)}
       </p>
-      <p aria-live="polite" className="sr-only">
-        {announcement}
-      </p>
-      <div className="flex w-full gap-3">
-        <Button type="button" variant="secondary" onClick={togglePause}>
-          {running ? "Pause" : "Resume"}
-        </Button>
-        <Button type="button" variant="secondary" onClick={extend}>
-          +30 seconds
-        </Button>
-      </div>
+      {liveRegion}
+      {controls}
     </div>
   );
 }

@@ -72,19 +72,21 @@ export function WorkoutPlayer() {
 
   if (resting) {
     return (
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-8">
         <h1 className="font-display text-2xl font-bold text-ink">Rest</h1>
         <p className="text-lg text-ink-soft">
           Take your time, the next exercise waits for you.
         </p>
-        {/* Keyed so each rest period gets a fresh timer instance. */}
+        {/* Keyed so each rest period gets a fresh timer instance. The rest
+            countdown uses the circular ring UI. */}
         <Timer
           key={currentStepIndex}
           seconds={step.rest_after_seconds}
           label="Rest"
           onComplete={goNext}
+          variant="ring"
         />
-        <Button type="button" variant="secondary" onClick={goNext}>
+        <Button type="button" variant="success" onClick={goNext}>
           Skip Rest
         </Button>
       </div>

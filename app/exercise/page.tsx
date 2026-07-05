@@ -8,6 +8,7 @@ import { CheckCircle2, Pause, Play } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PoseSetup } from "@/components/PoseSetup";
 import { SpeechToggle } from "@/components/SpeechToggle";
+import { CameraLoadBoundary } from "@/components/CameraLoadBoundary";
 import {
   CALIBRATION_KEY_BY_POSE_ID,
   getPoseExerciseById,
@@ -34,8 +35,8 @@ const PoseTracker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="rounded-2xl bg-white p-4 text-slate-600 shadow-sm ring-1 ring-slate-200">
-        Loading the camera tracker...
+      <div className="rounded-3xl border border-line bg-surface p-4 text-base text-ink-soft shadow-card">
+        Loading the camera tracker…
       </div>
     ),
   },
@@ -332,17 +333,27 @@ export default function ExercisePage() {
             {/* The camera stage leads the grid below the instructions: it is the
                 product's hero and dominates the grid. */}
             <div className="rise-in rise-in-3 flex flex-col gap-4">
-              <PoseTracker
-                key={`${exerciseId}:${side}:${sessionKey}`}
-                exercise={poseExercise}
-                personalRange={range}
-                paused={paused}
-                onRepEvent={handleRepEvent}
-                onPeakRom={handlePeak}
-                onMovementStats={handleMovementStats}
-                onManualDone={finish}
-                onActiveChange={setActive}
-              />
+              <CameraLoadBoundary
+                fallback={
+                  <div className="rounded-3xl border border-line bg-surface p-5 text-base text-ink-soft shadow-card">
+                    The camera tracker couldn&apos;t load. Everything else still
+                    works — use &ldquo;Finish and view summary&rdquo; below when
+                    you&apos;re done.
+                  </div>
+                }
+              >
+                <PoseTracker
+                  key={`${exerciseId}:${side}:${sessionKey}`}
+                  exercise={poseExercise}
+                  personalRange={range}
+                  paused={paused}
+                  onRepEvent={handleRepEvent}
+                  onPeakRom={handlePeak}
+                  onMovementStats={handleMovementStats}
+                  onManualDone={finish}
+                  onActiveChange={setActive}
+                />
+              </CameraLoadBoundary>
             </div>
 
             <div className="rise-in rise-in-4 flex flex-col gap-4">
