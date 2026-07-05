@@ -31,6 +31,7 @@ export function SpeechToggle() {
   return (
     <button
       type="button"
+      suppressHydrationWarning
       onClick={toggleSpeech}
       aria-pressed={showEnabled}
       aria-label={

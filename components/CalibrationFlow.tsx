@@ -71,6 +71,8 @@ const CALIBRATION_CLIP_BY_POSE_ID: Record<ExerciseDef["id"], StaticClipId> = {
 interface CalibrationFlowProps {
   /** Which movement to calibrate (T13). Defaults to the arm-raise hero. */
   exerciseId?: ExerciseDef["id"];
+  /** Specific exercise links skip the picker and open the spoken intro. */
+  startInIntro?: boolean;
   /** Which side to track while calibrating, so the captured range matches the
    * side the user will actually exercise (T13 single-limb). */
   side?: ExerciseDef["side"];
@@ -128,6 +130,7 @@ function drawMediaPipeLandmarks(
  */
 export function CalibrationFlow({
   exerciseId: initialExerciseId = "seated_arm_raise",
+  startInIntro = false,
   side = "either",
   providerFactory,
 }: CalibrationFlowProps = {}) {
@@ -153,7 +156,7 @@ export function CalibrationFlow({
   const existing = useCalibrationStore((state) => state.ranges[storeKey]);
   const exercise = getExerciseById(storeKey);
 
-  const [phase, setPhase] = useState<Phase>("pick");
+  const [phase, setPhase] = useState<Phase>(startInIntro ? "intro" : "pick");
   const [status, setStatus] = useState<PoseStatus>("loading");
   const [liveDeg, setLiveDeg] = useState<number | null>(null);
   const [captMin, setCaptMin] = useState<number | null>(null);
@@ -188,6 +191,20 @@ export function CalibrationFlow({
       interrupt: true,
     }).finally(() => setReading(false));
   }, [readAloudClipId, readAloudText]);
+
+  // Autoplay the intro only when /calibrate is opened for a specific movement,
+  // so plain /calibrate stays silent on the chooser. The global speech toggle
+  // still governs this because speakOrPlay no-ops while muted.
+  const playIntroInstructionsRef = useRef(playIntroInstructions);
+  useEffect(() => {
+    playIntroInstructionsRef.current = playIntroInstructions;
+  }, [playIntroInstructions]);
+  useEffect(() => {
+    if (!startInIntro || phase !== "intro") return;
+
+    const timer = setTimeout(() => playIntroInstructionsRef.current(), 0);
+    return () => clearTimeout(timer);
+  }, [startInIntro, phase, exerciseId]);
 
   // Play/stop toggle: a second tap stops the read-aloud mid-way.
   const toggleReadAloud = useCallback(() => {
