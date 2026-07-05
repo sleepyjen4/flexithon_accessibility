@@ -1,20 +1,14 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Mic, MicOff } from "lucide-react";
 import { Button } from "@/components/Button";
 import {
+  createVoiceCommandMatcher,
   createVoiceRecognition,
-  isCommandInText,
   isVoiceControlSupported,
-  parseVoiceCommand,
   VOICE_COMMAND_PHRASES,
+  type VoiceCommandMatcher,
   type VoiceRecognition,
 } from "@/lib/voice";
 import { getActiveSpeechText } from "@/lib/speech";
@@ -28,14 +22,25 @@ interface VoiceControlProps {
 
 type MicState = "off" | "listening" | "unavailable";
 
+/** What the last recognition result gave us, for visible feedback: a command,
+ * or speech that contained no command word (so the user can adjust phrasing). */
+type Heard = { command: VoiceCommand } | { unmatched: string };
+
+function lastWords(text: string, count: number): string {
+  const words = text.trim().split(/\s+/);
+  const tail = words.slice(-count).join(" ");
+  return words.length > count ? `…${tail}` : tail;
+}
+
 /** T17/W1: optional hands-free control over a small spoken grammar. Renders
  * nothing where the browser has no SpeechRecognition — every action stays
  * available by touch and keyboard, voice is only ever a layer on top. */
 export function VoiceControl({ commands, onCommand }: VoiceControlProps) {
   const [micState, setMicState] = useState<MicState>("off");
-  const [lastHeard, setLastHeard] = useState<VoiceCommand | null>(null);
+  const [heard, setHeard] = useState<Heard | null>(null);
 
   const recognitionRef = useRef<VoiceRecognition | null>(null);
+  const matcherRef = useRef<VoiceCommandMatcher | null>(null);
   // Whether listening SHOULD continue: Chrome ends continuous recognition
   // after silence, so onend restarts it while this stays true.
   const wantListeningRef = useRef(false);
@@ -60,6 +65,7 @@ export function VoiceControl({ commands, onCommand }: VoiceControlProps) {
 
   const stopListening = useCallback(() => {
     wantListeningRef.current = false;
+    matcherRef.current = null;
     const recognition = recognitionRef.current;
     recognitionRef.current = null;
     if (recognition) {
@@ -76,21 +82,35 @@ export function VoiceControl({ commands, onCommand }: VoiceControlProps) {
 
     wantListeningRef.current = true;
     recognitionRef.current = recognition;
+    // Dispatch policy (interim/final dedupe, cooldown, narration echo guard)
+    // lives in lib/voice.ts where it is unit-tested; this component only
+    // feeds results in and renders what came out.
+    const matcher = createVoiceCommandMatcher({
+      getSpokenText: getActiveSpeechText,
+    });
+    matcherRef.current = matcher;
 
     recognition.onresult = (event) => {
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
-        if (!result?.isFinal) continue;
-        const command = parseVoiceCommand(result[0].transcript);
-        if (!command || !commandsRef.current.includes(command)) continue;
-        // Echo guard: if the app's own narration (which the mic hears through
-        // the speakers) contains this command word — e.g. the rest cue says
-        // "the next exercise waits for you" — treat it as an echo, not the
-        // user. Commands not present in the narration still work mid-speech.
-        const spokenText = getActiveSpeechText();
-        if (spokenText && isCommandInText(command, spokenText)) continue;
-        setLastHeard(command);
-        onCommandRef.current(command);
+        if (!result) continue;
+
+        const alternatives: string[] = [];
+        for (let alt = 0; alt < result.length; alt += 1) {
+          const transcript = result[alt]?.transcript;
+          if (transcript) alternatives.push(transcript);
+        }
+
+        const command = matcher.match(i, alternatives, commandsRef.current);
+        if (command) {
+          setHeard({ command });
+          onCommandRef.current(command);
+        } else if (result.isFinal && !matcher.isConsumed(i)) {
+          // Speech that settled without a command word: show what was heard
+          // so the user can adjust phrasing (invaluable when rehearsing).
+          const transcript = alternatives[0]?.trim();
+          if (transcript) setHeard({ unmatched: lastWords(transcript, 6) });
+        }
       }
     };
 
@@ -108,7 +128,10 @@ export function VoiceControl({ commands, onCommand }: VoiceControlProps) {
     };
 
     recognition.onend = () => {
-      if (wantListeningRef.current) recognition.start();
+      if (!wantListeningRef.current) return;
+      // A new session numbers its results from zero again.
+      matcher.reset();
+      recognition.start();
     };
 
     try {
@@ -121,7 +144,7 @@ export function VoiceControl({ commands, onCommand }: VoiceControlProps) {
   }, [stopListening]);
 
   const toggleListening = () => {
-    setLastHeard(null);
+    setHeard(null);
     if (micState === "listening") {
       stopListening();
       setMicState("off");
@@ -182,10 +205,16 @@ export function VoiceControl({ commands, onCommand }: VoiceControlProps) {
             : "Voice control is off."}
       </p>
 
-      {listening && lastHeard ? (
-        <p className="mt-1 text-base font-semibold text-slate-900">
-          Heard “{lastHeard}”.
-        </p>
+      {listening && heard ? (
+        "command" in heard ? (
+          <p className="mt-1 text-base font-semibold text-slate-900">
+            Heard “{heard.command}”.
+          </p>
+        ) : (
+          <p className="mt-1 text-base text-slate-600">
+            Heard “{heard.unmatched}” — listening for a command word.
+          </p>
+        )
       ) : null}
     </section>
   );
