@@ -9,6 +9,7 @@ import {
   createRealPoseProvider,
   isPausable,
   providesLandmarks,
+  reportsErrors,
   type LandmarkFrame,
 } from "@/lib/pose/realProvider";
 import type {
@@ -338,6 +339,20 @@ export function PoseTracker({
     hasLandmarkFeedRef.current = false;
   }, []);
 
+  // The model/WASM load can fail async (blocked or flaky CDN). Fall back to the
+  // manual controls instead of leaving the camera "on" with no tracking, and
+  // never imply the user's body/setup is at fault (AGENTS §5b).
+  const handleProviderError = useCallback(() => {
+    if (!mountedRef.current) return;
+    teardownProvider();
+    stopStream(videoRef.current);
+    setCameraState("error");
+    setAngleDeg(null);
+    setStatusText(
+      "Camera tracking couldn't start on this connection. You can continue manually.",
+    );
+  }, [teardownProvider]);
+
   const stopCamera = useCallback(() => {
     teardownProvider();
     stopStream(videoRef.current);
@@ -395,6 +410,7 @@ export function PoseTracker({
       provider.onFrame(frameWrapper);
       provider.onRepEvent(repEventWrapper);
       if (providesLandmarks(provider)) provider.onLandmarks(landmarksWrapper);
+      if (reportsErrors(provider)) provider.onError(handleProviderError);
       provider.setRange(personalRange);
       provider.start(video, exercise);
       if (paused && isPausable(provider)) provider.pause();
@@ -421,6 +437,7 @@ export function PoseTracker({
     frameWrapper,
     repEventWrapper,
     landmarksWrapper,
+    handleProviderError,
     paused,
     personalRange,
     providerFactory,

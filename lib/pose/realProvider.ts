@@ -53,9 +53,13 @@ export type LandmarkFrame = readonly NormalizedLandmark[] | null;
  * - `pause` / `resume`: freeze counting for the workout player's big pause
  *   button without tearing the camera down. Resume starts a *fresh* rep so a
  *   movement straddling the pause gap can never be counted.
+ * - `onError`: the model/WASM load can fail (blocked or flaky CDN — AGENTS
+ *   §5b flags venue Wi-Fi). Loading is async, so the consumer needs a callback
+ *   to fall back to manual controls rather than showing "tracking on" forever.
  */
 export interface RealPoseProvider extends PoseProvider {
   onLandmarks(cb: (landmarks: LandmarkFrame) => void): void;
+  onError(cb: (error: unknown) => void): void;
   pause(): void;
   resume(): void;
 }
@@ -72,6 +76,13 @@ export function isPausable(provider: PoseProvider): provider is RealPoseProvider
   return "pause" in provider;
 }
 
+/** Narrows a `PoseProvider` to one that reports async setup failures. */
+export function reportsErrors(
+  provider: PoseProvider,
+): provider is RealPoseProvider {
+  return "onError" in provider;
+}
+
 export function createRealPoseProvider(): RealPoseProvider {
   return new RealMediaPipeProvider();
 }
@@ -80,6 +91,7 @@ class RealMediaPipeProvider implements RealPoseProvider {
   private frameCallbacks: Array<(frame: PoseFrame) => void> = [];
   private repEventCallbacks: Array<(event: RepEvent) => void> = [];
   private landmarkCallbacks: Array<(landmarks: LandmarkFrame) => void> = [];
+  private errorCallbacks: Array<(error: unknown) => void> = [];
 
   private video: HTMLVideoElement | null = null;
   private exercise: ExerciseDef | null = null;
@@ -147,6 +159,10 @@ class RealMediaPipeProvider implements RealPoseProvider {
     this.landmarkCallbacks.push(cb);
   }
 
+  onError(cb: (error: unknown) => void): void {
+    this.errorCallbacks.push(cb);
+  }
+
   setRange(range: PersonalRange): void {
     this.range = range;
     // Recreate the counter through the shared hysteresis machine so real and
@@ -158,24 +174,36 @@ class RealMediaPipeProvider implements RealPoseProvider {
   }
 
   private async init(): Promise<void> {
-    const { FilesetResolver, PoseLandmarker } = await import(
-      "@mediapipe/tasks-vision"
-    );
-    const vision = await FilesetResolver.forVisionTasks(WASM_URL);
-
     let landmarker: PoseLandmarker;
     try {
-      landmarker = await PoseLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
-        runningMode: "VIDEO",
-        numPoses: 1,
-      });
-    } catch {
-      landmarker = await PoseLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
-        runningMode: "VIDEO",
-        numPoses: 1,
-      });
+      const { FilesetResolver, PoseLandmarker } = await import(
+        "@mediapipe/tasks-vision"
+      );
+      const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+
+      try {
+        landmarker = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: MODEL_URL, delegate: "GPU" },
+          runningMode: "VIDEO",
+          numPoses: 1,
+        });
+      } catch {
+        landmarker = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
+          runningMode: "VIDEO",
+          numPoses: 1,
+        });
+      }
+    } catch (error) {
+      // The WASM/model failed to load (blocked or flaky CDN). Loading is async,
+      // so report it back rather than leaving the caller showing "tracking on"
+      // forever — it falls back to manual controls (AGENTS §5b, graceful
+      // degradation). Guard on running so a stop()-during-load stays silent.
+      if (this.running) {
+        this.running = false;
+        this.emitError(error);
+      }
+      return;
     }
 
     // stop() may have been called while the model loaded — honour it.
@@ -289,5 +317,9 @@ class RealMediaPipeProvider implements RealPoseProvider {
 
   private emitLandmarks(landmarks: LandmarkFrame): void {
     for (const callback of this.landmarkCallbacks) callback(landmarks);
+  }
+
+  private emitError(error: unknown): void {
+    for (const callback of this.errorCallbacks) callback(error);
   }
 }
