@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CheckCircle2, Home } from "lucide-react";
 import type { WorkoutSessionSummary, Workout } from "@/types";
 import { useSessionStore } from "@/store/session";
 import { useHistoryStore } from "@/store/history";
@@ -83,6 +84,12 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
           <Button type="button" onClick={save}>
             Save today&apos;s session
           </Button>
+          <Button asChild variant="secondary">
+            <Link href="/" aria-label="Return to dashboard" className="gap-2">
+              <Home aria-hidden="true" className="h-5 w-5" />
+              <span>Dashboard</span>
+            </Link>
+          </Button>
         </>
       ) : (
         <>
@@ -93,7 +100,10 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
             <Link href="/progress">See my progress</Link>
           </Button>
           <Button asChild variant="secondary">
-            <Link href="/">Back to home</Link>
+            <Link href="/" aria-label="Finish and return to dashboard" className="gap-2">
+              <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
+              <span>Finish</span>
+            </Link>
           </Button>
         </>
       )}

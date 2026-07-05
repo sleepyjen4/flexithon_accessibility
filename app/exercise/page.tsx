@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pause, Play } from "lucide-react";
+import { CheckCircle2, Pause, Play } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PoseSetup } from "@/components/PoseSetup";
 import { SpeechToggle } from "@/components/SpeechToggle";
@@ -61,9 +61,8 @@ function targetAngle(range: PersonalRange): number {
 export default function ExercisePage() {
   const router = useRouter();
 
-  const [exerciseId, setExerciseId] = useState<PoseExerciseId>(
-    "seated_arm_raise",
-  );
+  const [exerciseId, setExerciseId] =
+    useState<PoseExerciseId>("seated_arm_raise");
   const [side, setSide] = useState<TrackedSide>("either");
 
   const calibrationKey = CALIBRATION_KEY_BY_POSE_ID[exerciseId];
@@ -137,24 +136,27 @@ export default function ExercisePage() {
 
   // Rep counts are spoken by PoseTracker (T09 announceRepCount, global mute);
   // here we only mirror events visually and keep the reps/peak read-outs.
-  const handleRepEvent = useCallback((event: RepEvent) => {
-    switch (event.type) {
-      case "rep":
-        repsRef.current = event.count;
-        setReps(event.count);
-        setLiveMessage(`Rep ${event.count} counted.`);
-        break;
-      case "range_reached":
-        setLiveMessage(poseExercise.cues.rangeReached);
-        break;
-      case "tracking_paused":
-        setLiveMessage("Move back into view whenever you can -- no rush.");
-        break;
-      case "tracking_resumed":
-        setLiveMessage("Tracking resumed.");
-        break;
-    }
-  }, [poseExercise]);
+  const handleRepEvent = useCallback(
+    (event: RepEvent) => {
+      switch (event.type) {
+        case "rep":
+          repsRef.current = event.count;
+          setReps(event.count);
+          setLiveMessage(`Rep ${event.count} counted.`);
+          break;
+        case "range_reached":
+          setLiveMessage(poseExercise.cues.rangeReached);
+          break;
+        case "tracking_paused":
+          setLiveMessage("Move back into view whenever you can -- no rush.");
+          break;
+        case "tracking_resumed":
+          setLiveMessage("Tracking resumed.");
+          break;
+      }
+    },
+    [poseExercise],
+  );
 
   const handlePeak = useCallback((degrees: number) => {
     peakRef.current = degrees;
@@ -289,15 +291,20 @@ export default function ExercisePage() {
   const calibrateHref = `/calibrate?exercise=${exerciseId}&side=${side}`;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
-      <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="min-h-screen bg-cream px-4 py-6 text-ink sm:px-6 lg:py-8">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6">
         {/* Page-level so the speech toggle stays visible across every state
             (setup, tracking, finished) -- otherwise a user who muted elsewhere
             lands here with no way to turn spoken counts back on. */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="rise-in flex items-start justify-between gap-3">
           <header className="space-y-2">
-            <h1 className="text-3xl font-bold">{poseExercise.name}</h1>
-            <p className="text-base text-slate-600">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
+              Tracked exercise
+            </p>
+            <h1 className="font-display text-3xl font-extrabold sm:text-4xl">
+              {poseExercise.name}
+            </h1>
+            <p className="max-w-2xl text-base text-ink-soft">
               Hands-free rep counting, scored against your own range. The camera
               is optional and everything below works if you keep it off.
             </p>
@@ -320,105 +327,123 @@ export default function ExercisePage() {
           />
         ) : (
           <>
-            <PoseSetup
-              exerciseId={exerciseId}
-              side={side}
-              onExerciseChange={changeExercise}
-              onSideChange={changeSide}
-              disabled={active}
-            />
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+              {/* The camera stage leads on every screen size: it is the product's
+                hero, so it sits first in reading order and dominates the grid. */}
+              <div className="rise-in rise-in-2 flex flex-col gap-4">
+                <PoseTracker
+                  key={`${exerciseId}:${side}:${sessionKey}`}
+                  exercise={poseExercise}
+                  personalRange={range}
+                  paused={paused}
+                  onRepEvent={handleRepEvent}
+                  onPeakRom={handlePeak}
+                  onMovementStats={handleMovementStats}
+                  onManualDone={finish}
+                  onActiveChange={setActive}
+                  startSignal={cameraStartSignal}
+                />
 
-            {!calibratedRange ? (
-              <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-slate-800">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Counting to a general range
-                </h2>
-                <p className="mt-1 text-base">
-                  For counting tuned to how you move today, calibrate first. You
-                  can also carry on with a general range right now.
-                </p>
-                <Link
-                  href={calibrateHref}
-                  className="mt-3 inline-flex min-h-12 items-center font-semibold text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
-                >
-                  Calibrate my range
-                </Link>
-              </div>
-            ) : (
-              <div className="rounded-2xl bg-white p-4 text-slate-700 shadow-sm ring-1 ring-slate-200">
-                Counting against your calibrated range:{" "}
-                <span className="font-semibold text-slate-900">
-                  {range.minDeg}°-{range.maxDeg}°
-                </span>{" "}
-                (target {targetAngle(range)}°).{" "}
-                <Link
-                  href={calibrateHref}
-                  className="font-semibold text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
-                >
-                  Recalibrate
-                </Link>
-              </div>
-            )}
-
-            <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-xl font-bold">How to move</h2>
-                {/* Hidden while speech is muted -- nothing would play, so the
-                    corner mute toggle is the only relevant control then. */}
-                {speechEnabled ? (
-                  <button
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button
                     type="button"
-                    suppressHydrationWarning
-                    onClick={readAloud}
-                    aria-pressed={reading}
-                    className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                    aria-label={
-                      reading
-                        ? `Stop reading the instructions for ${poseExercise.name}`
-                        : `Play the instructions for ${poseExercise.name} from the start`
-                    }
+                    onClick={togglePause}
+                    disabled={!active}
+                    aria-pressed={paused}
                   >
-                    {reading ? (
-                      <Pause aria-hidden="true" className="h-6 w-6" />
-                    ) : (
-                      <Play aria-hidden="true" className="h-6 w-6" />
-                    )}
-                  </button>
-                ) : null}
+                    {paused ? "Resume tracking" : "Pause tracking"}
+                  </Button>
+
+                  <Button type="button" variant="secondary" onClick={finish}>
+                    Finish and view summary
+                  </Button>
+                </div>
               </div>
-              <ol className="mt-3 list-decimal space-y-2 pl-6 text-slate-700">
-                {poseExercise.instructions.map((instruction) => (
-                  <li key={instruction}>{instruction}</li>
-                ))}
-              </ol>
-            </section>
 
-            <PoseTracker
-              key={`${exerciseId}:${side}:${sessionKey}`}
-              exercise={poseExercise}
-              personalRange={range}
-              paused={paused}
-              onRepEvent={handleRepEvent}
-              onPeakRom={handlePeak}
-              onMovementStats={handleMovementStats}
-              onManualDone={finish}
-              onActiveChange={setActive}
-              startSignal={cameraStartSignal}
-            />
+              <div className="rise-in rise-in-3 flex flex-col gap-4">
+                <PoseSetup
+                  exerciseId={exerciseId}
+                  side={side}
+                  onExerciseChange={changeExercise}
+                  onSideChange={changeSide}
+                  disabled={active}
+                />
 
-            <div className="flex flex-col gap-3">
-              <Button
-                type="button"
-                onClick={togglePause}
-                disabled={!active}
-                aria-pressed={paused}
-              >
-                {paused ? "Resume tracking" : "Pause tracking"}
-              </Button>
+                {!calibratedRange ? (
+                  <div className="rounded-3xl bg-lavender p-5">
+                    <h2 className="font-display text-lg font-bold text-ink">
+                      Counting to a general range
+                    </h2>
+                    <p className="mt-1 text-base text-ink">
+                      For counting tuned to how you move today, calibrate first.
+                      You can also carry on with a general range right now.
+                    </p>
+                    <Link
+                      href={calibrateHref}
+                      className="mt-2 inline-flex min-h-12 items-center font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
+                    >
+                      Calibrate my range
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="rounded-3xl border border-line bg-surface p-5 text-ink-soft shadow-card">
+                    Counting against your calibrated range:{" "}
+                    <span className="font-semibold text-ink">
+                      {range.minDeg}°-{range.maxDeg}°
+                    </span>{" "}
+                    (target {targetAngle(range)}°).{" "}
+                    <Link
+                      href={calibrateHref}
+                      className="font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
+                    >
+                      Recalibrate
+                    </Link>
+                  </div>
+                )}
 
-              <Button type="button" variant="secondary" onClick={finish}>
-                Finish and view summary
-              </Button>
+                <section className="rounded-3xl border border-line bg-surface p-5 shadow-card">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="font-display text-xl font-bold">
+                      How to move
+                    </h2>
+                    {/* Hidden while speech is muted -- nothing would play, so the
+                      corner mute toggle is the only relevant control then. */}
+                    {speechEnabled ? (
+                      <button
+                        type="button"
+                        suppressHydrationWarning
+                        onClick={readAloud}
+                        aria-pressed={reading}
+                        className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-surface text-ink transition-colors hover:bg-mint"
+                        aria-label={
+                          reading
+                            ? `Stop reading the instructions for ${poseExercise.name}`
+                            : `Play the instructions for ${poseExercise.name} from the start`
+                        }
+                      >
+                        {reading ? (
+                          <Pause aria-hidden="true" className="h-6 w-6" />
+                        ) : (
+                          <Play aria-hidden="true" className="h-6 w-6" />
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
+                  <ol className="mt-4 flex flex-col gap-3 text-ink">
+                    {poseExercise.instructions.map((instruction, index) => (
+                      <li key={instruction} className="flex items-start gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-marigold-soft text-base font-bold text-marigold-deep"
+                        >
+                          {index + 1}
+                        </span>
+                        <span>{instruction}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              </div>
             </div>
 
             {/* T17/W1: hands-free control. Renders nothing in browsers
@@ -440,7 +465,7 @@ export default function ExercisePage() {
           </>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -460,25 +485,32 @@ function FinishedCard({
   const reachedTarget = peak >= target;
 
   return (
-    <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-      <h2 className="text-2xl font-bold text-slate-900">
+    <section className="on-dark rise-in mx-auto w-full max-w-2xl rounded-3xl bg-evergreen p-6 shadow-card sm:p-8">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-milk-soft">
+        Session done
+      </p>
+      <h2 className="mt-2 font-display text-3xl font-extrabold text-milk">
         {reps > 0 ? "That counts. Every rep." : "You showed up today."}
       </h2>
-      <p className="mt-2 text-base text-slate-600">
+      <p className="mt-2 text-base text-milk">
         {reps > 0
           ? `You moved through ${reps} ${reps === 1 ? "rep" : "reps"} at your own pace.`
           : "Turning up is the hard part, and you did it."}
       </p>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-600">Reps</p>
-          <p className="text-3xl font-bold text-slate-900">{reps}</p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl bg-mint p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-evergreen">
+            Reps
+          </p>
+          <p className="text-3xl font-bold tabular-nums text-ink">{reps}</p>
         </div>
-        <div className="rounded-2xl bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-600">Peak range today</p>
-          <p className="text-3xl font-bold text-slate-900">{peak}°</p>
-          <p className="mt-1 text-sm text-slate-600">
+        <div className="rounded-2xl bg-mint p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-evergreen">
+            Peak range today
+          </p>
+          <p className="text-3xl font-bold tabular-nums text-ink">{peak}°</p>
+          <p className="mt-1 text-sm text-ink">
             {reachedTarget
               ? "You reached your target range."
               : `Target ${target}° -- worth celebrating either way.`}
@@ -486,16 +518,36 @@ function FinishedCard({
         </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <Button type="button" onClick={onGoAgain}>
+      <div className="mt-6 flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={onGoAgain}
+          className="inline-flex min-h-14 w-full items-center justify-center rounded-full bg-milk px-6 text-lg font-bold text-ink transition-colors hover:bg-cream"
+        >
           Go again
-        </Button>
-        <Button asChild variant="secondary">
-          <Link href={calibrateHref}>Recalibrate range</Link>
-        </Button>
-        <Button asChild variant="secondary">
-          <Link href="/summary">View summary</Link>
-        </Button>
+        </button>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Link
+            href={calibrateHref}
+            className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-milk px-4 text-center text-base font-bold text-milk transition-colors hover:bg-white/10"
+          >
+            Recalibrate
+          </Link>
+          <Link
+            href="/summary"
+            className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-milk px-4 text-center text-base font-bold text-milk transition-colors hover:bg-white/10"
+          >
+            View summary
+          </Link>
+          <Link
+            href="/"
+            aria-label="Finish and return to dashboard"
+            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full border-2 border-milk px-4 text-center text-base font-bold text-milk transition-colors hover:bg-white/10"
+          >
+            <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
+            <span>Finish</span>
+          </Link>
+        </div>
       </div>
     </section>
   );

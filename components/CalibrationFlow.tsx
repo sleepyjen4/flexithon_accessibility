@@ -11,7 +11,15 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import { Check, Pause, Play } from "lucide-react";
+import {
+  Check,
+  Dumbbell,
+  MoveUp,
+  Pause,
+  Play,
+  Plus,
+  ShieldCheck,
+} from "lucide-react";
 import type {
   NormalizedLandmark,
   PoseLandmarker,
@@ -124,7 +132,9 @@ function drawMediaPipeLandmarks(
   const width = canvas.width;
   const height = canvas.height;
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#00ff88";
+  // Marigold from the design tokens: 7.6:1 against the dark stage, and it
+  // reads as part of the brand instead of a debug overlay.
+  context.fillStyle = "#e5a83c";
 
   for (const index of VISIBLE_UPPER_BODY_INDICES) {
     const point = landmarks[index];
@@ -592,12 +602,20 @@ export function CalibrationFlow({
   if (phase === "pick") {
     content = (
       <div className="flex flex-1 flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
-        <p className="text-lg text-slate-600">
-          Which exercise are you calibrating? We&apos;ll learn your comfortable
-          range for it so the camera counts reps that fit your body.
-        </p>
-        <fieldset className="flex flex-col gap-3 border-0 p-0">
+        <header className="rise-in space-y-2">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
+            Camera setup
+          </p>
+          <h1 className="font-display text-3xl font-extrabold text-ink">
+            {heading}
+          </h1>
+          <p className="text-lg text-ink-soft">
+            Which exercise are you calibrating? We&apos;ll learn your
+            comfortable range for it so the camera counts reps that fit your
+            body.
+          </p>
+        </header>
+        <fieldset className="rise-in rise-in-2 flex flex-col gap-3 border-0 p-0">
           <legend className="sr-only">Choose an exercise to calibrate</legend>
           <RadioGroup.Root
             value={exerciseId}
@@ -605,27 +623,40 @@ export function CalibrationFlow({
             aria-label="Choose an exercise to calibrate"
             className="flex flex-col gap-3"
           >
-            {POSE_EXERCISES.map((option) => (
-              <RadioGroup.Item
-                key={option.id}
-                value={option.id}
-                className="flex min-h-14 w-full items-center justify-between gap-4 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-within:outline focus-within:outline-offset-2 focus-within:outline-indigo-600 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-50"
-              >
-                <span className="text-lg font-semibold text-slate-900">
-                  {option.name}
-                </span>
-                <RadioGroup.Indicator className="shrink-0">
-                  <Check
+            {POSE_EXERCISES.map((option) => {
+              const OptionIcon =
+                option.id === "seated_bicep_curl" ? Dumbbell : MoveUp;
+              return (
+                <RadioGroup.Item
+                  key={option.id}
+                  value={option.id}
+                  className="group flex min-h-16 w-full items-center gap-4 rounded-3xl border-2 border-line-strong bg-surface px-4 py-3 text-left shadow-card transition-colors hover:bg-cream data-[state=checked]:border-evergreen data-[state=checked]:bg-mint"
+                >
+                  <span
                     aria-hidden="true"
-                    className="h-5 w-5 text-indigo-700"
-                  />
-                </RadioGroup.Indicator>
-              </RadioGroup.Item>
-            ))}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-lavender text-ink group-data-[state=checked]:bg-evergreen group-data-[state=checked]:text-milk"
+                  >
+                    <OptionIcon className="h-6 w-6" />
+                  </span>
+                  <span className="flex-1 text-lg font-semibold text-ink">
+                    {option.name}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-line-strong text-ink-soft group-data-[state=checked]:hidden"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </span>
+                  <RadioGroup.Indicator className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-milk">
+                    <Check aria-hidden="true" className="h-5 w-5" />
+                  </RadioGroup.Indicator>
+                </RadioGroup.Item>
+              );
+            })}
           </RadioGroup.Root>
         </fieldset>
         {existing && (
-          <p className="rounded-2xl bg-emerald-50 p-4 text-base text-slate-900">
+          <p className="rise-in rise-in-3 rounded-3xl bg-mint p-4 text-base text-ink">
             You&apos;ve already calibrated this one ({existing.minDeg}°–
             {existing.maxDeg}°). Recalibrating replaces it.
           </p>
@@ -636,7 +667,7 @@ export function CalibrationFlow({
           </Button>
           <Link
             href="/exercise"
-            className="min-h-12 content-center text-center text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
+            className="min-h-12 content-center text-center text-lg font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
           >
             Back to exercise
           </Link>
@@ -649,22 +680,31 @@ export function CalibrationFlow({
   else if (phase === "intro") {
     content = (
       <div className="flex flex-1 flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
-        <p className="text-lg text-slate-600">
-          We&apos;ll learn your comfortable range for the{" "}
-          <strong>{exercise?.name ?? "hero exercise"}</strong>
-          {side !== "either" ? ` on ${SIDE_LABEL[side]}` : ""} so the camera
-          counts reps that fit your body, not the other way around.
-        </p>
+        <header className="rise-in space-y-2">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
+            Camera setup
+          </p>
+          <h1 className="font-display text-3xl font-extrabold text-ink">
+            {heading}
+          </h1>
+          <p className="text-lg text-ink-soft">
+            We&apos;ll learn your comfortable range for the{" "}
+            <strong className="text-ink">
+              {exercise?.name ?? "hero exercise"}
+            </strong>
+            {side !== "either" ? ` on ${SIDE_LABEL[side]}` : ""} so the camera
+            counts reps that fit your body, not the other way around.
+          </p>
+        </header>
         {existing && (
-          <p className="rounded-2xl bg-emerald-50 p-4 text-lg text-slate-900">
+          <p className="rise-in rise-in-2 rounded-3xl bg-mint p-4 text-lg text-ink">
             You&apos;re already calibrated ({existing.minDeg}°–{existing.maxDeg}
             °). You can recalibrate any time.
           </p>
         )}
-        <Card>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-slate-900">
+        <Card className="rise-in rise-in-2">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="font-display text-xl font-bold text-ink">
               What happens
             </h2>
             {/* Hidden while speech is muted — nothing would play. Mirrors the
@@ -675,7 +715,7 @@ export function CalibrationFlow({
                 suppressHydrationWarning
                 onClick={toggleReadAloud}
                 aria-pressed={reading}
-                className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-surface text-ink transition-colors hover:bg-mint"
                 aria-label={
                   reading
                     ? "Stop reading the instructions"
@@ -690,19 +730,33 @@ export function CalibrationFlow({
               </button>
             ) : null}
           </div>
-          <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg text-slate-900">
-            <li>Sit so your head and arms are in view.</li>
-            {poseDef.instructions.map((instruction) => (
-              <li key={instruction}>{instruction}</li>
+          <ol className="flex flex-col gap-3 text-lg text-ink">
+            {[
+              "Sit so your head and arms are in view.",
+              ...poseDef.instructions,
+              `Repeat gently ${TARGET_SWEEPS} times. We'll do the measuring.`,
+            ].map((instruction, index) => (
+              <li key={instruction} className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-marigold-soft text-base font-bold text-marigold-deep"
+                >
+                  {index + 1}
+                </span>
+                <span>{instruction}</span>
+              </li>
             ))}
-            <li>
-              Repeat gently {TARGET_SWEEPS} times. We&apos;ll do the measuring.
-            </li>
           </ol>
         </Card>
-        <p className="text-base text-slate-600">
-          Video stays on your device, nothing is uploaded or stored. Prefer not
-          to use the camera? You can skip it and still start your workout.
+        <p className="rise-in rise-in-3 flex items-start gap-3 rounded-3xl bg-raspberry-soft p-4 text-base text-ink">
+          <ShieldCheck
+            aria-hidden="true"
+            className="mt-0.5 h-6 w-6 shrink-0 text-raspberry"
+          />
+          <span>
+            Video stays on your device, nothing is uploaded or stored. Prefer
+            not to use the camera? You can skip it and still start your workout.
+          </span>
         </p>
         <div className="mt-auto flex flex-col gap-3 pt-4">
           <Button type="button" onClick={beginCapture}>
@@ -711,13 +765,13 @@ export function CalibrationFlow({
           <Button type="button" variant="secondary" onClick={saveDefault}>
             Skip camera — use a comfortable default
           </Button>
-          <Button
+          <button
             type="button"
-            variant="secondary"
             onClick={chooseDifferentExercise}
+            className="min-h-12 text-center text-lg font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
           >
             Choose a different exercise
-          </Button>
+          </button>
         </div>
       </div>
     );
@@ -728,8 +782,15 @@ export function CalibrationFlow({
     if (status === "unavailable") {
       content = (
         <div className="flex flex-1 flex-col gap-6">
-          <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
-          <p className="rounded-2xl bg-slate-50 p-4 text-lg text-slate-600">
+          <header className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
+              Camera setup
+            </p>
+            <h1 className="font-display text-3xl font-extrabold text-ink">
+              {heading}
+            </h1>
+          </header>
+          <p className="rounded-3xl bg-marigold-soft p-4 text-lg text-ink">
             The camera isn&apos;t available right now. That&apos;s completely
             fine. We&apos;ll use a comfortable default range, and you can count
             reps by hand.
@@ -755,62 +816,84 @@ export function CalibrationFlow({
       const captured = Math.min(sweeps, TARGET_SWEEPS);
       content = (
         <div className="flex flex-1 flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
-        <p className="text-lg text-slate-600">
-          {status === "loading" && "Starting camera…"}
-          {status === "tracking" &&
-            "Move through the exercise, then return. Nice and gentle."}
-          {status === "paused" &&
-            "Tracking paused. Move back into view when ready."}
-        </p>
-        <div
-          className="overflow-hidden rounded-2xl bg-slate-50 shadow-sm ring-1 ring-slate-200"
-          role="img"
-          aria-label="Live camera preview with shoulder, elbow, and wrist landmarks for calibration."
-        >
-          <div className="relative aspect-video w-full">
-            <video
-              ref={videoRef}
-              muted
-              playsInline
-              aria-hidden="true"
-              className="h-full w-full -scale-x-100 object-cover"
-            />
-            <canvas
-              ref={canvasRef}
-              className="pointer-events-none absolute inset-0 h-full w-full -scale-x-100"
-              aria-hidden="true"
-            />
+          <header className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
+              Camera setup
+            </p>
+            <h1 className="font-display text-3xl font-extrabold text-ink">
+              {heading}
+            </h1>
+            <p className="text-lg text-ink-soft">
+              {status === "loading" && "Starting camera…"}
+              {status === "tracking" &&
+                "Move through the exercise, then return. Nice and gentle."}
+              {status === "paused" &&
+                "Tracking paused. Move back into view when ready."}
+            </p>
+          </header>
+
+          {/* The camera stage: the one dark block on a cream page, so the video
+            is where the eye lands. Focus rings inside flip to milk (.on-dark). */}
+          <div className="on-dark rounded-3xl bg-stage p-4 shadow-card sm:p-5">
+            <div
+              className="overflow-hidden rounded-2xl bg-[#3a332b]"
+              role="img"
+              aria-label="Live camera preview with shoulder, elbow, and wrist landmarks for calibration."
+            >
+              <div className="relative aspect-video w-full">
+                <video
+                  ref={videoRef}
+                  muted
+                  playsInline
+                  aria-hidden="true"
+                  className="h-full w-full -scale-x-100 object-cover"
+                />
+                <canvas
+                  ref={canvasRef}
+                  className="pointer-events-none absolute inset-0 h-full w-full -scale-x-100"
+                  aria-hidden="true"
+                />
+              </div>
+            </div>
+            <p
+              aria-live="polite"
+              className="mt-4 text-center font-display text-xl font-bold text-milk"
+            >
+              Movement {captured} of {TARGET_SWEEPS} recorded
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-marigold-soft p-3 text-center">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-marigold-deep">
+                  Current
+                </p>
+                <p className="text-2xl font-bold tabular-nums text-ink">
+                  {liveDeg === null ? "–" : `${liveDeg}°`}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-mint p-3 text-center">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-evergreen">
+                  So far
+                </p>
+                <p className="text-2xl font-bold tabular-nums text-ink">
+                  {captMin ?? "–"}°–{captMax ?? "–"}°
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-auto flex flex-col gap-3 pt-4">
+            <Button type="button" onClick={() => setPhase("review")}>
+              Done — save my range
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setPhase("intro")}
+            >
+              Cancel
+            </Button>
           </div>
         </div>
-        <p
-          aria-live="polite"
-          className="text-center text-xl font-semibold text-slate-900"
-        >
-          Movement {captured} of {TARGET_SWEEPS} recorded
-        </p>
-        {liveDeg !== null && (
-          <p className="text-center text-lg text-slate-600">
-            Current: {liveDeg}° · so far {captMin ?? "–"}°–{captMax ?? "–"}°
-          </p>
-        )}
-        <div className="mt-auto flex flex-col gap-3 pt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setPhase("review")}
-          >
-            Done — save my range
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setPhase("intro")}
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
       );
     }
   }
@@ -819,51 +902,65 @@ export function CalibrationFlow({
   else {
     content = (
       <div className="flex flex-1 flex-col gap-6">
-      <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
-      {range ? (
-        <>
-          <p aria-live="polite" className="text-lg text-slate-600">
-            Great — your comfortable range is{" "}
-            <strong>
-              {range.minDeg}° to {range.maxDeg}°
-            </strong>
-            . Reps will count against this, so hitting your target stays
-            realistic.
+        <header className="rise-in space-y-2">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
+            Camera setup
           </p>
-          <div className="mt-auto flex flex-col gap-3 pt-4">
-            <Button type="button" onClick={() => save(range)}>
-              Save and start exercise
-            </Button>
-            <Button type="button" variant="secondary" onClick={beginCapture}>
-              Recalibrate
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          <p
-            aria-live="polite"
-            className="rounded-2xl bg-slate-50 p-4 text-lg text-slate-600"
-          >
-            We didn&apos;t catch a full movement that time. No problem at all.
-            Try once more, or start with a comfortable default range.
-          </p>
-          <div className="mt-auto flex flex-col gap-3 pt-4">
-            <Button type="button" onClick={beginCapture}>
-              Try again
-            </Button>
-            <Button type="button" variant="secondary" onClick={saveDefault}>
-              Use a default range and start
-            </Button>
-          </div>
-        </>
-      )}
-      <Link
-        href="/exercise"
-        className="min-h-12 content-center text-center text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"
-      >
-        Skip for now
-      </Link>
+          <h1 className="font-display text-3xl font-extrabold text-ink">
+            {heading}
+          </h1>
+        </header>
+        {range ? (
+          <>
+            <div
+              aria-live="polite"
+              className="rise-in rise-in-2 rounded-3xl bg-mint p-6 text-center"
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-evergreen">
+                Your comfortable range
+              </p>
+              <p className="mt-2 font-display text-5xl font-extrabold tabular-nums text-ink">
+                {range.minDeg}°–{range.maxDeg}°
+              </p>
+              <p className="mt-3 text-lg text-ink">
+                Reps will count against this, so hitting your target stays
+                realistic.
+              </p>
+            </div>
+            <div className="mt-auto flex flex-col gap-3 pt-4">
+              <Button type="button" onClick={() => save(range)}>
+                Save and start exercise
+              </Button>
+              <Button type="button" variant="secondary" onClick={beginCapture}>
+                Recalibrate
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p
+              aria-live="polite"
+              className="rise-in rise-in-2 rounded-3xl bg-marigold-soft p-4 text-lg text-ink"
+            >
+              We didn&apos;t catch a full movement that time. No problem at all.
+              Try once more, or start with a comfortable default range.
+            </p>
+            <div className="mt-auto flex flex-col gap-3 pt-4">
+              <Button type="button" onClick={beginCapture}>
+                Try again
+              </Button>
+              <Button type="button" variant="secondary" onClick={saveDefault}>
+                Use a default range and start
+              </Button>
+            </div>
+          </>
+        )}
+        <Link
+          href="/exercise"
+          className="min-h-12 content-center text-center text-lg font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
+        >
+          Skip for now
+        </Link>
       </div>
     );
   }

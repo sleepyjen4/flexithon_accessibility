@@ -19,6 +19,13 @@ const EQUIPMENT_OPTIONS: { value: Equipment; label: string; description?: string
   { value: "dumbbell", label: "Dumbbells or hand weights" },
   { value: "chair", label: "A sturdy chair" },
   { value: "wall", label: "A clear wall" },
+  { value: "wheelchair", label: "Wheelchair" },
+  { value: "bench", label: "Bench" },
+  { value: "ankle_weights", label: "Ankle weights" },
+  { value: "support_surface", label: "Support surface", description: "Counter, rail, or stable table" },
+  { value: "mobility_aid", label: "Mobility aid", description: "Cane, walker, prosthesis, or crutches" },
+  { value: "gripper_putty", label: "Gripper or putty" },
+  { value: "pool_access", label: "Pool access" },
 ];
 
 const REGION_OPTIONS: { value: BodyRegion; label: string }[] = [
@@ -88,7 +95,7 @@ export function OnboardingFlow() {
       },
     };
     setProfile(displayName.trim() || null, abilities);
-    router.push("/check-in");
+    router.push("/");
   };
 
   const next = () => (step === STEPS.length - 1 ? finish() : setStep(step + 1));
