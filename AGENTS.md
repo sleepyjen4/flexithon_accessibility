@@ -1,4 +1,4 @@
-# AGENTS.md — Adaptive Fitness App (48-Hour Hackathon)
+# AGENTS.md — Alpha App (48-Hour Hackathon)
 
 > **Read this entire file before generating any code.** It is the single source of truth
 > for scope, stack, conventions, and accessibility rules. When in doubt, choose the

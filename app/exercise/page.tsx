@@ -9,6 +9,7 @@ import { Button } from "@/components/Button";
 import { PoseSetup } from "@/components/PoseSetup";
 import { SpeechToggle } from "@/components/SpeechToggle";
 import { VoiceControl } from "@/components/VoiceControl";
+import { CameraLoadBoundary } from "@/components/CameraLoadBoundary";
 import {
   CALIBRATION_KEY_BY_POSE_ID,
   getPoseExerciseById,
@@ -37,8 +38,8 @@ const PoseTracker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="rounded-2xl bg-white p-4 text-slate-600 shadow-sm ring-1 ring-slate-200">
-        Loading the camera tracker...
+      <div className="rounded-3xl border border-line bg-surface p-4 text-base text-ink-soft shadow-card">
+        Loading the camera tracker…
       </div>
     ),
   },
@@ -342,40 +343,80 @@ export default function ExercisePage() {
             onGoAgain={goAgain}
           />
         ) : (
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-            {/* The camera stage leads on every screen size: it is the product's
-                hero, so it sits first in reading order and dominates the grid. */}
-            <div className="rise-in rise-in-2 flex flex-col gap-4">
-              <PoseTracker
-                key={`${exerciseId}:${side}:${sessionKey}`}
-                exercise={poseExercise}
-                personalRange={range}
-                paused={paused}
-                onRepEvent={handleRepEvent}
-                onPeakRom={handlePeak}
-                onMovementStats={handleMovementStats}
-                onManualDone={finish}
-                onActiveChange={setActive}
-                startSignal={cameraStartSignal}
-              />
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button
-                  type="button"
-                  onClick={togglePause}
-                  disabled={!active}
-                  aria-pressed={paused}
-                >
-                  {paused ? "Resume tracking" : "Pause tracking"}
-                </Button>
-
-                <Button type="button" variant="secondary" onClick={finish}>
-                  Finish and view summary
-                </Button>
+          <>
+            {/* Instructions sit above everything so users see how to move right
+                away -- before the camera or setup, on every screen size. The
+                marigold border and full-width band make it stand out. */}
+            <section className="rise-in rise-in-2 rounded-3xl border-2 border-marigold bg-surface p-5 shadow-card">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-display text-xl font-bold">How to move</h2>
+                {/* Hidden while speech is muted -- nothing would play, so the
+                    corner mute toggle is the only relevant control then. */}
+                {speechEnabled ? (
+                  <button
+                    type="button"
+                    suppressHydrationWarning
+                    onClick={readAloud}
+                    aria-pressed={reading}
+                    className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-surface text-ink transition-colors hover:bg-mint"
+                    aria-label={
+                      reading
+                        ? `Stop reading the instructions for ${poseExercise.name}`
+                        : `Play the instructions for ${poseExercise.name} from the start`
+                    }
+                  >
+                    {reading ? (
+                      <Pause aria-hidden="true" className="h-6 w-6" />
+                    ) : (
+                      <Play aria-hidden="true" className="h-6 w-6" />
+                    )}
+                  </button>
+                ) : null}
               </div>
+              <ol className="mt-4 grid gap-3 text-ink sm:grid-cols-2 lg:grid-cols-3">
+                {poseExercise.instructions.map((instruction, index) => (
+                  <li key={instruction} className="flex items-start gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-marigold-soft text-base font-bold text-marigold-deep"
+                    >
+                      {index + 1}
+                    </span>
+                    <span>{instruction}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+            {/* The camera stage leads the grid below the instructions: it is the
+                product's hero and dominates the grid. */}
+            <div className="rise-in rise-in-3 flex flex-col gap-4">
+              <CameraLoadBoundary
+                fallback={
+                  <div className="rounded-3xl border border-line bg-surface p-5 text-base text-ink-soft shadow-card">
+                    The camera tracker couldn&apos;t load. Everything else still
+                    works — use &ldquo;Finish and view summary&rdquo; below when
+                    you&apos;re done.
+                  </div>
+                }
+              >
+                <PoseTracker
+                  key={`${exerciseId}:${side}:${sessionKey}`}
+                  exercise={poseExercise}
+                  personalRange={range}
+                  paused={paused}
+                  onRepEvent={handleRepEvent}
+                  onPeakRom={handlePeak}
+                  onMovementStats={handleMovementStats}
+                  onManualDone={finish}
+                  onActiveChange={setActive}
+                  startSignal={cameraStartSignal}
+                />
+              </CameraLoadBoundary>
             </div>
 
-            <div className="rise-in rise-in-3 flex flex-col gap-4">
+            <div className="rise-in rise-in-4 flex flex-col gap-4">
               <PoseSetup
                 exerciseId={exerciseId}
                 side={side}
@@ -415,51 +456,27 @@ export default function ExercisePage() {
                   </Link>
                 </div>
               )}
-
-              <section className="rounded-3xl border border-line bg-surface p-5 shadow-card">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="font-display text-xl font-bold">
-                    How to move
-                  </h2>
-                  {/* Hidden while speech is muted -- nothing would play, so the
-                      corner mute toggle is the only relevant control then. */}
-                  {speechEnabled ? (
-                    <button
-                      type="button"
-                      suppressHydrationWarning
-                      onClick={readAloud}
-                      aria-pressed={reading}
-                      className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-surface text-ink transition-colors hover:bg-mint"
-                      aria-label={
-                        reading
-                          ? `Stop reading the instructions for ${poseExercise.name}`
-                          : `Play the instructions for ${poseExercise.name} from the start`
-                      }
-                    >
-                      {reading ? (
-                        <Pause aria-hidden="true" className="h-6 w-6" />
-                      ) : (
-                        <Play aria-hidden="true" className="h-6 w-6" />
-                      )}
-                    </button>
-                  ) : null}
-                </div>
-                <ol className="mt-4 flex flex-col gap-3 text-ink">
-                  {poseExercise.instructions.map((instruction, index) => (
-                    <li key={instruction} className="flex items-start gap-3">
-                      <span
-                        aria-hidden="true"
-                        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-marigold-soft text-base font-bold text-marigold-deep"
-                      >
-                        {index + 1}
-                      </span>
-                      <span>{instruction}</span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
             </div>
-          </div>
+            </div>
+
+            {/* Primary session controls: set apart at the bottom of the flow
+                with a divider so they read as the main actions on every screen,
+                distinct from the setup and in-camera controls above. */}
+            <div className="rise-in rise-in-4 flex flex-col gap-3 border-t-2 border-line-strong pt-6 sm:flex-row">
+              <Button
+                type="button"
+                onClick={togglePause}
+                disabled={!active}
+                aria-pressed={paused}
+              >
+                {paused ? "Resume tracking" : "Pause tracking"}
+              </Button>
+
+              <Button type="button" variant="secondary" onClick={finish}>
+                Finish and view summary
+              </Button>
+            </div>
+          </>
         )}
       </div>
     </div>

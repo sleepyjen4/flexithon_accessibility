@@ -737,29 +737,11 @@ export function PoseTracker({
         />
       ) : null}
 
-      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
-        <div className="rounded-2xl bg-mint p-3">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-evergreen">
-            Reps
-          </p>
-          <p className="text-3xl font-bold tabular-nums text-ink">{repCount}</p>
-        </div>
-        <div className="rounded-2xl bg-marigold-soft p-3">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-marigold-deep">
-            Angle
-          </p>
-          <p className="text-3xl font-bold tabular-nums text-ink">
-            {angleDeg === null ? "–" : `${Math.round(angleDeg)}°`}
-          </p>
-        </div>
-        <div className="rounded-2xl bg-lavender p-3">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#4f4a78]">
-            Peak
-          </p>
-          <p className="text-3xl font-bold tabular-nums text-ink">
-            {Math.round(peakAngle)}°
-          </p>
-        </div>
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-mint px-4 py-3">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-evergreen">
+          Reps
+        </p>
+        <p className="text-3xl font-bold tabular-nums text-ink">{repCount}</p>
       </div>
 
       <p className="mt-4 text-base text-milk-soft" aria-live="polite">

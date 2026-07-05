@@ -1,0 +1,16 @@
+{
+  "name": "Alpha",
+  "short_name": "Alpha",
+  "description": "A fitness app that adapts to your body and your energy today.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6eddc",
+  "theme_color": "#f6eddc",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

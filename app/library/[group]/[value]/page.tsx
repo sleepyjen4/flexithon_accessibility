@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { DashboardShell } from "@/components/DashboardShell";
+import { ExerciseDemo } from "@/components/ExerciseDemo";
+import { getExerciseVideoUrl } from "@/lib/exerciseVideos";
 import {
   filterExercisesByLibraryCard,
   getLibraryCard,
@@ -60,13 +62,22 @@ export default async function LibraryValuePage({
         </header>
 
         <div className="rise-in rise-in-3 grid gap-4 md:grid-cols-2">
-          {exercises.map((exercise) => (
+          {exercises.map((exercise) => {
+            const videoUrl = getExerciseVideoUrl(exercise.id);
+            return (
             <Link
               key={exercise.id}
               href={`/exercise/${exercise.id}`}
               className="group flex flex-col gap-3 rounded-3xl border border-line bg-surface p-6 text-left shadow-card transition-colors hover:border-evergreen hover:bg-mint"
               aria-label={`Start ${exercise.name}`}
             >
+              {videoUrl ? (
+                <ExerciseDemo
+                  videoUrl={videoUrl}
+                  name={exercise.name}
+                  interactive={false}
+                />
+              ) : null}
               <div className="flex items-start justify-between gap-3">
                 <h2 className="font-display text-2xl font-bold text-ink">
                   {exercise.name}
@@ -80,7 +91,8 @@ export default async function LibraryValuePage({
                 {exercise.description}
               </p>
             </Link>
-          ))}
+            );
+          })}
         </div>
       </div>
     </DashboardShell>

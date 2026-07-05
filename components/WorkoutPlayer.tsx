@@ -50,8 +50,8 @@ export function WorkoutPlayer() {
   if (!workout) {
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">No workout yet</h1>
-        <p className="text-lg text-slate-600">
+        <h1 className="font-display text-2xl font-bold text-ink">No workout yet</h1>
+        <p className="text-lg text-ink-soft">
           Check in with today&apos;s energy and we&apos;ll build one that fits.
         </p>
         <Button asChild>
@@ -142,12 +142,13 @@ export function WorkoutPlayer() {
 
   if (resting) {
     content = (
-      <div className="flex flex-1 flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">Rest</h1>
-        <p className="text-lg text-slate-600">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-8">
+        <h1 className="font-display text-2xl font-bold text-ink">Rest</h1>
+        <p className="text-lg text-ink-soft">
           Take your time, the next exercise waits for you.
         </p>
-        {/* Keyed so each rest period gets a fresh timer instance. */}
+        {/* Keyed so each rest period gets a fresh timer instance. The rest
+            countdown uses the circular ring UI. */}
         <Timer
           key={currentStepIndex}
           seconds={step.rest_after_seconds}
@@ -156,8 +157,9 @@ export function WorkoutPlayer() {
           paused={timerPaused}
           onPauseChange={setTimerPaused}
           extendSignal={extendSignal}
+          variant="ring"
         />
-        <Button type="button" variant="secondary" onClick={goNext}>
+        <Button type="button" variant="success" onClick={goNext}>
           Skip Rest
         </Button>
       </div>
@@ -166,11 +168,11 @@ export function WorkoutPlayer() {
     // Seeded library and generator share ids, so this only trips on bad data;
     // recover by moving on rather than dead-ending the session.
     content = (
-      <div className="flex flex-1 flex-col gap-6">
-        <h1 className="text-2xl font-bold text-slate-900">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
+        <h1 className="font-display text-2xl font-bold text-ink">
           We couldn&apos;t load this exercise
         </h1>
-        <p className="text-lg text-slate-600">
+        <p className="text-lg text-ink-soft">
           Not your fault — let&apos;s move to the next one.
         </p>
         <Button type="button" onClick={goNext}>
@@ -207,7 +209,7 @@ export function WorkoutPlayer() {
   // between exercise and rest — a remount would release the mic and silently
   // end hands-free control mid-workout.
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col">
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col lg:max-w-4xl">
       <div className="mb-6 flex items-center justify-end gap-2">
         <VoiceControl
           commands={[

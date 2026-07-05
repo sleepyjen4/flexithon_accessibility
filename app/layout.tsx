@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import { Providers } from "@/components/Providers";
+import { DashboardNav } from "@/components/DashboardNav";
 import "./globals.css";
 
 // Display face for headings + body face for everything else. Both are variable
@@ -16,7 +17,7 @@ const figtree = Figtree({
 });
 
 export const metadata: Metadata = {
-  title: "Adaptive Fitness",
+  title: "Alpha",
   description:
     "A fitness app that adapts to your body and your energy today.",
   manifest: "/manifest.webmanifest",
@@ -43,7 +44,16 @@ export default function RootLayout({
           Skip to content
         </a>
         <Providers>
-          <main id="main-content" className="flex flex-1 flex-col">
+          {/* Primary nav on every page: sticky top bar on desktop, fixed
+           * bottom bar on mobile. On mobile the bottom padding clears that
+           * fixed bar at every text size (F7 scales it, so rem-based) plus the
+           * phone home-indicator safe area; on desktop the nav is at the top,
+           * so this is just breathing room below the last content. */}
+          <DashboardNav />
+          <main
+            id="main-content"
+            className="flex flex-1 flex-col pb-[calc(env(safe-area-inset-bottom)+8rem)] lg:pb-12"
+          >
             {children}
           </main>
         </Providers>

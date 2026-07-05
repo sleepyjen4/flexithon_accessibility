@@ -131,6 +131,18 @@ h3 {
   --focus-ring: var(--milk);
 }
 
+/* Tailwind v4's Preflight resets <button> to cursor:default. Restore the
+ * pointer for every interactive control (native buttons, Radix primitives that
+ * render as <button>, role="button", and labels bound to a form control).
+ * Disabled controls are excluded — they keep their cursor-not-allowed. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  label[for] {
+    cursor: pointer;
+  }
+}
+
 /* Section 6, rule 6: gate every animation behind prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *,

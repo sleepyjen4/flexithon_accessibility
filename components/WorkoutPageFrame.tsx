@@ -9,6 +9,8 @@ export function WorkoutPageFrame({ children }: WorkoutPageFrameProps) {
   // (WorkoutPlayer), so the mic sits next to the mute button and never drops
   // between the exercise and rest steps.
   return (
-    <div className="flex flex-1 flex-col bg-white px-6 py-10">{children}</div>
+    <div className="flex flex-1 flex-col bg-cream px-5 py-8 sm:px-6 sm:py-10">
+      {children}
+    </div>
   );
 }
