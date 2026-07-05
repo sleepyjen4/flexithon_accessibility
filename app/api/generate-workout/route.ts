@@ -24,9 +24,17 @@ const SYSTEM_INSTRUCTION =
   "hands-free camera rep-counting exercise.";
 
 export async function POST(request: Request) {
-  const parsedRequest = GenerateWorkoutRequestSchema.safeParse(
-    await request.json(),
-  );
+  // request.json() throws a SyntaxError on an empty or malformed body, which
+  // would escape as an unhandled 500. Parse defensively so a bad body yields
+  // the intended 400 instead.
+  let requestBody: unknown;
+  try {
+    requestBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid request" }, { status: 400 });
+  }
+
+  const parsedRequest = GenerateWorkoutRequestSchema.safeParse(requestBody);
   if (!parsedRequest.success) {
     return NextResponse.json({ error: "invalid request" }, { status: 400 });
   }
