@@ -145,7 +145,8 @@ export default function ExercisePage() {
     setPaused(false);
     setLiveMessage("");
     setSessionKey((key) => key + 1); // remount the tracker for a clean count
-  }, []);
+    playInstructions();
+  }, [playInstructions]);
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
