@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import { Check } from "lucide-react";
+import { Check, Pause, Play } from "lucide-react";
 import type {
   NormalizedLandmark,
   PoseLandmarker,
@@ -32,7 +32,11 @@ import {
 } from "@/lib/pose/exercises";
 import { calculateAngle } from "@/lib/pose/angles";
 import { smoothWithEma } from "@/lib/pose/smoothing";
+import { getStaticAudioUrl } from "@/lib/audioManifest";
+import { cancelSpeech, speakOrPlay } from "@/lib/speech";
+import type { StaticClipId } from "@/lib/staticAudio";
 import { useCalibrationStore } from "@/store/calibration";
+import { useProfileStore } from "@/store/profile";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 
@@ -54,6 +58,14 @@ const SIDE_LABEL: Record<ExerciseDef["side"], string> = {
   left: "your left side",
   right: "your right side",
   either: "either side",
+};
+
+// Pre-generated Gemini clip for each movement's intro read-aloud (Section 5c).
+// The wording lives in STATIC_CLIPS; the fallback text below is composed from
+// the same pieces the screen renders so clip and Web Speech never drift.
+const CALIBRATION_CLIP_BY_POSE_ID: Record<ExerciseDef["id"], StaticClipId> = {
+  seated_arm_raise: "calibrate_seated_arm_raise",
+  seated_bicep_curl: "calibrate_seated_bicep_curl",
 };
 
 interface CalibrationFlowProps {
@@ -147,6 +159,49 @@ export function CalibrationFlow({
   const [captMin, setCaptMin] = useState<number | null>(null);
   const [captMax, setCaptMax] = useState<number | null>(null);
   const [sweeps, setSweeps] = useState(0);
+
+  // Read the intro instructions aloud in the warm Gemini voice (Section 5c).
+  const speechEnabled = useProfileStore(
+    (state) => state.prefs.speech_enabled !== false,
+  );
+  const [reading, setReading] = useState(false);
+  const readAloudClipId = CALIBRATION_CLIP_BY_POSE_ID[poseDef.id];
+  // Compose the spoken text from the same pieces the "What happens" list shows,
+  // so the Web Speech fallback matches the pre-generated clip word for word.
+  const readAloudText = useMemo(
+    () =>
+      [
+        "Here's what happens.",
+        "Sit so your head and arms are in view.",
+        ...poseDef.instructions,
+        `Repeat gently ${TARGET_SWEEPS} times. We'll do the measuring.`,
+      ].join(" "),
+    [poseDef],
+  );
+
+  const playIntroInstructions = useCallback(() => {
+    // Prefer the pre-generated Gemini clip; speakOrPlay falls back to the Web
+    // Speech API (with the same text) when no clip has been generated yet, so
+    // read-aloud always works. Resolves when it ends, stops, or no-ops (muted).
+    setReading(true);
+    void speakOrPlay(getStaticAudioUrl(readAloudClipId), readAloudText, {
+      interrupt: true,
+    }).finally(() => setReading(false));
+  }, [readAloudClipId, readAloudText]);
+
+  // Play/stop toggle: a second tap stops the read-aloud mid-way.
+  const toggleReadAloud = useCallback(() => {
+    if (reading) {
+      cancelSpeech();
+      setReading(false);
+      return;
+    }
+    playIntroInstructions();
+  }, [reading, playIntroInstructions]);
+
+  // Stop any intro read-aloud when the phase changes (e.g. into capture) or the
+  // flow unmounts, so the warm voice never trails into the camera step.
+  useEffect(() => () => cancelSpeech(), [phase]);
 
   // Running capture lives in refs so 30fps updates never re-render.
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -467,9 +522,32 @@ export function CalibrationFlow({
           </p>
         )}
         <Card>
-          <h2 className="mb-3 text-lg font-semibold text-slate-900">
-            What happens
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">
+              What happens
+            </h2>
+            {/* Hidden while speech is muted — nothing would play. Mirrors the
+                workout player's read-aloud control (ExerciseStep). */}
+            {speechEnabled ? (
+              <button
+                type="button"
+                onClick={toggleReadAloud}
+                aria-pressed={reading}
+                className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                aria-label={
+                  reading
+                    ? "Stop reading the instructions"
+                    : "Read the instructions aloud"
+                }
+              >
+                {reading ? (
+                  <Pause aria-hidden="true" className="h-6 w-6" />
+                ) : (
+                  <Play aria-hidden="true" className="h-6 w-6" />
+                )}
+              </button>
+            ) : null}
+          </div>
           <ol className="flex list-decimal flex-col gap-2 pl-6 text-lg text-slate-900">
             <li>Sit so your head and arms are in view.</li>
             {poseDef.instructions.map((instruction) => (
