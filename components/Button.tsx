@@ -25,6 +25,7 @@ export function Button({
 
   return (
     <Component
+      suppressHydrationWarning
       className={`${base} ${variants[variant]} ${className}`}
       {...props}
     />

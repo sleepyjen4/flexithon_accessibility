@@ -102,6 +102,7 @@ export function ExerciseStep({
           {speechEnabled ? (
             <button
               type="button"
+              suppressHydrationWarning
               onClick={toggleReadAloud}
               aria-pressed={reading}
               className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
