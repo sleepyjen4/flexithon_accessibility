@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, Play, SlidersHorizontal } from "lucide-react";
@@ -26,11 +27,14 @@ export function DashboardNav() {
           href="/"
           className="hidden items-center gap-2 text-sm font-black uppercase tracking-[0.28em] text-ink lg:inline-flex"
         >
-          <span
-            aria-hidden="true"
-            className="h-3 w-3 rounded-full bg-raspberry"
+          <Image
+            src="/logo-trans.png"
+            alt=""
+            width={64}
+            height={64}
+            className="h-12 w-12"
           />
-          Alpha
+          Alfa
         </Link>
         <ul className="grid list-none grid-cols-3 p-0 lg:flex lg:gap-2">
           {NAV_ITEMS.map((item) => {
