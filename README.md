@@ -1,6 +1,6 @@
 # flexithon_accessibility
 
-Adaptive Fitness — a fitness app that adapts to your body and your energy today. See [AGENTS.md](./AGENTS.md) for the full product spec, tech stack, and conventions (read it before making changes).
+Alpha — a fitness app that adapts to your body and your energy today. See [AGENTS.md](./AGENTS.md) for the full product spec, tech stack, and conventions (read it before making changes).
 
 ## Getting Started
 

@@ -17,14 +17,18 @@ interface PoseSetupProps {
   disabled?: boolean;
 }
 
-const SIDE_OPTIONS: { value: TrackedSide; label: string; hint: string }[] = [
-  { value: "left", label: "My left side", hint: "Track my left arm" },
-  { value: "either", label: "Either side", hint: "Whichever is easier" },
-  { value: "right", label: "My right side", hint: "Track my right arm" },
+const SIDE_OPTIONS: { value: TrackedSide; label: string }[] = [
+  { value: "left", label: "Left" },
+  { value: "either", label: "Either" },
+  { value: "right", label: "Right" },
 ];
 
 const cardClass =
   "group flex min-h-12 flex-1 items-center justify-between gap-3 rounded-2xl border-2 border-line-strong bg-surface px-4 py-2 text-left transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-evergreen data-[state=checked]:bg-mint";
+
+// Compact variant for the three short side options laid out in one row.
+const sideCardClass =
+  "group flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-line-strong bg-surface px-2 py-2 transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-evergreen data-[state=checked]:bg-mint";
 
 /** A checkmark that appears only for the chosen option, so selection is shown
  * by an icon and not by color alone (AGENTS.md §6, rule 5). The unchosen
@@ -93,22 +97,19 @@ export function PoseSetup({
           value={side}
           onValueChange={(next) => onSideChange(next as TrackedSide)}
           aria-label="Which side of your body to track"
-          className="flex flex-col gap-3"
+          className="grid grid-cols-3 gap-2 sm:gap-3"
           disabled={disabled}
         >
           {SIDE_OPTIONS.map((option) => (
             <RadioGroup.Item
               key={option.value}
               value={option.value}
-              className={cardClass}
+              className={sideCardClass}
             >
-              <span className="flex flex-col">
-                <span className="text-lg font-semibold text-ink">
-                  {option.label}
-                </span>
-                <span className="text-base text-ink-soft">{option.hint}</span>
-              </span>
               <SelectedMark />
+              <span className="text-lg font-semibold text-ink">
+                {option.label}
+              </span>
             </RadioGroup.Item>
           ))}
         </RadioGroup.Root>

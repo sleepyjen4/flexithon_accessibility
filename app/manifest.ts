@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Adaptive Fitness",
-    short_name: "Adaptive Fitness",
+    name: "Alpha",
+    short_name: "Alpha",
     description:
       "A fitness app that adapts to your body and your energy today.",
     start_url: "/",
