@@ -9,7 +9,11 @@ const RANGE: PersonalRange = { minDeg: 20, maxDeg: 150 };
 const VISIBLE = 0.9;
 const OCCLUDED = 0.3;
 
-function frame(angleDeg: number, visibility: number, timestamp: number): PoseFrame {
+function frame(
+  angleDeg: number,
+  visibility: number,
+  timestamp: number,
+): PoseFrame {
   return { angleDeg, visibility, timestamp };
 }
 
@@ -18,10 +22,10 @@ function feed(
   counter: ReturnType<typeof createRepCounter>,
   angles: number[],
   visibility: number = VISIBLE,
-  startTimestamp = 0
+  startTimestamp = 0,
 ): RepEvent[] {
   return angles.flatMap((angleDeg, i) =>
-    counter.update(frame(angleDeg, visibility, startTimestamp + i * 33))
+    counter.update(frame(angleDeg, visibility, startTimestamp + i * 33)),
   );
 }
 
@@ -55,7 +59,7 @@ describe("createRepCounter", () => {
     // Oscillates across 130.5 four times before finally descending.
     const events = feed(
       counter,
-      [25, 60, 100, 128, 133, 128, 133, 128, 133, 100, 60, 35]
+      [25, 60, 100, 128, 133, 128, 133, 128, 133, 100, 60, 35],
     );
     expect(events).toEqual([
       { type: "range_reached" },
@@ -140,6 +144,22 @@ describe("createRepCounter", () => {
     const events = feed(counter, CLEAN_REP, VISIBILITY_THRESHOLD);
     expect(events.filter((e) => e.type === "rep")).toHaveLength(1);
     expect(events.filter((e) => e.type === "tracking_paused")).toHaveLength(0);
+  });
+
+  it("counts marginal venue-lighting reps above the tuned visibility gate", () => {
+    const counter = createRepCounter(RANGE);
+    const events = feed(counter, CLEAN_REP, VISIBILITY_THRESHOLD + 0.02);
+    expect(events).toEqual([
+      { type: "range_reached" },
+      { type: "rep", count: 1 },
+    ]);
+  });
+
+  it("pauses counting below the tuned visibility gate", () => {
+    const counter = createRepCounter(RANGE);
+    const events = feed(counter, CLEAN_REP, VISIBILITY_THRESHOLD - 0.02);
+    expect(events).toEqual([{ type: "tracking_paused" }]);
+    expect(counter.getCount()).toBe(0);
   });
 
   it("emits range_reached once per rep, fresh for each new rep", () => {

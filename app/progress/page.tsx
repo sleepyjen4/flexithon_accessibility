@@ -1,11 +1,18 @@
 import { ProgressView } from "@/components/ProgressView";
+import { DashboardShell } from "@/components/DashboardShell";
 
 export default function ProgressPage() {
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6 bg-white px-6 py-10">
-      <h1 className="text-2xl font-bold text-slate-900">Your progress</h1>
-      <p className="text-slate-600">Showing up is the win.</p>
+    <DashboardShell>
+      <div className="flex flex-col gap-6">
+        <header className="space-y-2">
+          <h1 className="text-3xl font-black leading-tight text-slate-950">
+            Your progress
+          </h1>
+          <p className="text-base text-slate-500">Showing up is the win.</p>
+        </header>
       <ProgressView />
-    </div>
+      </div>
+    </DashboardShell>
   );
 }

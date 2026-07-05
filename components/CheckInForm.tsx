@@ -42,7 +42,7 @@ export function CheckInForm() {
         recentSessionIds: [],
       });
       setWorkout(workout);
-      router.push("/workout");
+      router.push("/exercise");
     } catch {
       // generateWorkout falls back internally; this is a safety net.
       setStatus("error");

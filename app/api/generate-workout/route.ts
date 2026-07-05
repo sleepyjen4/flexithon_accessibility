@@ -12,8 +12,7 @@ import {
   filterExercisesForAbilities,
   HERO_EXERCISE_ID,
 } from "@/lib/exercises";
-
-const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import { buildFallbackWorkoutForExercises } from "@/lib/workoutFallback";
 
 // Reuses the same zod schema the client validates against (Section 5) so the
 // model's output shape can never drift from the contract in types.ts.
@@ -51,7 +50,14 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json(
+      buildFallbackWorkoutForExercises(availableExercises, energy),
+    );
+  }
+
   try {
+    const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
       contents: JSON.stringify({
@@ -85,8 +91,7 @@ export async function POST(request: Request) {
     return NextResponse.json(workout);
   } catch {
     return NextResponse.json(
-      { error: "workout generation failed" },
-      { status: 502 },
+      buildFallbackWorkoutForExercises(availableExercises, energy),
     );
   }
 }
