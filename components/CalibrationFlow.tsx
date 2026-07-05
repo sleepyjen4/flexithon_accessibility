@@ -29,6 +29,7 @@ import {
   getPoseExerciseById,
   poseExerciseForSide,
 } from "@/lib/pose/exercises";
+import { VISIBILITY_THRESHOLD } from "@/lib/pose/repCounter";
 import { measureActiveSide } from "@/lib/pose/realProvider";
 import { smoothWithEma } from "@/lib/pose/smoothing";
 import { getStaticAudioUrl } from "@/lib/audioManifest";
@@ -48,7 +49,8 @@ const WASM_URL =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
 
 const TARGET_SWEEPS = 3; // three guided movements (T08).
-const MIN_VISIBILITY = 0.6; // pause capture silently below this (matches T06).
+const MIN_VISIBILITY = VISIBILITY_THRESHOLD; // T15: match the tuned workout gate.
+const DETECT_FAILURE_WARN_THRESHOLD = 30;
 
 type Phase = "pick" | "intro" | "capture" | "review";
 type PoseStatus = "loading" | "tracking" | "paused" | "unavailable";
@@ -140,9 +142,8 @@ export function CalibrationFlow({
   // The server page validates query params and passes the initial choice here.
   // Picker changes stay local until Continue so the URL only represents a
   // committed calibration choice.
-  const [exerciseId, setExerciseId] = useState<ExerciseDef["id"]>(
-    initialExerciseId,
-  );
+  const [exerciseId, setExerciseId] =
+    useState<ExerciseDef["id"]>(initialExerciseId);
 
   const replaceWithParams = useCallback(
     (params: URLSearchParams) => {
@@ -168,7 +169,8 @@ export function CalibrationFlow({
   // saved under (see CALIBRATION_KEY_BY_POSE_ID).
   const poseDef = useMemo(() => {
     const base =
-      getPoseExerciseById(exerciseId) ?? getPoseExerciseById("seated_arm_raise")!;
+      getPoseExerciseById(exerciseId) ??
+      getPoseExerciseById("seated_arm_raise")!;
     return poseExerciseForSide(base, side);
   }, [exerciseId, side]);
   const storeKey = CALIBRATION_KEY_BY_POSE_ID[poseDef.id];
@@ -264,6 +266,7 @@ export function CalibrationFlow({
   const captureRef = useRef(createCalibrationCapture());
   const roundedLiveRef = useRef<number | null>(null);
   const smoothedRef = useRef<number | null>(null);
+  const detectFailuresRef = useRef(0);
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -326,8 +329,31 @@ export function CalibrationFlow({
     const poseLandmarker = poseLandmarkerRef.current;
     if (!video || !canvas || !poseLandmarker) return;
 
+    if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+      animationRef.current = requestAnimationFrame(() =>
+        realFrameRef.current(),
+      );
+      return;
+    }
+
     resizeCanvas();
-    const result = poseLandmarker.detectForVideo(video, performance.now());
+    let result: ReturnType<PoseLandmarker["detectForVideo"]>;
+    try {
+      result = poseLandmarker.detectForVideo(video, performance.now());
+      detectFailuresRef.current = 0;
+    } catch (error) {
+      detectFailuresRef.current += 1;
+      if (detectFailuresRef.current === DETECT_FAILURE_WARN_THRESHOLD) {
+        console.warn(
+          "[pose] calibration detectForVideo has failed repeatedly; retrying camera tracking.",
+          error,
+        );
+      }
+      animationRef.current = requestAnimationFrame(() =>
+        realFrameRef.current(),
+      );
+      return;
+    }
     const landmarks = result.landmarks?.[0];
 
     if (landmarks) {
@@ -336,10 +362,13 @@ export function CalibrationFlow({
       canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    const aspect = video.videoWidth / video.videoHeight;
+    const aspect = video.videoWidth / video.videoHeight || 1;
     const measurement = measureActiveSide(landmarks ?? null, poseDef, aspect);
 
-    if (measurement.angle !== null && measurement.visibility >= MIN_VISIBILITY) {
+    if (
+      measurement.angle !== null &&
+      measurement.visibility >= MIN_VISIBILITY
+    ) {
       handleFrame({
         angleDeg: measurement.angle,
         visibility: measurement.visibility,
@@ -464,6 +493,7 @@ export function CalibrationFlow({
     providerRef.current = null;
     poseLandmarkerRef.current?.close();
     poseLandmarkerRef.current = null;
+    detectFailuresRef.current = 0;
     stopStream(videoRef.current);
     setCaptMin(null);
     setCaptMax(null);
@@ -504,13 +534,16 @@ export function CalibrationFlow({
               <RadioGroup.Item
                 key={option.id}
                 value={option.id}
-                className="flex min-h-14 w-full items-center justify-between gap-4 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-600 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-50"
+                className="flex min-h-14 w-full items-center justify-between gap-4 rounded-xl border-2 border-slate-300 bg-white px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-within:outline focus-within:outline-offset-2 focus-within:outline-indigo-600 data-[state=checked]:border-indigo-600 data-[state=checked]:bg-indigo-50"
               >
                 <span className="text-lg font-semibold text-slate-900">
                   {option.name}
                 </span>
                 <RadioGroup.Indicator className="shrink-0">
-                  <Check aria-hidden="true" className="h-5 w-5 text-indigo-700" />
+                  <Check
+                    aria-hidden="true"
+                    className="h-5 w-5 text-indigo-700"
+                  />
                 </RadioGroup.Indicator>
               </RadioGroup.Item>
             ))}

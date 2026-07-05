@@ -73,7 +73,9 @@ export function providesLandmarks(
 }
 
 /** Narrows a `PoseProvider` to one that can pause/resume counting in place. */
-export function isPausable(provider: PoseProvider): provider is RealPoseProvider {
+export function isPausable(
+  provider: PoseProvider,
+): provider is RealPoseProvider {
   return "pause" in provider;
 }
 
@@ -123,7 +125,10 @@ function measureTriple(
 
 /** Convert a raw joint angle to the effort-oriented value (see
  * `usesInvertedAngle`): flexing movements are measured as `180 - angle`. */
-function toEffortAngle(measurement: SideMeasurement, invert: boolean): SideMeasurement {
+function toEffortAngle(
+  measurement: SideMeasurement,
+  invert: boolean,
+): SideMeasurement {
   if (!invert || measurement.angle === null) return measurement;
   return { angle: 180 - measurement.angle, visibility: measurement.visibility };
 }
@@ -255,9 +260,8 @@ class RealMediaPipeProvider implements RealPoseProvider {
   private async init(): Promise<void> {
     let landmarker: PoseLandmarker;
     try {
-      const { FilesetResolver, PoseLandmarker } = await import(
-        "@mediapipe/tasks-vision"
-      );
+      const { FilesetResolver, PoseLandmarker } =
+        await import("@mediapipe/tasks-vision");
       const vision = await FilesetResolver.forVisionTasks(WASM_URL);
 
       try {
