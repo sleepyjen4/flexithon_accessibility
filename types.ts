@@ -196,6 +196,14 @@ export interface PoseProvider {
   setRange(r: PersonalRange): void;
 }
 
+export interface SafeMovementStats {
+  repsInTargetRange: number;
+  movementConsistencyPercent: number | null;
+  averageRepSeconds: number | null;
+  activeSeconds: number;
+  restSeconds: number;
+}
+
 export interface SpeakOptions {
   /** Cancel queued or active speech before speaking this utterance. */
   interrupt?: boolean;
@@ -210,6 +218,7 @@ export interface SessionSummary {
   reps: number;
   personalRange: PersonalRange;
   peakAngleToday: number;
+  safeStats?: SafeMovementStats;
   startedAt: number;
   endedAt: number;
 }

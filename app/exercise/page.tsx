@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PoseSetup } from "@/components/PoseSetup";
@@ -18,7 +19,12 @@ import { UP_THRESHOLD_FRACTION } from "@/lib/pose/repCounter";
 import { useCalibrationStore } from "@/store/calibration";
 import { useProfileStore } from "@/store/profile";
 import { useSessionStore } from "@/store/session";
-import type { ExerciseDef, PersonalRange, RepEvent } from "@/types";
+import type {
+  ExerciseDef,
+  PersonalRange,
+  RepEvent,
+  SafeMovementStats,
+} from "@/types";
 
 type PoseExerciseId = ExerciseDef["id"];
 type TrackedSide = ExerciseDef["side"];
@@ -29,15 +35,16 @@ const PoseTracker = dynamic(
     ssr: false,
     loading: () => (
       <div className="rounded-2xl bg-white p-4 text-slate-600 shadow-sm ring-1 ring-slate-200">
-        Loading the camera tracker…
+        Loading the camera tracker...
       </div>
     ),
   },
 );
 
 // Pre-calibration fallback only: rep counting is range-relative, so once a user
-// calibrates (T08) their own range replaces this. Torso-twist amplitude differs
-// from the arm raise, so its default is verified live on `/spike` (T13 AC).
+// calibrates (T08) their own range replaces this for whichever movement they
+// pick. Each movement's calibration is keyed per exercise via
+// CALIBRATION_KEY_BY_POSE_ID (the store lives under the workout-library id).
 const DEFAULT_RANGE: PersonalRange = { minDeg: 15, maxDeg: 95 };
 
 function targetAngle(range: PersonalRange): number {
@@ -49,6 +56,8 @@ function targetAngle(range: PersonalRange): number {
 }
 
 export default function ExercisePage() {
+  const router = useRouter();
+
   const [exerciseId, setExerciseId] = useState<PoseExerciseId>(
     "seated_arm_raise",
   );
@@ -59,6 +68,9 @@ export default function ExercisePage() {
     (state) => state.ranges[calibrationKey],
   );
   const recordRom = useSessionStore((state) => state.recordRom);
+  const setTrackingSummary = useSessionStore(
+    (state) => state.setTrackingSummary,
+  );
   const speechEnabled = useProfileStore(
     (state) => state.prefs.speech_enabled !== false,
   );
@@ -72,6 +84,11 @@ export default function ExercisePage() {
   const [reading, setReading] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
 
+  const startedAtRef = useRef<number | null>(null);
+  const repsRef = useRef(0);
+  const peakRef = useRef(0);
+  const safeStatsRef = useRef<SafeMovementStats | null>(null);
+
   // Stop any in-flight speech (rep counts / read-aloud) when leaving the page.
   useEffect(() => cancelSpeech, []);
 
@@ -80,6 +97,10 @@ export default function ExercisePage() {
     () => poseExerciseForSide(getPoseExerciseById(exerciseId)!, side),
     [exerciseId, side],
   );
+
+  useEffect(() => {
+    startedAtRef.current = Date.now();
+  }, []);
 
   const range = calibratedRange ?? DEFAULT_RANGE;
 
@@ -115,6 +136,7 @@ export default function ExercisePage() {
   const handleRepEvent = useCallback((event: RepEvent) => {
     switch (event.type) {
       case "rep":
+        repsRef.current = event.count;
         setReps(event.count);
         setLiveMessage(`Rep ${event.count} counted.`);
         break;
@@ -122,7 +144,7 @@ export default function ExercisePage() {
         setLiveMessage(poseExercise.cues.rangeReached);
         break;
       case "tracking_paused":
-        setLiveMessage("Move back into view whenever you can — no rush.");
+        setLiveMessage("Move back into view whenever you can -- no rush.");
         break;
       case "tracking_resumed":
         setLiveMessage("Tracking resumed.");
@@ -130,7 +152,14 @@ export default function ExercisePage() {
     }
   }, [poseExercise]);
 
-  const handlePeak = useCallback((degrees: number) => setPeak(degrees), []);
+  const handlePeak = useCallback((degrees: number) => {
+    peakRef.current = degrees;
+    setPeak(degrees);
+  }, []);
+
+  const handleMovementStats = useCallback((stats: SafeMovementStats) => {
+    safeStatsRef.current = stats;
+  }, []);
 
   const playInstructions = useCallback(() => {
     const text = [poseExercise.name, ...poseExercise.instructions].join(". ");
@@ -156,7 +185,7 @@ export default function ExercisePage() {
   }, [reading, playInstructions]);
 
   // Autoplay the instructions the first time the screen opens, so an unmuted
-  // user hears them without tapping play — matching the workout player.
+  // user hears them without tapping play -- matching the workout player.
   // speakOrPlay no-ops while muted, so the corner toggle governs autoplay too.
   // Keyed on the movement only (via a ref for the latest player): switching
   // sides doesn't change the instruction text, so it must not re-narrate.
@@ -180,14 +209,31 @@ export default function ExercisePage() {
   }, []);
 
   const finish = useCallback(() => {
+    if (finished) return;
+
+    const peakToday = peakRef.current;
     cancelSpeech();
     setPaused(false);
     setFinished(true);
-    if (peak > 0) recordRom(calibrationKey, peak);
+    if (peakToday > 0) recordRom(calibrationKey, peakToday);
+    setTrackingSummary({
+      exerciseId: calibrationKey,
+      reps: repsRef.current,
+      personalRange: range,
+      peakAngleToday: Math.round(peakToday),
+      safeStats: safeStatsRef.current ?? undefined,
+      startedAt: startedAtRef.current ?? Date.now(),
+      endedAt: Date.now(),
+    });
     setLiveMessage("Exercise complete. Nice work showing up today.");
-  }, [calibrationKey, peak, recordRom]);
+    router.push("/summary");
+  }, [calibrationKey, finished, range, recordRom, router, setTrackingSummary]);
 
   const goAgain = useCallback(() => {
+    startedAtRef.current = Date.now();
+    repsRef.current = 0;
+    peakRef.current = 0;
+    safeStatsRef.current = null;
     setFinished(false);
     setReps(0);
     setPeak(0);
@@ -205,7 +251,7 @@ export default function ExercisePage() {
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
         {/* Page-level so the speech toggle stays visible across every state
-            (setup, tracking, finished) — otherwise a user who muted elsewhere
+            (setup, tracking, finished) -- otherwise a user who muted elsewhere
             lands here with no way to turn spoken counts back on. */}
         <div className="flex items-start justify-between gap-3">
           <header className="space-y-2">
@@ -218,7 +264,7 @@ export default function ExercisePage() {
           <SpeechToggle />
         </div>
 
-        {/* Every spoken cue has a visual twin here (AGENTS.md §6). */}
+        {/* Every spoken cue has a visual twin here (AGENTS.md Section 6). */}
         <p className="sr-only" role="status" aria-live="polite">
           {liveMessage}
         </p>
@@ -261,7 +307,7 @@ export default function ExercisePage() {
               <div className="rounded-2xl bg-white p-4 text-slate-700 shadow-sm ring-1 ring-slate-200">
                 Counting against your calibrated range:{" "}
                 <span className="font-semibold text-slate-900">
-                  {range.minDeg}°–{range.maxDeg}°
+                  {range.minDeg}°-{range.maxDeg}°
                 </span>{" "}
                 (target {targetAngle(range)}°).{" "}
                 <Link
@@ -276,7 +322,7 @@ export default function ExercisePage() {
             <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-bold">How to move</h2>
-                {/* Hidden while speech is muted — nothing would play, so the
+                {/* Hidden while speech is muted -- nothing would play, so the
                     corner mute toggle is the only relevant control then. */}
                 {speechEnabled ? (
                   <button
@@ -312,6 +358,7 @@ export default function ExercisePage() {
               paused={paused}
               onRepEvent={handleRepEvent}
               onPeakRom={handlePeak}
+              onMovementStats={handleMovementStats}
               onManualDone={finish}
               onActiveChange={setActive}
             />
@@ -327,7 +374,7 @@ export default function ExercisePage() {
               </Button>
 
               <Button type="button" variant="secondary" onClick={finish}>
-                Finish exercise
+                Finish and view summary
               </Button>
             </div>
           </>
@@ -374,7 +421,7 @@ function FinishedCard({
           <p className="mt-1 text-sm text-slate-600">
             {reachedTarget
               ? "You reached your target range."
-              : `Target ${target}° — worth celebrating either way.`}
+              : `Target ${target}° -- worth celebrating either way.`}
           </p>
         </div>
       </div>
@@ -387,7 +434,7 @@ function FinishedCard({
           <Link href={calibrateHref}>Recalibrate range</Link>
         </Button>
         <Button asChild variant="secondary">
-          <Link href="/progress">See progress</Link>
+          <Link href="/summary">View summary</Link>
         </Button>
       </div>
     </section>
