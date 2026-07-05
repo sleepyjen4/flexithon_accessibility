@@ -19,6 +19,9 @@ export default function Home() {
         <Button asChild variant="secondary">
           <Link href="/check-in">I already have a profile</Link>
         </Button>
+        <Button asChild variant="secondary">
+          <Link href="/library">Browse exercise library</Link>
+        </Button>
         <Link
           href="/progress"
           className="min-h-12 content-center rounded-xl px-6 text-lg font-medium text-indigo-700 underline underline-offset-4 hover:text-indigo-800"

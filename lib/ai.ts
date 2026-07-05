@@ -77,12 +77,22 @@ export function buildFallbackWorkout({
       Math.round((chosen.length * (durationSeconds + restSeconds)) / 60),
     ),
     energy_level: energy,
-    steps: chosen.map((exercise) => ({
-      exercise_id: exercise.id,
-      duration_seconds: durationSeconds,
-      reps: null,
-      rest_after_seconds: restSeconds,
-      adaptation_note: "Go at your own pace — skipping is always okay.",
-    })),
+    steps: chosen.map((exercise) => {
+      const usesTimedMetric =
+        exercise.tracking_modes.includes("timer") ||
+        exercise.metric_logged === "session_duration" ||
+        exercise.metric_logged === "duration_per_stretch" ||
+        exercise.metric_logged === "duration_effort" ||
+        exercise.metric_logged === "distance_time" ||
+        exercise.metric_logged === "laps_duration";
+
+      return {
+        exercise_id: exercise.id,
+        duration_seconds: durationSeconds,
+        reps: usesTimedMetric ? null : energy <= 2 ? 6 : 10,
+        rest_after_seconds: restSeconds,
+        adaptation_note: "Go at your own pace — skipping is always okay.",
+      };
+    }),
   };
 }

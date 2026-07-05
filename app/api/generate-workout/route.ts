@@ -5,7 +5,13 @@ import {
   GenerateWorkoutRequestSchema,
   WorkoutSchema,
 } from "@/types";
-import { EXERCISES, ensureHeroExerciseStep, filterExercisesForAbilities, HERO_EXERCISE_ID } from "@/lib/exercises";
+import {
+  EXERCISES,
+  ensureHeroExerciseStep,
+  exerciseForWorkoutPrompt,
+  filterExercisesForAbilities,
+  HERO_EXERCISE_ID,
+} from "@/lib/exercises";
 
 const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -18,8 +24,10 @@ const SYSTEM_INSTRUCTION =
   "Only use exercise_ids from the provided library. Energy 1-2 means " +
   "<=10 minutes and <=4 steps with generous rest; energy 4-5 can run " +
   "up to 25 minutes. Never include exercises outside the user's " +
-  "positions/equipment. adaptation_note must be practical and warm, " +
-  `never medical advice. If "${HERO_EXERCISE_ID}" is in the available ` +
+  "positions/equipment. Use tracking_modes and metric_logged to choose " +
+  "sensible timed or rep-based steps, but camera_manual only means optional " +
+  "camera support with manual completion available. adaptation_note must be " +
+  `practical and warm, never medical advice or form correction. If "${HERO_EXERCISE_ID}" is in the available ` +
   "exercise list, include it as one of the steps — it's the app's " +
   "hands-free camera rep-counting exercise.";
 
@@ -49,14 +57,7 @@ export async function POST(request: Request) {
       contents: JSON.stringify({
         energy,
         recent_session_ids,
-        available_exercises: availableExercises.map((exercise) => ({
-          exercise_id: exercise.id,
-          name: exercise.name,
-          positions: exercise.positions,
-          equipment: exercise.equipment,
-          body_regions: exercise.body_regions,
-          intensity: exercise.intensity,
-        })),
+        available_exercises: availableExercises.map(exerciseForWorkoutPrompt),
       }),
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
