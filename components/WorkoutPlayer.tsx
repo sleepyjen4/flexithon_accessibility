@@ -75,7 +75,7 @@ export function WorkoutPlayer() {
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
         <h1 className="text-2xl font-bold text-slate-900">Rest</h1>
         <p className="text-lg text-slate-600">
-          Take your time — the next exercise waits for you.
+          Take your time, the next exercise waits for you.
         </p>
         {/* Keyed so each rest period gets a fresh timer instance. */}
         <Timer
@@ -85,7 +85,7 @@ export function WorkoutPlayer() {
           onComplete={goNext}
         />
         <Button type="button" variant="secondary" onClick={goNext}>
-          Skip rest — I&apos;m ready
+          Skip Rest
         </Button>
       </div>
     );

@@ -170,10 +170,10 @@ export function ExerciseStep({
 
       <div className="mt-auto flex flex-col gap-3 pt-4">
         <Button type="button" onClick={onDone}>
-          Done — next
+          Done!
         </Button>
         <Button type="button" variant="secondary" onClick={onSkip}>
-          Skip — no penalty
+          Skip this exercise
         </Button>
       </div>
     </div>
