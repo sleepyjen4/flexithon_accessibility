@@ -89,6 +89,19 @@ export default function ExercisePage() {
 
   const handlePeak = useCallback((degrees: number) => setPeak(degrees), []);
 
+  const playInstructions = useCallback(() => {
+    const text = [poseExercise.name, ...poseExercise.instructions].join(". ");
+    // Prefer the pre-generated clip (Section 5c); speakOrPlay falls back to the
+    // Web Speech API when no clip exists. Resolves when it ends, is stopped, or
+    // no-ops (speech muted) — reset to the idle state either way.
+    setReading(true);
+    void speakOrPlay(
+      getExerciseAudioUrl({ id: poseExercise.id, audio_url: null }),
+      text,
+      { interrupt: true },
+    ).finally(() => setReading(false));
+  }, []);
+
   const readAloud = useCallback(() => {
     // Play/stop toggle: a second tap stops the clip mid-way.
     if (reading) {
@@ -96,17 +109,17 @@ export default function ExercisePage() {
       setReading(false);
       return;
     }
-    const text = [poseExercise.name, ...poseExercise.instructions].join(". ");
-    // Prefer the pre-generated clip (Section 5c); speakOrPlay falls back to the
-    // Web Speech API when no clip exists. Resolves when it ends, is stopped, or
-    // no-ops (speech muted) — reset to the Play state either way.
-    setReading(true);
-    void speakOrPlay(
-      getExerciseAudioUrl({ id: poseExercise.id, audio_url: null }),
-      text,
-      { interrupt: true },
-    ).finally(() => setReading(false));
-  }, [reading]);
+    playInstructions();
+  }, [reading, playInstructions]);
+
+  // Autoplay the instructions the first time the screen opens, so an unmuted
+  // user hears them without tapping play — matching the workout player.
+  // speakOrPlay no-ops while muted, so the corner toggle governs autoplay too.
+  // Deferred a tick so the play-state update lands outside the effect body.
+  useEffect(() => {
+    const timer = setTimeout(playInstructions, 0);
+    return () => clearTimeout(timer);
+  }, [playInstructions]);
 
   const togglePause = useCallback(() => {
     setPaused((current) => {
