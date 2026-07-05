@@ -12,6 +12,8 @@ import {
   stepCountForEnergy,
 } from "@/lib/exercises";
 
+const GENERATE_WORKOUT_TIMEOUT_MS = 4000;
+
 interface GenerateWorkoutArgs {
   abilities: Abilities;
   energy: EnergyLevel;
@@ -28,10 +30,17 @@ export async function generateWorkout({
   energy,
   recentSessionIds,
 }: GenerateWorkoutArgs): Promise<Workout> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    GENERATE_WORKOUT_TIMEOUT_MS,
+  );
+
   try {
     const response = await fetch("/api/generate-workout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
         profile: { abilities },
         energy,
@@ -51,6 +60,8 @@ export async function generateWorkout({
     return parsed.data;
   } catch {
     return buildFallbackWorkout({ abilities, energy });
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

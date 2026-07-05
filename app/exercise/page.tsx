@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pause, Play } from "lucide-react";
+import { CheckCircle2, Pause, Play } from "lucide-react";
 import { Button } from "@/components/Button";
 import { SpeechToggle } from "@/components/SpeechToggle";
 import { getPoseExerciseById } from "@/lib/pose/exercises";
@@ -188,7 +188,7 @@ export default function ExercisePage() {
   }, [playInstructions]);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
+    <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900">
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
         {/* Page-level so the speech toggle stays visible across every state
             (setup, tracking, finished) -- otherwise a user who muted elsewhere
@@ -311,7 +311,7 @@ export default function ExercisePage() {
           </>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -364,6 +364,12 @@ function FinishedCard({
         </Button>
         <Button asChild variant="secondary">
           <Link href="/summary">View summary</Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/" aria-label="Finish and return to dashboard" className="gap-2">
+            <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
+            <span>Finish</span>
+          </Link>
         </Button>
       </div>
     </section>

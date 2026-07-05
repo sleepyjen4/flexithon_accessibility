@@ -4,10 +4,17 @@ import { z } from "zod";
 import {
   GenerateWorkoutRequestSchema,
   WorkoutSchema,
+  type Exercise,
+  type Workout,
 } from "@/types";
-import { EXERCISES, ensureHeroExerciseStep, filterExercisesForAbilities, HERO_EXERCISE_ID } from "@/lib/exercises";
-
-const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import {
+  EXERCISES,
+  ensureHeroExerciseStep,
+  filterExercisesForAbilities,
+  HERO_EXERCISE_ID,
+  pickExercisesForEnergy,
+  stepCountForEnergy,
+} from "@/lib/exercises";
 
 // Reuses the same zod schema the client validates against (Section 5) so the
 // model's output shape can never drift from the contract in types.ts.
@@ -22,6 +29,35 @@ const SYSTEM_INSTRUCTION =
   `never medical advice. If "${HERO_EXERCISE_ID}" is in the available ` +
   "exercise list, include it as one of the steps — it's the app's " +
   "hands-free camera rep-counting exercise.";
+
+function buildFallbackWorkout(
+  availableExercises: Exercise[],
+  energy: number,
+): Workout {
+  const chosen = pickExercisesForEnergy(
+    availableExercises,
+    stepCountForEnergy(energy),
+  );
+  const durationSeconds = energy <= 2 ? 30 : 45;
+  const restSeconds = energy <= 2 ? 60 : 30;
+  const workout: Workout = {
+    title: energy <= 2 ? "Gentle Reset" : "Steady Progress",
+    estimated_minutes: Math.max(
+      5,
+      Math.round((chosen.length * (durationSeconds + restSeconds)) / 60),
+    ),
+    energy_level: energy,
+    steps: chosen.map((exercise) => ({
+      exercise_id: exercise.id,
+      duration_seconds: durationSeconds,
+      reps: null,
+      rest_after_seconds: restSeconds,
+      adaptation_note: "Go at your own pace — skipping is always okay.",
+    })),
+  };
+
+  return ensureHeroExerciseStep(workout, availableExercises, energy);
+}
 
 export async function POST(request: Request) {
   const parsedRequest = GenerateWorkoutRequestSchema.safeParse(
@@ -43,7 +79,12 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json(buildFallbackWorkout(availableExercises, energy));
+  }
+
   try {
+    const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
       contents: JSON.stringify({
@@ -83,9 +124,6 @@ export async function POST(request: Request) {
     const workout = ensureHeroExerciseStep(parsedWorkout.data, availableExercises, energy);
     return NextResponse.json(workout);
   } catch {
-    return NextResponse.json(
-      { error: "workout generation failed" },
-      { status: 502 },
-    );
+    return NextResponse.json(buildFallbackWorkout(availableExercises, energy));
   }
 }
