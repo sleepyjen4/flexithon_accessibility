@@ -1,9 +1,13 @@
 "use client";
 
+import { Check, Plus, type LucideIcon } from "lucide-react";
+
 interface ChoiceOption<T extends string> {
   value: T;
   label: string;
   description?: string;
+  /** Leading icon so a list of options reads at a glance, not just as text. */
+  icon?: LucideIcon;
 }
 
 interface ChoiceListProps<T extends string> {
@@ -27,35 +31,56 @@ export function ChoiceList<T extends string>({
       <legend className="sr-only">{legend}</legend>
       {options.map((option) => {
         const isSelected = selected.includes(option.value);
+        const Icon = option.icon;
         return (
           <button
             key={option.value}
             type="button"
             aria-pressed={isSelected}
             onClick={() => onToggle(option.value)}
-            className={`flex min-h-14 w-full items-center justify-between gap-4 rounded-xl border-2 px-4 py-3 text-left transition-colors ${
+            className={`group flex min-h-14 w-full items-center justify-between gap-4 rounded-full border-2 px-5 py-3 text-left transition-colors ${
               isSelected
-                ? "border-indigo-600 bg-indigo-50"
-                : "border-slate-300 bg-white hover:bg-slate-50"
+                ? "border-raspberry bg-raspberry-soft"
+                : "border-line-strong bg-surface hover:border-raspberry/50 hover:bg-raspberry-soft/60"
             }`}
           >
-            <span className="flex flex-col">
-              <span className="text-lg font-semibold text-slate-900">
-                {option.label}
-              </span>
-              {option.description ? (
-                <span className="text-base text-slate-600">
-                  {option.description}
+            <span className="flex items-center gap-4">
+              {Icon ? (
+                <span
+                  aria-hidden="true"
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
+                    isSelected
+                      ? "bg-raspberry text-milk"
+                      : "bg-cream text-ink-soft group-hover:bg-transparent"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
                 </span>
               ) : null}
+              <span className="flex flex-col">
+                <span className="text-lg font-bold text-ink">
+                  {option.label}
+                </span>
+                {option.description ? (
+                  <span className="text-base text-ink-soft">
+                    {option.description}
+                  </span>
+                ) : null}
+              </span>
             </span>
             <span
-              className={`text-xl font-bold ${
-                isSelected ? "text-indigo-700" : "text-slate-300"
-              }`}
               aria-hidden="true"
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                isSelected
+                  ? "border-raspberry bg-raspberry text-milk"
+                  : "border-line-strong text-ink-soft"
+              }`}
             >
-              {isSelected ? "✓" : "+"}
+              {isSelected ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
             </span>
           </button>
         );
