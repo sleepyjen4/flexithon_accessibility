@@ -55,7 +55,7 @@ export function ExerciseDemo({
     >
       <video
         ref={videoRef}
-        className="mx-auto block max-h-[180px] rounded-xl sm:max-h-[220px] lg:max-h-[260px]"
+        className="mx-auto block max-h-45 rounded-xl sm:max-h-55 lg:max-h-65"
         muted
         loop
         playsInline
