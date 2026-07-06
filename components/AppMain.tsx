@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { CHROME_HIDDEN_ROUTES } from "@/lib/chromeRoutes";
 
 /** The bottom padding below normally clears DashboardNav's fixed mobile bar;
- * chrome-hidden routes (e.g. /welcome) render no such bar, so they skip it. */
+ * chrome-hidden routes (e.g. the landing page at /) render no such bar, so they skip it. */
 export function AppMain({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const chromeHidden = CHROME_HIDDEN_ROUTES.includes(pathname);

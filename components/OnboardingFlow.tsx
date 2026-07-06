@@ -96,7 +96,7 @@ export function OnboardingFlow() {
     // The display name is captured at registration; onboarding only sets
     // abilities so it never clobbers a name saved earlier.
     setAbilities(abilities);
-    router.push("/");
+    router.push("/dashboard");
   };
 
   const next = () => (step === STEPS.length - 1 ? finish() : setStep(step + 1));

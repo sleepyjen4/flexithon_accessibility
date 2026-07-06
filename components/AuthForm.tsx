@@ -19,7 +19,7 @@ const COPY = {
     sub: "Your profile and progress are right where you left them.",
     submit: "Log in",
     pending: "Logging you in…",
-    redirect: "/",
+    redirect: "/dashboard",
     altPrompt: "New here?",
     altLabel: "Create an account",
     altHref: "/register",

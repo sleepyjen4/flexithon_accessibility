@@ -1,14 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 
-/** Marketing navbar for the landing page (/welcome). Swapped in for
+/** Marketing navbar for the landing page (/). Swapped in for
  * DashboardNav by SiteNav, since a visitor here hasn't onboarded yet and the
  * Today/Progress/Settings tabs don't apply. */
 export function WelcomeNav() {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 lg:px-10">
-        <Link href="/welcome" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           <Image
             src="/logo-trans.png"
             alt=""

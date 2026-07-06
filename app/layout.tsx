@@ -49,7 +49,7 @@ export default function RootLayout({
            * fixed bar at every text size (F7 scales it, so rem-based) plus the
            * phone home-indicator safe area; on desktop the nav is at the top,
            * so this is just breathing room below the last content. Chrome-
-           * hidden routes (e.g. /welcome) get their own nav and skip that
+           * hidden routes (e.g. the landing page at /) get their own nav and skip that
            * padding. See SiteNav / AppMain / lib/chromeRoutes. */}
           <SiteNav />
           <AppMain>{children}</AppMain>
