@@ -146,10 +146,12 @@ export function ExerciseStep({
     </div>
   );
 
+  // Marigold border matches the standalone /exercise tracker screen's "How to
+  // move" card, so the two hands-free-counting surfaces read as one design.
   const instructionsCard = (
-    <Card>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-bold text-ink">
+    <section className="rounded-3xl border-2 border-marigold bg-surface p-5 shadow-card">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-display text-xl font-bold text-ink">
           How to do it
         </h2>
         {/* Hidden while speech is muted — nothing would play, so the corner
@@ -160,7 +162,7 @@ export function ExerciseStep({
             suppressHydrationWarning
             onClick={toggleReadAloud}
             aria-pressed={reading}
-            className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-xl border-2 border-line-strong bg-surface text-ink transition-colors hover:bg-mint"
+            className="inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full border-2 border-ink bg-surface text-ink transition-colors hover:bg-mint"
             aria-label={
               reading
                 ? "Stop reading the instructions"
@@ -175,24 +177,31 @@ export function ExerciseStep({
           </button>
         ) : null}
       </div>
-      <ol className="flex list-decimal flex-col gap-2 pl-5 text-lg leading-8 text-ink marker:font-bold marker:text-raspberry">
-        {exercise.instructions.map((instruction) => (
-          <li key={instruction.text}>{instruction.text}</li>
+      <ol className="mt-4 grid gap-3 text-ink sm:grid-cols-2 lg:grid-cols-3">
+        {exercise.instructions.map((instruction, index) => (
+          <li key={instruction.text} className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-marigold-soft text-base font-bold text-marigold-deep"
+            >
+              {index + 1}
+            </span>
+            <span className="text-lg leading-7">{instruction.text}</span>
+          </li>
         ))}
       </ol>
-    </Card>
+      {step.adaptation_note ? (
+        <div className="mt-4 rounded-2xl bg-marigold-soft p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-marigold-deep">
+            Adapt it
+          </p>
+          <p className="mt-1 text-base leading-7 text-ink">
+            {step.adaptation_note}
+          </p>
+        </div>
+      ) : null}
+    </section>
   );
-
-  const adaptationNote = step.adaptation_note ? (
-    <div className="rounded-2xl bg-marigold-soft p-4">
-      <p className="text-xs font-bold uppercase tracking-[0.18em] text-marigold-deep">
-        Adapt it
-      </p>
-      <p className="mt-1 text-base leading-7 text-ink">
-        {step.adaptation_note}
-      </p>
-    </div>
-  ) : null;
 
   // When the timer runs out, advance the same way the "Done!" button does
   // (completes the step, then rest-or-next).
@@ -233,14 +242,37 @@ export function ExerciseStep({
           />
         </CameraLoadBoundary>
       )}
-      <Link
-        href="/calibrate"
-        className="min-h-12 content-center text-center text-base font-bold text-evergreen underline underline-offset-4 hover:text-[#173f33]"
-      >
-        {personalRange
-          ? `Recalibrate range (${personalRange.minDeg}°–${personalRange.maxDeg}°)`
-          : "Calibrate my range for better counting"}
-      </Link>
+      {personalRange ? (
+        <div className="rounded-3xl border border-line bg-surface p-5 text-ink-soft shadow-card">
+          Counting against your calibrated range:{" "}
+          <span className="font-semibold text-ink">
+            {personalRange.minDeg}°-{personalRange.maxDeg}°
+          </span>
+          .{" "}
+          <Link
+            href="/calibrate"
+            className="font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
+          >
+            Recalibrate
+          </Link>
+        </div>
+      ) : (
+        <div className="rounded-3xl bg-lavender p-5">
+          <h2 className="font-display text-lg font-bold text-ink">
+            Counting to a general range
+          </h2>
+          <p className="mt-1 text-base text-ink">
+            For counting tuned to how you move today, calibrate first. You can
+            also carry on with a general range right now.
+          </p>
+          <Link
+            href="/calibrate"
+            className="mt-2 inline-flex min-h-12 items-center font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
+          >
+            Calibrate my range
+          </Link>
+        </div>
+      )}
     </div>
   ) : null;
 
@@ -257,25 +289,35 @@ export function ExerciseStep({
 
   return (
     <div className="flex flex-1 flex-col gap-5 sm:gap-6">
-      {/* Header spans the top, full width above both columns. */}
+      {/* Header and instructions span the top, full width above the demo and
+          camera columns, so how-to-move info is read before anything else. */}
       {header}
+      {instructionsCard}
 
-      {/* Reference on the left (demo + instructions); the "doing" side on the
-          right — camera above the timer, then the actions. The camera toggle
-          sits directly above the camera stage so revealing it on mobile never
-          jumps the view off-screen. */}
-      <div className="flex flex-1 flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-8">
-        <div className="flex flex-col gap-5">
-          {demo}
-          {instructionsCard}
-          {/* {adaptationNote} */}
+      {isHero ? (
+        // Hero exercise only: demo + timer + actions on the left, the optional
+        // camera tracker sticky on the right.
+        <div className="flex flex-1 flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-8">
+          <div className="flex flex-col gap-5">
+            {demo}
+            <Card>{timer}</Card>
+            {actions}
+          </div>
+          <div className="flex flex-col gap-5 lg:sticky lg:top-6">
+            {cameraBlock}
+          </div>
         </div>
-        <div className="flex flex-col gap-5 lg:sticky lg:top-6">
-          {cameraBlock}
-          {timer}
-          {actions}
+      ) : (
+        // No camera to balance a second column, so demo and timer sit
+        // side by side instead of stacking into one tall, narrow strip.
+        <div className="flex flex-1 flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-8">
+          <div className="flex flex-col gap-5">{demo}</div>
+          <div className="flex flex-col gap-5">
+            <Card>{timer}</Card>
+            {actions}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
