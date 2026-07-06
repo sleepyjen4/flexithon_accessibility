@@ -35,11 +35,18 @@ function run(label, ffmpegArgs) {
   console.log("done");
 }
 
+const force = process.env.FORCE === "1";
 let converted = 0;
 for (const name of names) {
   const gif = path.join(GRAPHICS_DIR, `${name}.gif`);
   if (!existsSync(gif)) {
     console.warn(`! ${name}.gif not found — skipping`);
+    continue;
+  }
+  const mp4Out = path.join(GRAPHICS_DIR, `${name}.mp4`);
+  const webmOut = path.join(GRAPHICS_DIR, `${name}.webm`);
+  if (!force && existsSync(mp4Out) && existsSync(webmOut)) {
+    console.log(`${name}: up to date — skipping (FORCE=1 to re-encode)`);
     continue;
   }
   console.log(`${name}.gif`);
@@ -60,7 +67,12 @@ for (const name of names) {
     "-c:v", "libvpx-vp9",
     "-crf", "34",
     "-b:v", "0",
-    path.join(GRAPHICS_DIR, `${name}.webm`),
+    // VP9 is slow at its default deadline; "good" + cpu-used + row threading
+    // cuts encode time drastically at a negligible size/quality cost here.
+    "-deadline", "good",
+    "-cpu-used", "5",
+    "-row-mt", "1",
+    webmOut,
   ]);
   converted += 1;
 }
