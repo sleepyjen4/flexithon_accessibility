@@ -546,13 +546,14 @@ export function CalibrationFlow({
 
   const captureUnavailable = phase === "capture" && status === "unavailable";
 
-  // T17/F8: voice control across the whole flow. The grammar shifts with the
-  // phase, and every voice action mirrors a visible button on that screen.
+  // T17/F8: voice control across intro/capture/review. The grammar shifts
+  // with the phase, and every voice action mirrors a visible button on that
+  // screen. Not offered during "pick" (the exercise picker) — see the mic's
+  // conditional render below.
   const handleVoiceCommand = (command: VoiceCommand) => {
     switch (command) {
       case "start":
-        if (phase === "pick") continueToIntro();
-        else if (phase === "intro" || captureUnavailable) beginCapture();
+        if (phase === "intro" || captureUnavailable) beginCapture();
         else if (phase === "review") {
           if (range) save(range);
           else beginCapture();
@@ -585,17 +586,15 @@ export function CalibrationFlow({
   };
 
   const voiceCommands: readonly VoiceCommand[] =
-    phase === "pick"
-      ? ["start", "mute", "unmute"]
-      : phase === "intro"
-        ? ["start", "repeat", "skip", "mute", "unmute"]
-        : captureUnavailable
-          ? ["start", "skip", "mute", "unmute"]
-          : phase === "capture"
-            ? ["finish", "mute", "unmute"]
-            : range
-              ? ["start", "mute", "unmute"]
-              : ["start", "skip", "mute", "unmute"];
+    phase === "intro"
+      ? ["start", "repeat", "skip", "mute", "unmute"]
+      : captureUnavailable
+        ? ["start", "skip", "mute", "unmute"]
+        : phase === "capture"
+          ? ["finish", "mute", "unmute"]
+          : range
+            ? ["start", "mute", "unmute"]
+            : ["start", "skip", "mute", "unmute"];
 
   let content: ReactNode;
 
@@ -966,9 +965,11 @@ export function CalibrationFlow({
     );
   }
 
-  // The control row (voice mic + mute) and VoiceControl sit OUTSIDE the
-  // switching phase content, in a stable tree position, so the mic never drops
-  // between intro, capture, and review (same reasoning as the workout player).
+  // The control row sits OUTSIDE the switching phase content, in a stable
+  // tree position, so the mic never drops between intro, capture, and review
+  // (same reasoning as the workout player). The mic itself is left out of the
+  // "pick" phase (the camera setup / exercise picker): that screen is just a
+  // list to tap through, so voice control has nothing useful to do there yet.
   return (
     <div
       className={`mx-auto flex w-full ${
@@ -976,7 +977,12 @@ export function CalibrationFlow({
       } flex-1 flex-col`}
     >
       <div className="mb-6 flex items-center justify-end gap-2">
-        <VoiceControl commands={voiceCommands} onCommand={handleVoiceCommand} />
+        {phase !== "pick" ? (
+          <VoiceControl
+            commands={voiceCommands}
+            onCommand={handleVoiceCommand}
+          />
+        ) : null}
         <SpeechToggle />
       </div>
       {content}
