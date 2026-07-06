@@ -15,7 +15,8 @@ interface ProfileState {
   abilities: Abilities | null;
   prefs: AccessibilityPrefs;
   todaysEnergy: EnergyLevel | null;
-  setProfile: (displayName: string | null, abilities: Abilities) => void;
+  setDisplayName: (displayName: string | null) => void;
+  setAbilities: (abilities: Abilities) => void;
   setPrefs: (prefs: AccessibilityPrefs) => void;
   setTodaysEnergy: (energy: EnergyLevel) => void;
 }
@@ -29,7 +30,8 @@ export const useProfileStore = create<ProfileState>()(
       abilities: null,
       prefs: DEFAULT_PREFS,
       todaysEnergy: null,
-      setProfile: (displayName, abilities) => set({ displayName, abilities }),
+      setDisplayName: (displayName) => set({ displayName }),
+      setAbilities: (abilities) => set({ abilities }),
       setPrefs: (prefs) => set({ prefs }),
       setTodaysEnergy: (energy) => set({ todaysEnergy: energy }),
     }),

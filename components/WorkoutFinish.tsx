@@ -85,7 +85,7 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
             Save today&apos;s session
           </Button>
           <Button asChild variant="secondary">
-            <Link href="/" aria-label="Return to dashboard" className="gap-2">
+            <Link href="/dashboard" aria-label="Return to dashboard" className="gap-2">
               <Home aria-hidden="true" className="h-5 w-5" />
               <span>Dashboard</span>
             </Link>
@@ -100,7 +100,7 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
             <Link href="/progress">See my progress</Link>
           </Button>
           <Button asChild variant="secondary">
-            <Link href="/" aria-label="Finish and return to dashboard" className="gap-2">
+            <Link href="/dashboard" aria-label="Finish and return to dashboard" className="gap-2">
               <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
               <span>Finish</span>
             </Link>

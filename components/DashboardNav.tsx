@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { BarChart3, Play, SlidersHorizontal } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Today", icon: Play },
+  { href: "/dashboard", label: "Today", icon: Play },
   { href: "/progress", label: "Progress", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: SlidersHorizontal },
 ];
@@ -24,7 +24,7 @@ export function DashboardNav() {
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <Link
-          href="/"
+          href="/dashboard"
           className="hidden items-center gap-2 text-sm font-black uppercase tracking-[0.28em] text-ink lg:inline-flex"
         >
           <Image
@@ -40,8 +40,8 @@ export function DashboardNav() {
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active =
-              item.href === "/"
-                ? pathname === "/"
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
                 : pathname.startsWith(item.href);
 
             return (

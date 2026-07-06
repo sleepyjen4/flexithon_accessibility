@@ -33,18 +33,18 @@ const POSITION_OPTIONS: {
   label: string;
   description: string;
 }[] = [
-  { value: "seated", label: "Seated", description: "In a chair or wheelchair" },
-  {
-    value: "lying",
-    label: "Lying down",
-    description: "On a bed, mat, or floor",
-  },
-  {
-    value: "standing",
-    label: "Standing",
-    description: "With or without support",
-  },
-];
+    { value: "seated", label: "Seated", description: "In a chair or wheelchair" },
+    {
+      value: "lying",
+      label: "Lying down",
+      description: "On a bed, mat, or floor",
+    },
+    {
+      value: "standing",
+      label: "Standing",
+      description: "With or without support",
+    },
+  ];
 
 const EQUIPMENT_OPTIONS: {
   value: Equipment;
@@ -52,49 +52,49 @@ const EQUIPMENT_OPTIONS: {
   description?: string;
   icon: typeof User;
 }[] = [
-  {
-    value: "none",
-    label: "No equipment",
-    description: "Bodyweight only",
-    icon: User,
-  },
-  { value: "resistance_band", label: "Resistance band", icon: Waves },
-  { value: "dumbbell", label: "Dumbbells or hand weights", icon: Dumbbell },
-  { value: "chair", label: "A sturdy chair", icon: Armchair },
-  { value: "wall", label: "A clear wall", icon: BrickWall },
-  { value: "wheelchair", label: "Wheelchair", icon: Accessibility },
-  { value: "bench", label: "Bench", icon: Sofa },
-  { value: "ankle_weights", label: "Ankle weights", icon: Weight },
-  {
-    value: "support_surface",
-    label: "Support surface",
-    description: "Counter, rail, or stable table",
-    icon: BrickWall,
-  },
-  {
-    value: "mobility_aid",
-    label: "Mobility aid",
-    description: "Cane, walker, prosthesis, or crutches",
-    icon: LifeBuoy,
-  },
-  { value: "gripper_putty", label: "Gripper or putty", icon: HandGrab },
-  { value: "pool_access", label: "Pool access", icon: Droplets },
-];
+    {
+      value: "none",
+      label: "No equipment",
+      description: "Bodyweight only",
+      icon: User,
+    },
+    { value: "resistance_band", label: "Resistance band", icon: Waves },
+    { value: "dumbbell", label: "Dumbbells or hand weights", icon: Dumbbell },
+    { value: "chair", label: "A sturdy chair", icon: Armchair },
+    { value: "wall", label: "A clear wall", icon: BrickWall },
+    { value: "wheelchair", label: "Wheelchair", icon: Accessibility },
+    { value: "bench", label: "Bench", icon: Sofa },
+    { value: "ankle_weights", label: "Ankle weights", icon: Weight },
+    {
+      value: "support_surface",
+      label: "Support surface",
+      description: "Counter, rail, or stable table",
+      icon: BrickWall,
+    },
+    {
+      value: "mobility_aid",
+      label: "Mobility aid",
+      description: "Cane, walker, prosthesis, or crutches",
+      icon: LifeBuoy,
+    },
+    { value: "gripper_putty", label: "Gripper or putty", icon: HandGrab },
+    { value: "pool_access", label: "Pool access", icon: Droplets },
+  ];
 
 const REGION_OPTIONS: {
   value: BodyRegion;
   label: string;
   icon: typeof User;
 }[] = [
-  { value: "neck", label: "Neck", icon: ScanFace },
-  { value: "shoulders", label: "Shoulders", icon: Shirt },
-  { value: "arms", label: "Arms", icon: Hand },
-  { value: "back", label: "Upper back", icon: StretchVertical },
-  { value: "lower_back", label: "Lower back", icon: StretchHorizontal },
-  { value: "core", label: "Core", icon: CircleDot },
-  { value: "hips", label: "Hips", icon: MoveDiagonal },
-  { value: "legs", label: "Legs", icon: Footprints },
-];
+    { value: "neck", label: "Neck", icon: ScanFace },
+    { value: "shoulders", label: "Shoulders", icon: Shirt },
+    { value: "arms", label: "Arms", icon: Hand },
+    { value: "back", label: "Upper back", icon: StretchVertical },
+    { value: "lower_back", label: "Lower back", icon: StretchHorizontal },
+    { value: "core", label: "Core", icon: CircleDot },
+    { value: "hips", label: "Hips", icon: MoveDiagonal },
+    { value: "legs", label: "Legs", icon: Footprints },
+  ];
 
 const SENSORY_OPTIONS = [
   {
@@ -132,7 +132,7 @@ const STEPS = [
   },
   {
     title: "How should the app feel?",
-    intro: "Sensory preferences, plus a name if you'd like one.",
+    intro: "Set the sensory preferences that suit you. Optional — skip if none apply.",
   },
 ];
 
@@ -146,13 +146,12 @@ function toggle<T>(list: T[], value: T): T[] {
  * for diagnoses. Saves to the profile store and heads to check-in. */
 export function OnboardingFlow() {
   const router = useRouter();
-  const setProfile = useProfileStore((state) => state.setProfile);
+  const setAbilities = useProfileStore((state) => state.setAbilities);
   const [step, setStep] = useState(0);
   const [positions, setPositions] = useState<Position[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [avoidRegions, setAvoidRegions] = useState<BodyRegion[]>([]);
   const [sensory, setSensory] = useState<SensoryKey[]>(["captions"]);
-  const [displayName, setDisplayName] = useState("");
 
   const finish = () => {
     const abilities: Abilities = {
@@ -169,8 +168,10 @@ export function OnboardingFlow() {
         haptics: sensory.includes("haptics"),
       },
     };
-    setProfile(displayName.trim() || null, abilities);
-    router.push("/");
+    // The display name is captured at registration; onboarding only sets
+    // abilities so it never clobbers a name saved earlier.
+    setAbilities(abilities);
+    router.push("/dashboard");
   };
 
   const next = () => (step === STEPS.length - 1 ? finish() : setStep(step + 1));
@@ -193,9 +194,8 @@ export function OnboardingFlow() {
             <span
               key={index}
               aria-hidden="true"
-              className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ease-smooth ${
-                index <= step ? "bg-ink" : "bg-line"
-              }`}
+              className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ease-smooth ${index <= step ? "bg-ink" : "bg-line"
+                }`}
             />
           ))}
         </div>
@@ -236,32 +236,12 @@ export function OnboardingFlow() {
         />
       )}
       {step === 3 && (
-        <div className="flex flex-col gap-6">
-          <ChoiceList
-            legend="Sensory preferences"
-            options={[...SENSORY_OPTIONS]}
-            selected={sensory}
-            onToggle={(value) =>
-              setSensory((current) => toggle(current, value))
-            }
-          />
-          <div className="flex flex-col gap-2">
-            <label
-              htmlFor="display-name"
-              className="text-lg font-bold text-ink"
-            >
-              What should we call you? (optional)
-            </label>
-            <input
-              id="display-name"
-              type="text"
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              autoComplete="nickname"
-              className="min-h-12 rounded-xl border-2 border-line-strong bg-surface px-4 text-lg text-ink"
-            />
-          </div>
-        </div>
+        <ChoiceList
+          legend="Sensory preferences"
+          options={[...SENSORY_OPTIONS]}
+          selected={sensory}
+          onToggle={(value) => setSensory((current) => toggle(current, value))}
+        />
       )}
 
       <div className="mt-auto flex flex-col gap-3 pt-4">
