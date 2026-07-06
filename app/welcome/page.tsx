@@ -31,7 +31,7 @@ export default function WelcomePage() {
 
         <div className="rise-in rise-in-3 flex flex-col gap-3 sm:flex-row">
           <Link
-            href="/onboarding"
+            href="/register"
             className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-raspberry px-8 text-lg font-bold text-milk transition-colors hover:bg-[#8f2a47]"
           >
             Get started
@@ -67,7 +67,7 @@ export default function WelcomePage() {
             Good day or hard day, no penalty either way.
           </p>
           <Link
-            href="/onboarding"
+            href="/register"
             className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-milk px-8 text-lg font-bold text-ink transition-colors hover:bg-cream"
           >
             Create your profile

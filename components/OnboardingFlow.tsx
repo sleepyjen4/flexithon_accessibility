@@ -62,7 +62,7 @@ const STEPS = [
   },
   {
     title: "How should the app feel?",
-    intro: "Sensory preferences, plus a name if you'd like one.",
+    intro: "Set the sensory preferences that suit you. Optional — skip if none apply.",
   },
 ];
 
@@ -74,13 +74,12 @@ function toggle<T>(list: T[], value: T): T[] {
  * for diagnoses. Saves to the profile store and heads to check-in. */
 export function OnboardingFlow() {
   const router = useRouter();
-  const setProfile = useProfileStore((state) => state.setProfile);
+  const setAbilities = useProfileStore((state) => state.setAbilities);
   const [step, setStep] = useState(0);
   const [positions, setPositions] = useState<Position[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [avoidRegions, setAvoidRegions] = useState<BodyRegion[]>([]);
   const [sensory, setSensory] = useState<SensoryKey[]>(["captions"]);
-  const [displayName, setDisplayName] = useState("");
 
   const finish = () => {
     const abilities: Abilities = {
@@ -94,7 +93,9 @@ export function OnboardingFlow() {
         haptics: sensory.includes("haptics"),
       },
     };
-    setProfile(displayName.trim() || null, abilities);
+    // The display name is captured at registration; onboarding only sets
+    // abilities so it never clobbers a name saved earlier.
+    setAbilities(abilities);
     router.push("/");
   };
 
@@ -133,27 +134,12 @@ export function OnboardingFlow() {
         />
       )}
       {step === 3 && (
-        <div className="flex flex-col gap-6">
-          <ChoiceList
-            legend="Sensory preferences"
-            options={[...SENSORY_OPTIONS]}
-            selected={sensory}
-            onToggle={(value) => setSensory((current) => toggle(current, value))}
-          />
-          <div className="flex flex-col gap-2">
-            <label htmlFor="display-name" className="text-lg font-semibold text-slate-900">
-              What should we call you? (optional)
-            </label>
-            <input
-              id="display-name"
-              type="text"
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              autoComplete="nickname"
-              className="min-h-12 rounded-xl border-2 border-slate-300 bg-white px-4 text-lg text-slate-900"
-            />
-          </div>
-        </div>
+        <ChoiceList
+          legend="Sensory preferences"
+          options={[...SENSORY_OPTIONS]}
+          selected={sensory}
+          onToggle={(value) => setSensory((current) => toggle(current, value))}
+        />
       )}
 
       <div className="mt-auto flex flex-col gap-3 pt-4">

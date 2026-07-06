@@ -23,13 +23,13 @@ export function WelcomeNav() {
         </Link>
         <nav aria-label="Account" className="flex items-center gap-2 sm:gap-3">
           <Link
-            href="/onboarding"
+            href="/login"
             className="hidden min-h-12 items-center rounded-full px-4 text-base font-bold text-ink transition-colors hover:bg-mint sm:inline-flex"
           >
             Log in
           </Link>
           <Link
-            href="/onboarding"
+            href="/register"
             className="inline-flex min-h-12 items-center justify-center rounded-full bg-raspberry px-5 text-base font-bold text-milk transition-colors hover:bg-[#8f2a47]"
           >
             Register
