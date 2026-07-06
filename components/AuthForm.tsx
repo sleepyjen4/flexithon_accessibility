@@ -43,6 +43,19 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const copy = COPY[mode];
   const fieldId = useId();
   const [pending, setPending] = useState(false);
+  const [complete, setComplete] = useState(false);
+
+  // Which fields must be filled before submit unlocks (register also needs a name).
+  const requiredFields =
+    mode === "register" ? ["name", "email", "password"] : ["email", "password"];
+
+  // Re-check on every keystroke so the button enables only once nothing is blank.
+  const handleChange = (event: React.FormEvent<HTMLFormElement>) => {
+    const data = new FormData(event.currentTarget);
+    setComplete(
+      requiredFields.every((field) => String(data.get(field) ?? "").trim() !== ""),
+    );
+  };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,6 +90,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
       <form
         onSubmit={handleSubmit}
+        onChange={handleChange}
         className="rise-in rise-in-2 flex flex-col gap-5 rounded-3xl border border-line bg-surface p-6 shadow-card sm:p-8"
         noValidate
       >
@@ -116,7 +130,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           {pending ? copy.pending : ""}
         </p>
 
-        <Button type="submit" disabled={pending} className="mt-1">
+        <Button type="submit" disabled={pending || !complete} className="mt-1">
           {pending ? copy.pending : copy.submit}
         </Button>
       </form>
