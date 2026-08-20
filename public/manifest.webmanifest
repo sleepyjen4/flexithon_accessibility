@@ -1,6 +1,6 @@
 {
-  "name": "Alpha",
-  "short_name": "Alpha",
+  "name": "Alfa",
+  "short_name": "Alfa",
   "description": "A fitness app that adapts to your body and your energy today.",
   "start_url": "/",
   "display": "standalone",
@@ -10,7 +10,8 @@
     {
       "src": "/icon",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
