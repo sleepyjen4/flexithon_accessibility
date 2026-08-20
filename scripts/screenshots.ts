@@ -103,7 +103,7 @@ function demoState(): Record<string, unknown> {
   };
   const sessions: WorkoutSessionSummary[] = [1, 3, 6].map((days, index) => ({
     id: `demo-session-${index}`,
-    workout_title: ["Gentle Seated Strength", "Steady Upper Body", "Easy Reset"][index],
+    workout_title: ["Gentle Seated Strength", "Steady Upper Body", "Gentle Reset"][index],
     energy_level: ([3, 4, 2] as const)[index],
     completed_steps: [4, 5, 3][index],
     total_steps: [4, 5, 4][index],

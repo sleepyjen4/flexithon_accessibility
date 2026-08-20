@@ -93,15 +93,6 @@ html[data-contrast="high"] {
   --line-strong: #4d4234; /* interactive borders strengthen */
 }
 
-/* Legacy hooks for screens not yet moved to the token classes. */
-html[data-contrast="high"] .text-slate-600 {
-  color: #1e293b;
-}
-
-html[data-contrast="high"] .border-slate-300 {
-  border-color: #475569;
-}
-
 html[data-reduced-motion="true"] *,
 html[data-reduced-motion="true"] *::before,
 html[data-reduced-motion="true"] *::after {

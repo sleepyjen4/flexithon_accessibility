@@ -90,7 +90,7 @@ export default function SummaryPage() {
 
   if (!summary) {
     return (
-      <div className="flex min-h-screen bg-cream px-4 py-6 text-ink">
+      <div className="flex flex-1 bg-cream px-4 py-6 text-ink">
         <div className="mx-auto flex w-full max-w-md flex-col gap-6">
           <h1 className="font-display text-3xl font-extrabold">
             No summary yet
@@ -153,7 +153,7 @@ export default function SummaryPage() {
   );
 
   return (
-    <div className="flex min-h-screen bg-cream px-4 py-6 text-ink sm:px-6 lg:py-8">
+    <div className="flex flex-1 bg-cream px-4 py-6 text-ink sm:px-6 lg:py-8">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <header className="rise-in space-y-2">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-raspberry">
