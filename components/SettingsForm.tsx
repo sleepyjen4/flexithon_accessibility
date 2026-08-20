@@ -32,7 +32,7 @@ export function SettingsForm() {
 
   return (
     <div className="flex flex-col gap-8">
-      <Card className="shadow-[0_18px_38px_rgba(15,23,42,0.08)]">
+      <Card>
         <h2 className="text-xl font-black text-ink">Movement tracking</h2>
         <p className="mt-3 text-base leading-7 text-ink-soft">
           Set once when you start out — the app learns your comfortable range so
@@ -47,7 +47,7 @@ export function SettingsForm() {
         </Link>
       </Card>
 
-      <Card className="shadow-[0_18px_38px_rgba(15,23,42,0.08)]">
+      <Card>
         <h2 className="text-xl font-black text-ink">Display & accessibility</h2>
 
         <div className="mt-6 flex flex-col gap-3">

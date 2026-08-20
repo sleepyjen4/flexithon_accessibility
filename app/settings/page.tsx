@@ -6,7 +6,7 @@ export default function SettingsPage() {
     <DashboardShell>
       <div className="flex flex-col gap-6">
         <header className="space-y-2">
-          <h1 className="text-3xl font-black leading-tight text-ink">
+          <h1 className="font-display text-3xl font-extrabold leading-tight text-ink">
             Settings
           </h1>
           <p className="text-base text-ink-soft">

@@ -199,7 +199,7 @@ export function TodayDashboard() {
 
       <Link
         href="/library"
-        className="rise-in rise-in-4 flex items-center gap-4 rounded-3xl border border-line bg-surface p-6 shadow-card transition-colors hover:bg-gray-100 lg:col-span-2 lg:p-8"
+        className="rise-in rise-in-4 flex items-center gap-4 rounded-3xl border border-line bg-surface p-6 shadow-card transition-colors hover:bg-cream lg:col-span-2 lg:p-8"
       >
         <span
           aria-hidden="true"

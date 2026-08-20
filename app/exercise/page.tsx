@@ -274,7 +274,7 @@ export default function ExercisePage() {
   const calibrateHref = `/calibrate?exercise=${exerciseId}&side=${side}`;
 
   return (
-    <div className="min-h-screen bg-cream px-4 py-6 text-ink sm:px-6 lg:py-8">
+    <div className="flex-1 bg-cream px-4 py-6 text-ink sm:px-6 lg:py-8">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
         {/* Page-level so the speech toggle stays visible across every state
             (setup, tracking, finished) -- otherwise a user who muted elsewhere
