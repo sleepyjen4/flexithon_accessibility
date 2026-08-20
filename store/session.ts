@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { SessionSummary, WorkoutSessionSummary, Workout } from "@/types";
 
 interface SessionState {
@@ -29,27 +30,48 @@ const FRESH_WORKOUT_STATE = {
   savedSummary: null,
 };
 
-export const useSessionStore = create<SessionState>((set) => ({
-  workout: null,
-  ...FRESH_WORKOUT_STATE,
-  setWorkout: (workout) => set({ workout, ...FRESH_WORKOUT_STATE }),
-  completeStep: (index) =>
-    set((state) => ({
-      completedSteps: state.completedSteps.includes(index)
-        ? state.completedSteps
-        : [...state.completedSteps, index],
-    })),
-  advanceStep: () =>
-    set((state) => ({ currentStepIndex: state.currentStepIndex + 1 })),
-  recordRom: (exerciseId, degrees) =>
-    set((state) => ({
-      peakRomDegrees: {
-        ...state.peakRomDegrees,
-        [exerciseId]: Math.max(state.peakRomDegrees[exerciseId] ?? 0, degrees),
-      },
-    })),
-  setTrackingSummary: (summary) => set({ trackingSummary: summary }),
-  clearTrackingSummary: () => set({ trackingSummary: null }),
-  markSaved: (summary) => set({ savedSummary: summary }),
-  reset: () => set({ workout: null, ...FRESH_WORKOUT_STATE }),
-}));
+/**
+ * Only `trackingSummary` is persisted. A finished camera set has to survive a
+ * refresh — landing on /summary and being told "No summary yet" loses work the
+ * user actually did.
+ *
+ * The in-progress workout deliberately does NOT persist. Restoring `workout`,
+ * `currentStepIndex` and `completedSteps` would resurrect a half-finished
+ * session days later and drop the user mid-workout with no context, which is a
+ * "resume workout" feature with its own design questions, not this fix.
+ */
+export const useSessionStore = create<SessionState>()(
+  persist(
+    (set) => ({
+      workout: null,
+      ...FRESH_WORKOUT_STATE,
+      setWorkout: (workout) => set({ workout, ...FRESH_WORKOUT_STATE }),
+      completeStep: (index) =>
+        set((state) => ({
+          completedSteps: state.completedSteps.includes(index)
+            ? state.completedSteps
+            : [...state.completedSteps, index],
+        })),
+      advanceStep: () =>
+        set((state) => ({ currentStepIndex: state.currentStepIndex + 1 })),
+      recordRom: (exerciseId, degrees) =>
+        set((state) => ({
+          peakRomDegrees: {
+            ...state.peakRomDegrees,
+            [exerciseId]: Math.max(
+              state.peakRomDegrees[exerciseId] ?? 0,
+              degrees,
+            ),
+          },
+        })),
+      setTrackingSummary: (summary) => set({ trackingSummary: summary }),
+      clearTrackingSummary: () => set({ trackingSummary: null }),
+      markSaved: (summary) => set({ savedSummary: summary }),
+      reset: () => set({ workout: null, ...FRESH_WORKOUT_STATE }),
+    }),
+    {
+      name: "af-session",
+      partialize: (state) => ({ trackingSummary: state.trackingSummary }),
+    },
+  ),
+);
