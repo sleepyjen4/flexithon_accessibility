@@ -21,18 +21,18 @@ export function WelcomeNav() {
             Alfa
           </span>
         </Link>
-        <nav aria-label="Account" className="flex items-center gap-2 sm:gap-3">
+        <nav aria-label="Get started" className="flex items-center gap-2 sm:gap-3">
           <Link
-            href="/login"
+            href="/library"
             className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-ink px-4 text-base font-bold text-ink transition-colors hover:bg-mint sm:px-5"
           >
-            Log in
+            Library
           </Link>
           <Link
-            href="/register"
+            href="/onboarding"
             className="inline-flex min-h-12 items-center justify-center rounded-full bg-raspberry px-4 text-base font-bold text-milk transition-colors hover:bg-[#8f2a47] sm:px-5"
           >
-            Register
+            Get started
           </Link>
         </nav>
       </div>

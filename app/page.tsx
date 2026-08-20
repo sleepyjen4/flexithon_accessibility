@@ -27,11 +27,15 @@ export default function WelcomePage() {
             equipment, and your energy, not a generic standard you&apos;re
             expected to hit.
           </p>
+          <p className="mx-auto max-w-xl text-base leading-7 text-ink-soft">
+            No account needed. Your profile, calibration, and history stay on
+            this device, and the camera never leaves it.
+          </p>
         </div>
 
         <div className="rise-in rise-in-3 flex flex-col gap-3 sm:flex-row">
           <Link
-            href="/register"
+            href="/onboarding"
             className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-raspberry px-8 text-lg font-bold text-milk transition-colors hover:bg-[#8f2a47]"
           >
             Get started
@@ -67,7 +71,7 @@ export default function WelcomePage() {
             Good day or hard day, no penalty either way.
           </p>
           <Link
-            href="/register"
+            href="/onboarding"
             className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-milk px-8 text-lg font-bold text-ink transition-colors hover:bg-cream"
           >
             Create your profile

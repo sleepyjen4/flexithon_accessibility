@@ -147,7 +147,9 @@ function toggle<T>(list: T[], value: T): T[] {
 export function OnboardingFlow() {
   const router = useRouter();
   const setAbilities = useProfileStore((state) => state.setAbilities);
+  const setDisplayName = useProfileStore((state) => state.setDisplayName);
   const [step, setStep] = useState(0);
+  const [name, setName] = useState("");
   const [positions, setPositions] = useState<Position[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [avoidRegions, setAvoidRegions] = useState<BodyRegion[]>([]);
@@ -168,8 +170,10 @@ export function OnboardingFlow() {
         haptics: sensory.includes("haptics"),
       },
     };
-    // The display name is captured at registration; onboarding only sets
-    // abilities so it never clobbers a name saved earlier.
+    // Optional: only overwrite a saved name when one was actually typed, so
+    // re-running onboarding to change abilities never wipes the greeting.
+    const trimmedName = name.trim();
+    if (trimmedName) setDisplayName(trimmedName);
     setAbilities(abilities);
     router.push("/dashboard");
   };
@@ -206,14 +210,38 @@ export function OnboardingFlow() {
       <p className="text-lg text-ink-soft">{STEPS[step].intro}</p>
 
       {step === 0 && (
-        <ChoiceList
-          legend="Positions you can exercise in"
-          options={POSITION_OPTIONS}
-          selected={positions}
-          onToggle={(value) =>
-            setPositions((current) => toggle(current, value))
-          }
-        />
+        <>
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="onboarding-name"
+              className="text-lg font-semibold text-ink"
+            >
+              What should we call you? (optional)
+            </label>
+            <input
+              id="onboarding-name"
+              name="name"
+              type="text"
+              autoComplete="given-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              aria-describedby="onboarding-name-hint"
+              suppressHydrationWarning
+              className="min-h-14 rounded-xl border-2 border-line-strong bg-surface px-4 py-3 text-lg text-ink placeholder:text-ink-soft/70 focus-visible:border-ink"
+            />
+            <p id="onboarding-name-hint" className="text-base text-ink-soft">
+              Only used to greet you. It stays on this device.
+            </p>
+          </div>
+          <ChoiceList
+            legend="Positions you can exercise in"
+            options={POSITION_OPTIONS}
+            selected={positions}
+            onToggle={(value) =>
+              setPositions((current) => toggle(current, value))
+            }
+          />
+        </>
       )}
       {step === 1 && (
         <ChoiceList

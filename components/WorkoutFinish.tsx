@@ -6,7 +6,6 @@ import { CheckCircle2, Home } from "lucide-react";
 import type { WorkoutSessionSummary, Workout } from "@/types";
 import { useSessionStore } from "@/store/session";
 import { useHistoryStore } from "@/store/history";
-import { saveSessionToSupabase } from "@/lib/sessions";
 import { Button } from "@/components/Button";
 
 const EFFORT_LABELS = ["Gentle", "Steady", "Working", "Strong", "Everything I had"];
@@ -40,7 +39,6 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
       completed_at: new Date().toISOString(),
     };
     addSession(summary);
-    void saveSessionToSupabase(workout, summary, completedSteps);
     markSaved(summary);
   };
 

@@ -18,9 +18,15 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Next.js 15 (App Router) + TypeScript, Tailwind CSS, Radix UI, Supabase, Anthropic API, Zustand, MediaPipe Pose. See [AGENTS.md](./AGENTS.md) § 2 for details — do not add dependencies outside this list without team agreement.
 
-## Database
+## Data
 
-Apply `supabase/migrations/0001_init.sql` to a Supabase project to create the `profiles`, `exercises`, `checkins`, and `sessions` tables.
+Alfa runs without an account. Your ability profile, calibration, and session history are
+persisted in the browser (Zustand + `localStorage`), and camera frames are processed
+on-device and never uploaded. Clearing site data clears your history.
+
+`supabase/migrations/0001_init.sql` is kept as a design artifact — the schema and row-level
+security policies for the accounts version, retained deliberately rather than deleted. It is
+not wired to anything at runtime.
 
 ## Accessibility QA
 

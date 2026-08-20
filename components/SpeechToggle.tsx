@@ -3,7 +3,6 @@
 import { useSyncExternalStore } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { useProfileStore } from "@/store/profile";
-import { savePrefsToSupabase } from "@/lib/prefs";
 
 /** Corner toggle for spoken instructions & cues. Lives at the page level so it
  * stays visible across every /workout state (exercise, rest, finish). */
@@ -23,9 +22,7 @@ export function SpeechToggle() {
   const showEnabled = hydrated ? speechEnabled : true;
 
   const toggleSpeech = () => {
-    const next = { ...prefs, speech_enabled: !speechEnabled };
-    setPrefs(next);
-    void savePrefsToSupabase(next);
+    setPrefs({ ...prefs, speech_enabled: !speechEnabled });
   };
 
   return (

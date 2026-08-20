@@ -5,7 +5,6 @@ import * as RadioGroup from "@radix-ui/react-radio-group";
 import * as Switch from "@radix-ui/react-switch";
 import type { AccessibilityPrefs } from "@/types";
 import { useProfileStore } from "@/store/profile";
-import { savePrefsToSupabase } from "@/lib/prefs";
 import { Card } from "@/components/Card";
 
 const TEXT_SIZES: { value: AccessibilityPrefs["text_size"]; label: string }[] = [
@@ -21,15 +20,14 @@ const TOGGLES: { key: "high_contrast" | "reduced_motion" | "haptics" | "speech_e
   { key: "haptics", label: "Haptics", description: "Vibrate when a timer finishes" },
 ];
 
-/** F7: accessibility settings. Applied instantly app-wide and persisted;
- * mirrored to the Supabase profile when signed in. */
+/** F7: accessibility settings. Applied instantly app-wide and persisted
+ * on this device — there is no account, so nothing is sent anywhere. */
 export function SettingsForm() {
   const prefs = useProfileStore((state) => state.prefs);
   const setPrefs = useProfileStore((state) => state.setPrefs);
 
   const update = (next: AccessibilityPrefs) => {
     setPrefs(next);
-    void savePrefsToSupabase(next);
   };
 
   return (
