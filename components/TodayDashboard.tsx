@@ -6,12 +6,11 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, LibraryBig } from "lucide-react";
 import type { Abilities, EnergyLevel } from "@/types";
 import { generateWorkout } from "@/lib/ai";
+import { HERO_EXERCISE_ID } from "@/lib/exercises";
 import { useCalibrationStore } from "@/store/calibration";
 import { useHistoryStore } from "@/store/history";
 import { useProfileStore } from "@/store/profile";
 import { useSessionStore } from "@/store/session";
-
-const HERO_EXERCISE_ID = "seated_lateral_raise";
 
 const DEFAULT_ABILITIES: Abilities = {
   positions: ["seated", "lying"],

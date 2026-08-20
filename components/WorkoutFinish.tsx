@@ -44,8 +44,8 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-6">
-      <h1 className="text-2xl font-bold text-slate-900">You showed up today</h1>
-      <p className="text-lg text-slate-600">
+      <h1 className="font-display text-2xl font-bold text-ink">You showed up today</h1>
+      <p className="text-lg text-ink-soft">
         That&apos;s the whole goal. {completedSteps.length} of{" "}
         {workout.steps.length} exercises done — every one of them counts.
       </p>
@@ -53,7 +53,7 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
       {!savedSummary ? (
         <>
           <fieldset className="flex flex-col gap-3 border-0 p-0">
-            <legend className="mb-2 text-lg font-semibold text-slate-900">
+            <legend className="mb-2 text-lg font-semibold text-ink">
               How much effort did that take? (optional)
             </legend>
             {EFFORT_LABELS.map((label, index) => {
@@ -67,8 +67,8 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
                   onClick={() => setEffort(isSelected ? null : value)}
                   className={`flex min-h-12 w-full items-center justify-between rounded-xl border-2 px-4 text-left text-lg font-medium ${
                     isSelected
-                      ? "border-indigo-600 bg-indigo-50 text-slate-900"
-                      : "border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                      ? "border-ink bg-mint text-ink"
+                      : "border-line-strong bg-surface text-ink hover:bg-cream"
                   }`}
                 >
                   <span>
@@ -91,7 +91,7 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
         </>
       ) : (
         <>
-          <p aria-live="polite" className="rounded-2xl bg-emerald-50 p-4 text-lg font-medium text-emerald-700">
+          <p aria-live="polite" className="rounded-2xl bg-mint p-4 text-lg font-medium text-evergreen">
             Saved. See you next time you feel like moving.
           </p>
           <Button asChild>
