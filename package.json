@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate:audio": "npx --yes tsx scripts/generate-audio.ts"
+    "generate:audio": "npx --yes tsx scripts/generate-audio.ts",
+    "screenshots": "npx --yes tsx scripts/screenshots.ts",
+    "screenshots:pr": "npx --yes tsx scripts/screenshots.ts --pr"
   },
   "dependencies": {
     "@google/genai": "^2.10.0",
@@ -37,6 +39,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "puppeteer": "^24.43.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.9"

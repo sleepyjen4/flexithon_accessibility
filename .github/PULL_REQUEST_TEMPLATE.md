@@ -26,4 +26,5 @@
 
 ## Test plan
 
-<!-- How you checked this works: manual steps, screenshots, or automated tests. -->
+<!-- How you checked this works: manual steps, screenshots, or automated tests.
+     `npm run screenshots:pr` attaches mobile screenshots of every screen as a comment below. -->

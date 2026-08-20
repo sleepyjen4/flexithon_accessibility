@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# puppeteer captures (npm run screenshots) — uploaded to the pr-screenshots branch, never committed here
+/.screenshots/
+
 # next.js
 /.next/
 /out/
