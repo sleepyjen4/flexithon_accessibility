@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, LibraryBig } from "lucide-react";
 import type { Abilities, EnergyLevel } from "@/types";
 import { generateWorkout } from "@/lib/ai";
+import { localDateKey } from "@/lib/dateKey";
 import { HERO_EXERCISE_ID } from "@/lib/exercises";
 import { useCalibrationStore } from "@/store/calibration";
 import { useHistoryStore } from "@/store/history";
@@ -52,7 +53,7 @@ export function TodayDashboard() {
 
     setStatus("loading");
     setTodaysEnergy(energy);
-    addCheckin({ energy, date: new Date().toISOString().slice(0, 10) });
+    addCheckin({ energy, date: localDateKey(new Date()) });
 
     try {
       const nextWorkout = await generateWorkout({
