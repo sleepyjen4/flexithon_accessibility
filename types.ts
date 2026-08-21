@@ -303,3 +303,19 @@ export interface WorkoutSessionSummary {
   peak_rom_degrees: Record<string, number>;
   completed_at: string;
 }
+
+/**
+ * One energy level's plan, flattened for the landing page's preview dial.
+ *
+ * Built by the Server Component at build time from the real `buildWorkout`,
+ * so the preview is the generator's actual output rather than a mock-up — and
+ * so `lib/exercises.ts` (37 exercises with full instruction text) never enters
+ * the landing page's client bundle.
+ */
+export interface EnergyPreviewPlan {
+  energy: EnergyLevel;
+  title: string;
+  minutes: number;
+  work_seconds: number;
+  steps: { name: string; intensity: number }[];
+}

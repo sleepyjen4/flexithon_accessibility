@@ -293,3 +293,75 @@ h3 {
 .skip-link:focus {
   left: 0;
 }
+
+.rise-in-5 {
+  animation-delay: 0.28s;
+}
+
+.rise-in-6 {
+  animation-delay: 0.35s;
+}
+
+/* --- LANDING PAGE ATMOSPHERE --------------------------------------------
+ * Depth without a new colour: every stop is an existing token, thinned with
+ * color-mix rather than typed as a fresh hex (Section 6). The washes sit at
+ * the edges and fade out well before the text column, so nothing here moves
+ * a contrast ratio — ink still measures against cream where the words are.
+ *
+ * Deliberately static. Continuous background motion beside body copy is what
+ * WCAG 2.2.2 exists to discourage, and reduced-motion users should not be the
+ * only ones spared it. Motion on this page is entrance-only or in response to
+ * something the visitor did.
+ */
+.hero-wash {
+  background-image:
+    radial-gradient(
+      58% 52% at 10% 0%,
+      color-mix(in oklab, var(--raspberry-soft) 72%, transparent) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      48% 44% at 94% 6%,
+      color-mix(in oklab, var(--marigold-soft) 68%, transparent) 0%,
+      transparent 64%
+    ),
+    radial-gradient(
+      68% 58% at 52% 104%,
+      color-mix(in oklab, var(--mint) 62%, transparent) 0%,
+      transparent 66%
+    );
+}
+
+/* Fine paper grid. Decorative only — always rendered aria-hidden behind
+ * content, at an alpha low enough that it never competes with type. */
+.paper-grid {
+  background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: 0.09;
+}
+
+/* --- SCROLL REVEAL -------------------------------------------------------
+ * Below the fold, a load-time stagger fires before anyone can see it, so the
+ * reveal is tied to the scroll position instead.
+ *
+ * Opt-in through @supports on purpose: where `animation-timeline` is missing
+ * the rule never applies and the content is simply visible. `.reveal` sets no
+ * base opacity for the same reason — an unsupported browser must never be
+ * left with permanently invisible sections.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: rise-in 1ms var(--ease-smooth) both;
+      animation-timeline: view();
+      animation-range: entry 4% cover 24%;
+    }
+  }
+}
+
+/* The in-app reduced-motion setting collapses timed animations by shortening
+ * them, which a scroll-driven animation ignores — its progress comes from the
+ * timeline, not the clock. It has to be switched off by name. */
+html[data-reduced-motion="true"] .reveal {
+  animation: none !important;
+}
