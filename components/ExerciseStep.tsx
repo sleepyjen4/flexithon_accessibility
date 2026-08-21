@@ -212,6 +212,11 @@ export function ExerciseStep({
     />
   );
 
+  // Everything below the toggle is gated on the camera actually being on.
+  // The range card explains what the rep counter is counting against, so with
+  // the camera off it is a card-sized answer to a question nobody asked — and
+  // it was the eighth stacked block on a phone, against six for a non-hero
+  // exercise. Camera off now costs exactly one row: the toggle.
   const cameraBlock = isHero ? (
     <div className="flex flex-col gap-3">
       <Button
@@ -222,52 +227,54 @@ export function ExerciseStep({
         {cameraOn ? "Turn camera off" : "Count reps with camera"}
       </Button>
       {cameraOn && (
-        <CameraLoadBoundary
-          fallback={
-            <div className="rounded-2xl border-2 border-line-strong bg-surface p-4 text-base text-ink-soft">
-              The camera add-on couldn&apos;t load. You can keep going and tap
-              &ldquo;Done!&rdquo; as you finish each set.
+        <>
+          <CameraLoadBoundary
+            fallback={
+              <div className="rounded-2xl border-2 border-line-strong bg-surface p-4 text-base text-ink-soft">
+                The camera add-on couldn&apos;t load. You can keep going and tap
+                &ldquo;Done!&rdquo; as you finish each set.
+              </div>
+            }
+          >
+            <PoseTracker
+              paused={paused}
+              personalRange={personalRange}
+              onManualDone={onDone}
+              onPeakRom={(degrees) => recordRom(exercise.id, degrees)}
+            />
+          </CameraLoadBoundary>
+          {personalRange ? (
+            <div className="rounded-3xl border border-line bg-surface p-5 text-ink-soft shadow-card">
+              Counting against your calibrated range:{" "}
+              <span className="font-semibold text-ink">
+                {personalRange.minDeg}°-{personalRange.maxDeg}°
+              </span>
+              .{" "}
+              <Link
+                href="/calibrate"
+                className="font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
+              >
+                Recalibrate
+              </Link>
             </div>
-          }
-        >
-          <PoseTracker
-            paused={paused}
-            personalRange={personalRange}
-            onManualDone={onDone}
-            onPeakRom={(degrees) => recordRom(exercise.id, degrees)}
-          />
-        </CameraLoadBoundary>
-      )}
-      {personalRange ? (
-        <div className="rounded-3xl border border-line bg-surface p-5 text-ink-soft shadow-card">
-          Counting against your calibrated range:{" "}
-          <span className="font-semibold text-ink">
-            {personalRange.minDeg}°-{personalRange.maxDeg}°
-          </span>
-          .{" "}
-          <Link
-            href="/calibrate"
-            className="font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
-          >
-            Recalibrate
-          </Link>
-        </div>
-      ) : (
-        <div className="rounded-3xl bg-lavender p-5">
-          <h2 className="font-display text-lg font-bold text-ink">
-            Counting to a general range
-          </h2>
-          <p className="mt-1 text-base text-ink">
-            For counting tuned to how you move today, calibrate first. You can
-            also carry on with a general range right now.
-          </p>
-          <Link
-            href="/calibrate"
-            className="mt-2 inline-flex min-h-12 items-center font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
-          >
-            Calibrate my range
-          </Link>
-        </div>
+          ) : (
+            <div className="rounded-3xl bg-lavender p-5">
+              <h2 className="font-display text-lg font-bold text-ink">
+                Counting to a general range
+              </h2>
+              <p className="mt-1 text-base text-ink">
+                For counting tuned to how you move today, calibrate first. You
+                can also carry on with a general range right now.
+              </p>
+              <Link
+                href="/calibrate"
+                className="mt-2 inline-flex min-h-12 items-center font-semibold text-ink underline underline-offset-4 hover:text-raspberry"
+              >
+                Calibrate my range
+              </Link>
+            </div>
+          )}
+        </>
       )}
     </div>
   ) : null;
