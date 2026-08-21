@@ -204,18 +204,55 @@ type WorkoutBuildResult =
 Rules:
 - Only `exercise_id`s from the seeded library; position ∩ equipment, minus
   `avoid_regions`.
-- Energy 1–2 → 4 steps, 30s work / 60s rest. Energy 3 → 5 steps. Energy 4–5 → 6
-  steps, 45s work / 30s rest.
+- **Every energy level gets its own plan** — its own step count, intensity
+  ceiling, timing, session length and title:
+
+  | Energy | Steps | Work | Rest | Session | Intensity ceiling | Title |
+  |---|---|---|---|---|---|---|
+  | 1 | 3 | 30s | 60s | ~4.5 min | 1 | Gentle Reset |
+  | 2 | 4 | 35s | 50s | ~5.7 min | 2 | Quiet Start |
+  | 3 | 5 | 40s | 40s | ~6.7 min | 2 | Steady Progress |
+  | 4 | 6 | 45s | 35s | ~8.0 min | 3 | Building Strength |
+  | 5 | 8 | 50s | 30s | ~10.7 min | 4 | Full Effort |
+
+  The old rules (4/4/5/6/6 steps, 30s/60s below energy 3 and 45s/30s above)
+  gave five levels **three** plans: energy 1 and 2 built byte-identical
+  workouts, as did 4 and 5, and energy 1–3 all estimated six minutes. Rest
+  shrank exactly as work grew, so per-step time *fell* from 90s to 75s as
+  energy rose and the extra steps only bought back time the timing had removed
+  — energy 2 to 3 was a 15-second difference across the whole low-to-medium
+  boundary. §1.6 calls this the demo's one "wow"; keep the five rows distinct.
+- **Selection reaches for the ceiling, it does not just take the gentlest N.**
+  A gentle opener, then the hardest work the ceiling allows, re-sorted
+  ascending so the session ramps. Sorting gentlest-first and slicing meant
+  raising energy appended *more intensity-1 stretches*: average intensity fell
+  from 1.25 at energy 1 to 1.17 at energy 5, and every intensity-3 and
+  intensity-4 exercise in the seed was unreachable at every level.
+- **`manual_entry` activities are never workout steps.** Swimming, pushing a
+  wheelchair and walking with an aid are logged after the fact — no demo clip
+  by design (F2), no timed instructions. They are also the library's
+  highest-intensity entries, so any selection reaching for the hard end finds
+  them first. `isPlayableInWorkout` filters them in `workoutBuilder`, where
+  `buildWorkout` and `hasAvailableExercises` share one definition of the
+  available set so onboarding cannot wave through a profile the dashboard then
+  refuses to build for.
 - `HERO_EXERCISE_ID` is included whenever the profile allows it, so the camera
-  step (F9) has somewhere to attach.
+  step (F9) has somewhere to attach. It is the one exercise allowed past the
+  intensity ceiling — at energy 1 the ceiling would otherwise exclude it, and a
+  camera step that only appears above energy 3 is one the demo cannot rely on.
 - **The empty case is in the return type.** A profile can filter the library to
   zero (avoid every body region). Callers must check `ok` before reaching
   `.workout`; returning a stepless workout made the player read `0 >= 0` as
   "finished" and congratulate the user on a workout that never existed.
 
 **Known gap:** `adaptation_note` is currently the same sentence on every step.
-Per-exercise notes belong in the `lib/exercises.ts` seed, and titles should
-cover all five energy levels rather than two. Not yet done.
+Per-exercise notes belong in the `lib/exercises.ts` seed. Not yet done.
+
+**Seed gap, not a builder gap:** some profiles cannot reach their ceiling
+because the library has nothing that hard for them. `lying` + `none` tops out
+at intensity 2 across all nine matching exercises, so energy 4 and 5 still
+build from intensity 1–2 and average intensity drifts *down* as steps are
+added. The fix is harder lying variants in the seed, not a change here.
 
 **Do not reintroduce a runtime model call.** It was tried and removed (`0968b4a`):
 Gemini measured 8.8–13.6s against a 4000ms client timeout, so every request

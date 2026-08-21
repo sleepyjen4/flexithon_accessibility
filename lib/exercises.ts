@@ -1,5 +1,6 @@
 import type {
   Abilities,
+  EnergyLevel,
   Equipment,
   Exercise,
   ExerciseCategory,
@@ -912,34 +913,125 @@ export function filterExercisesForAbilities(
   });
 }
 
-/** Energy 1-2 -> fewer, gentler steps; energy 4-5 -> more, harder steps. */
-export function stepCountForEnergy(energy: number): number {
-  if (energy <= 2) return 4;
-  if (energy === 3) return 5;
-  return 6;
+/**
+ * `manual_entry` activities — pushing a wheelchair, walking with an aid,
+ * swimming — are logged after the fact, not steps the player can run. They
+ * carry no demo clip by design (AGENTS.md F2) and no timed instructions, and
+ * they are the library's highest-intensity entries, so any selection that
+ * reaches for the hard end of the range finds them first.
+ */
+export function isPlayableInWorkout(exercise: Exercise): boolean {
+  return exercise.interaction_group !== "manual_entry";
 }
 
 /**
- * Gentlest-first selection for lib/workoutBuilder. Sorting
- * by intensity alone can crowd HERO_EXERCISE_ID out entirely — there are more
- * intensity-1 stretches in the library than most step budgets — so once the
- * intensity sort picks its N, swap it in if it was left out and is available.
+ * Steps per energy level, one distinct count each.
+ *
+ * 4/4/5/6/6 gave five energy levels only three plans: energy 1 and 2 built
+ * byte-identical workouts, as did 4 and 5. Energy 1 drops to 3 rather than
+ * holding at 4 — on an empty day the kinder offer is the shorter one.
+ */
+const STEP_COUNT_BY_ENERGY: Record<EnergyLevel, number> = {
+  1: 3,
+  2: 4,
+  3: 5,
+  4: 6,
+  5: 8,
+};
+
+/**
+ * The hardest intensity a plan may reach at each energy level.
+ *
+ * Selection used to sort the pool gentlest-first and take N, so raising energy
+ * only appended *more of the gentlest* exercises — average intensity fell from
+ * 1.25 at energy 1 to 1.17 at energy 5, and every intensity-3 and intensity-4
+ * exercise in the seed was unreachable at every level. The ceiling is what
+ * makes energy choose harder work instead of merely more of it.
+ */
+const INTENSITY_CEILING_BY_ENERGY: Record<EnergyLevel, number> = {
+  1: 1,
+  2: 2,
+  3: 2,
+  4: 3,
+  5: 4,
+};
+
+export function stepCountForEnergy(energy: EnergyLevel): number {
+  return STEP_COUNT_BY_ENERGY[energy];
+}
+
+export function intensityCeilingForEnergy(energy: EnergyLevel): number {
+  return INTENSITY_CEILING_BY_ENERGY[energy];
+}
+
+/**
+ * F9 needs somewhere to attach, so the hero exercise joins every plan the
+ * profile allows. It is the one exercise permitted to exceed the energy
+ * ceiling: a camera step that only appears above energy 3 is a camera step the
+ * demo path cannot rely on, and at energy 1 the ceiling would otherwise
+ * exclude it.
+ *
+ * It replaces the step closest to its own intensity — never the opener, and
+ * never the hardest work at high energy, both of which the old
+ * "overwrite the last element" swap could do.
+ */
+function withHeroExercise(
+  chosen: Exercise[],
+  candidates: Exercise[],
+): Exercise[] {
+  const hero = candidates.find((exercise) => exercise.id === HERO_EXERCISE_ID);
+  if (!hero || chosen.length === 0) return chosen;
+  if (chosen.some((exercise) => exercise.id === HERO_EXERCISE_ID)) return chosen;
+
+  const distance = (exercise: Exercise) =>
+    Math.abs(exercise.intensity - hero.intensity);
+  // Skip index 0 while there is anything else to take: the opener is the
+  // gentle way in, and displacing it is what makes a plan start cold.
+  const searchFrom = chosen.length > 1 ? 1 : 0;
+  let nearest = searchFrom;
+  for (let index = searchFrom + 1; index < chosen.length; index += 1) {
+    if (distance(chosen[index]) < distance(chosen[nearest])) nearest = index;
+  }
+
+  const next = [...chosen];
+  next[nearest] = hero;
+  return next;
+}
+
+/**
+ * The plan for one energy level: a gentle opener, then the hardest work the
+ * ceiling allows, ordered so the session ramps rather than starting cold.
+ *
+ * Pure and deterministic. Ordering is by intensity and `sort` is stable, so
+ * seed order breaks every tie and the result is reproducible from
+ * (candidates, energy) alone — the property /workout relies on to rebuild
+ * after a refresh instead of persisting a half-finished session.
  */
 export function pickExercisesForEnergy(
   candidates: Exercise[],
-  stepCount: number,
+  energy: EnergyLevel,
 ): Exercise[] {
-  const sorted = [...candidates].sort((a, b) => a.intensity - b.intensity);
-  const chosen = sorted.slice(0, stepCount);
+  const gentlestFirst = [...candidates].sort(
+    (a, b) => a.intensity - b.intensity,
+  );
+  const ceiling = intensityCeilingForEnergy(energy);
+  const withinCeiling = gentlestFirst.filter(
+    (exercise) => exercise.intensity <= ceiling,
+  );
+  // A profile whose every exercise sits above the ceiling still gets a
+  // workout. Returning nothing here would reach the player as a stepless
+  // workout, which it reads as "already finished".
+  const pool =
+    withinCeiling.length > 0 ? withinCeiling : gentlestFirst.slice(0, 1);
+  if (pool.length === 0) return [];
 
-  const hero = candidates.find((exercise) => exercise.id === HERO_EXERCISE_ID);
-  if (
-    hero &&
-    chosen.length > 0 &&
-    !chosen.some((exercise) => exercise.id === HERO_EXERCISE_ID)
-  ) {
-    chosen[chosen.length - 1] = hero;
-  }
+  // Fill from the hard end of the band so high energy actually reaches it;
+  // the final sort restores the ramp.
+  const [opener, ...rest] = pool;
+  const budget = Math.max(0, stepCountForEnergy(energy) - 1);
+  const chosen = [opener, ...rest.reverse().slice(0, budget)];
 
-  return chosen;
+  return withHeroExercise(chosen, candidates).sort(
+    (a, b) => a.intensity - b.intensity,
+  );
 }
