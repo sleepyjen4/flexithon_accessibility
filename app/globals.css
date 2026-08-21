@@ -77,6 +77,15 @@ html {
 }
 
 /* F7 accessibility settings, applied via data attributes on <html> */
+
+/* The 18px base above is mobile-first and is the default for good reason, but
+ * on a large desktop screen it reads as oversized. This is the one step below
+ * it — 16px, the floor Section 6 sets for body text, never lower. Everything
+ * is rem-derived, so this rescales the whole app, not just prose. */
+html[data-text-size="compact"] {
+  font-size: 16px;
+}
+
 html[data-text-size="large"] {
   font-size: 20px;
 }

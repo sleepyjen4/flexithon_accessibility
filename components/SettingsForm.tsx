@@ -7,10 +7,18 @@ import type { AccessibilityPrefs } from "@/types";
 import { useProfileStore } from "@/store/profile";
 import { Card } from "@/components/Card";
 
-const TEXT_SIZES: { value: AccessibilityPrefs["text_size"]; label: string }[] = [
-  { value: "normal", label: "Normal" },
-  { value: "large", label: "Large" },
-  { value: "x-large", label: "Extra Large" },
+/** `preview` renders "Aa" at the size each option selects, so the effect can be
+ * judged before committing to it. Sizes are absolute (not rem) so the preview
+ * stays truthful even after the root size has already been changed. */
+const TEXT_SIZES: {
+  value: AccessibilityPrefs["text_size"];
+  label: string;
+  preview: string;
+}[] = [
+  { value: "compact", label: "Compact", preview: "text-[16px]" },
+  { value: "normal", label: "Normal", preview: "text-[18px]" },
+  { value: "large", label: "Large", preview: "text-[20px]" },
+  { value: "x-large", label: "Extra Large", preview: "text-[22px]" },
 ];
 
 const TOGGLES: { key: "high_contrast" | "reduced_motion" | "haptics" | "speech_enabled"; label: string; description: string }[] = [
@@ -54,20 +62,32 @@ export function SettingsForm() {
           <h3 className="text-lg font-black text-ink" id="text-size-label">
             Text size
           </h3>
+          {/* Stacked on mobile: three across at 390px left each option 90px
+              wide, which forced the labels to 13.5px — the smallest text on the
+              screen, on the control whose whole job is sizing text. Full-width
+              rows give them 18px; gap-2 keeps 8px between adjacent touch
+              targets. Two-up above sm, since four across would recreate the
+              same squeeze one breakpoint higher. */}
           <RadioGroup.Root
             value={prefs.text_size}
             onValueChange={(value) =>
               update({ ...prefs, text_size: value as AccessibilityPrefs["text_size"] })
             }
             aria-labelledby="text-size-label"
-            className="grid grid-cols-3 gap-1 rounded-xl bg-cream p-1"
+            className="grid grid-cols-1 gap-2 rounded-xl bg-cream p-2 sm:grid-cols-2"
           >
             {TEXT_SIZES.map((size) => (
               <RadioGroup.Item
                 key={size.value}
                 value={size.value}
-                className="flex min-h-12 min-w-0 items-center justify-center rounded-lg px-1 text-center text-xs font-black leading-tight text-ink transition-colors duration-300 ease-smooth hover:bg-surface data-[state=checked]:bg-raspberry data-[state=checked]:text-milk sm:text-sm md:text-base"
+                className="flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-center text-base font-black leading-tight text-ink transition-colors duration-300 ease-smooth hover:bg-surface data-[state=checked]:bg-raspberry data-[state=checked]:text-milk"
               >
+                {/* Each option previews the size it selects, so "Extra Large"
+                    can be judged before committing to it. Decorative — the
+                    label beside it carries the meaning. */}
+                <span aria-hidden="true" className={size.preview}>
+                  Aa
+                </span>
                 <span>{size.label}</span>
               </RadioGroup.Item>
             ))}
@@ -79,7 +99,7 @@ export function SettingsForm() {
             <div key={toggle.key} className="flex items-center justify-between gap-4">
               <label htmlFor={`setting-${toggle.key}`} className="flex flex-col">
                 <span className="text-lg font-black text-ink">{toggle.label}</span>
-                <span className="text-sm text-ink-soft">{toggle.description}</span>
+                <span className="text-base text-ink-soft">{toggle.description}</span>
               </label>
               <Switch.Root
                 id={`setting-${toggle.key}`}

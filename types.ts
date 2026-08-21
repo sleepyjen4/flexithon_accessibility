@@ -51,7 +51,7 @@ export const AbilitiesSchema = z.object({
 export type Abilities = z.infer<typeof AbilitiesSchema>;
 
 export interface AccessibilityPrefs {
-  text_size: "normal" | "large" | "x-large";
+  text_size: "compact" | "normal" | "large" | "x-large";
   high_contrast: boolean;
   reduced_motion: boolean;
   haptics: boolean;
