@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import * as Switch from "@radix-ui/react-switch";
@@ -21,18 +22,59 @@ const TEXT_SIZES: {
   { value: "x-large", label: "Extra Large", preview: "text-[22px]" },
 ];
 
-const TOGGLES: { key: "high_contrast" | "reduced_motion" | "haptics" | "speech_enabled"; label: string; description: string }[] = [
+/** `requires` marks a toggle whose promise depends on a browser capability that
+ * may simply be absent — Safari has never shipped the Vibration API, on iOS or
+ * macOS. `unsupportedNote` is what we say instead of that promise: a fact about
+ * the browser, never a fault of the user or their device. It lives here as a
+ * plain string (not JSX) so the apostrophe needs no escaping. */
+const TOGGLES: {
+  key: "high_contrast" | "reduced_motion" | "haptics" | "speech_enabled";
+  label: string;
+  description: string;
+  requires?: "vibration";
+  unsupportedNote?: string;
+}[] = [
   { key: "high_contrast", label: "High contrast", description: "Stronger text and borders" },
   { key: "reduced_motion", label: "Reduced motion", description: "Minimise animation" },
   { key: "speech_enabled", label: "Spoken instructions", description: "Exercise cues and rep counts" },
-  { key: "haptics", label: "Haptics", description: "Vibrate when a timer finishes" },
+  {
+    key: "haptics",
+    label: "Haptics",
+    description: "Vibrate when a timer finishes",
+    requires: "vibration",
+    unsupportedNote: "This browser doesn't support vibration, so timers here finish quietly.",
+  },
 ];
+
+/** Vibration support cannot change during a session, so there is nothing to
+ * subscribe to — a stable no-op keeps useSyncExternalStore from resubscribing
+ * on every render. Safari has never shipped the Vibration API, on iOS or
+ * macOS, so this is `false` for every iPhone and iPad. */
+const subscribeToVibrationSupport = () => () => {};
+const getVibrationSupport = () => typeof navigator.vibrate === "function";
+/** SSR has no `navigator`. Reporting supported on the server means the markup
+ * React hydrates against carries no disabled state or note, matching the
+ * client's first render exactly. */
+const getVibrationSupportOnServer = () => true;
 
 /** F7: accessibility settings. Applied instantly app-wide and persisted
  * on this device — there is no account, so nothing is sent anywhere. */
 export function SettingsForm() {
   const prefs = useProfileStore((state) => state.prefs);
   const setPrefs = useProfileStore((state) => state.setPrefs);
+
+  // Read through useSyncExternalStore rather than an effect: the server
+  // snapshot is declared, so SSR output and the first client render agree by
+  // construction instead of by an optimistic initial value that an effect then
+  // corrects. That also keeps `navigator` out of render on the server, where it
+  // does not exist. Unlike the TodayDashboard bug, nothing here is seeded from
+  // a store — the source of truth is the browser, and it is read every render
+  // rather than captured once.
+  const vibrationSupported = useSyncExternalStore(
+    subscribeToVibrationSupport,
+    getVibrationSupport,
+    getVibrationSupportOnServer,
+  );
 
   const update = (next: AccessibilityPrefs) => {
     setPrefs(next);
@@ -95,22 +137,43 @@ export function SettingsForm() {
         </div>
 
         <div className="mt-6 flex flex-col gap-5">
-          {TOGGLES.map((toggle) => (
-            <div key={toggle.key} className="flex items-center justify-between gap-4">
-              <label htmlFor={`setting-${toggle.key}`} className="flex flex-col">
-                <span className="text-lg font-black text-ink">{toggle.label}</span>
-                <span className="text-base text-ink-soft">{toggle.description}</span>
-              </label>
-              <Switch.Root
-                id={`setting-${toggle.key}`}
-                checked={prefs[toggle.key]}
-                onCheckedChange={(checked) => update({ ...prefs, [toggle.key]: checked })}
-                className="relative h-9 w-16 shrink-0 rounded-full bg-line-strong p-1 transition-colors duration-300 ease-smooth data-[state=checked]:bg-raspberry"
-              >
-                <Switch.Thumb className="block h-7 w-7 rounded-full bg-milk shadow-sm transition-transform duration-300 ease-smooth data-[state=checked]:translate-x-7" />
-              </Switch.Root>
-            </div>
-          ))}
+          {TOGGLES.map((toggle) => {
+            const unsupported = toggle.requires === "vibration" && !vibrationSupported;
+            const noteId = `setting-${toggle.key}-note`;
+            return (
+              <div key={toggle.key} className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-4">
+                  <label htmlFor={`setting-${toggle.key}`} className="flex flex-col">
+                    <span className="text-lg font-black text-ink">{toggle.label}</span>
+                    <span className="text-base text-ink-soft">{toggle.description}</span>
+                  </label>
+                  {/* The control is left in place rather than removed: the
+                      preference is real and stored, and a row that disappears
+                      on one device reads as a bug. Disabled + a stated reason
+                      keeps the setting visible and stops the row promising
+                      something the browser cannot do. */}
+                  <Switch.Root
+                    id={`setting-${toggle.key}`}
+                    checked={prefs[toggle.key]}
+                    disabled={unsupported}
+                    aria-describedby={unsupported ? noteId : undefined}
+                    onCheckedChange={(checked) => update({ ...prefs, [toggle.key]: checked })}
+                    className="relative h-9 w-16 shrink-0 rounded-full bg-line-strong p-1 transition-colors duration-300 ease-smooth data-[state=checked]:bg-raspberry disabled:opacity-60"
+                  >
+                    <Switch.Thumb className="block h-7 w-7 rounded-full bg-milk shadow-sm transition-transform duration-300 ease-smooth data-[state=checked]:translate-x-7" />
+                  </Switch.Root>
+                </div>
+                {/* Real text, outside the <label> so it describes the switch
+                    rather than being folded into its accessible name. A bare
+                    `disabled` announces "dimmed" and nothing else. */}
+                {unsupported ? (
+                  <p id={noteId} className="text-base leading-7 text-ink-soft">
+                    {toggle.unsupportedNote}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       </Card>
     </div>
