@@ -15,10 +15,16 @@ unlike a GIF — pausable, so we can honour reduced-motion). The demo appears in
 - the **workout/exercise player** (top of the "reading" column), and
 - the **library** exercise cards.
 
-Exercises without a clip simply render nothing — the feature is fully additive.
+**Status:** every exercise that is meant to be *demonstrated* has a clip. The
+library used to carry entries with no clip, which rendered as a blank slot next
+to cards that had one; those entries were removed rather than left empty.
 
-**Status:** 26 exercises are wired (every GIF currently in `public/graphics/`).
-The rest have no clip yet.
+The only exemption is the `manual_entry` group — swimming, walking with a
+mobility aid — which are activities you log after the fact, not movements you
+copy from a loop. They get a "You log this one" card instead of a video slot.
+`lib/exercises.test.ts` enforces both halves: any exercise that is not
+`manual_entry` must have a clip, and every mapping must point at files that
+exist in both formats.
 
 ---
 
@@ -121,12 +127,13 @@ file base path).
 
 | Surface | File | How |
 |---|---|---|
-| Player (`/workout`, `/exercise/[id]`) | [`components/ExerciseStep.tsx`](../components/ExerciseStep.tsx) | `const demoUrl = getExerciseVideoUrl(exercise.id)` → renders `<ExerciseDemo>` atop the left column |
-| Library cards (`/library/[group]/[value]`) | [`app/library/[group]/[value]/page.tsx`](../app/library/%5Bgroup%5D/%5Bvalue%5D/page.tsx) | per card: `getExerciseVideoUrl(exercise.id)` → `<ExerciseDemo interactive={false}>` |
+| Player (`/workout`, `/exercise/[id]`) | [`components/ExerciseStep.tsx`](../components/ExerciseStep.tsx) | `<ExerciseVisual exercise={exercise} />` atop the left column |
+| Library cards (`/library/[group]/[value]`) | [`app/library/[group]/[value]/page.tsx`](../app/library/%5Bgroup%5D/%5Bvalue%5D/page.tsx) | per card: `<ExerciseVisual exercise={exercise} interactive={false} />` |
 
-Both call `getExerciseVideoUrl(exercise.id)` and render only when it's non-null.
-**To surface demos on a new page, do the same:** import `getExerciseVideoUrl`
-and `ExerciseDemo`, and render when the id resolves.
+Neither calls `getExerciseVideoUrl` directly. [`components/ExerciseVisual.tsx`](../components/ExerciseVisual.tsx)
+owns the choice — clip if there is one, the logged-activity card otherwise — so
+the rule lives in one place instead of being re-decided at each call site.
+**To surface demos on a new page:** render `<ExerciseVisual>`.
 
 ---
 

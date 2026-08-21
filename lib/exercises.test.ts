@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   EXERCISES,
@@ -6,6 +7,7 @@ import {
   groupExercisesByCategory,
   groupExercisesByInteraction,
 } from "@/lib/exercises";
+import { EXERCISE_VIDEO_BY_ID } from "@/lib/exerciseVideos";
 import {
   ExerciseCategorySchema,
   ExerciseInteractionGroupSchema,
@@ -54,6 +56,34 @@ describe("T22 exercise metadata", () => {
           exercise.tracking_modes[0] === "manual",
       ),
     ).toBe(true);
+  });
+
+  it("gives every demonstrable exercise a clip, and exempts only logged activities", () => {
+    // The library used to carry entries with no clip, which rendered as a blank
+    // slot next to cards that had one. Those were removed. What remains is a
+    // rule: if you are meant to copy the movement, there is something to watch.
+    // `manual_entry` exercises (swimming, walking with a mobility aid) are
+    // logged after the fact rather than demonstrated, so they are the only
+    // exemption — see components/ExerciseVisual.tsx.
+    const missingClip = EXERCISES.filter(
+      (exercise) => !EXERCISE_VIDEO_BY_ID[exercise.id],
+    );
+
+    expect(
+      missingClip.every((exercise) => exercise.interaction_group === "manual_entry"),
+    ).toBe(true);
+  });
+
+  it("points every clip mapping at a file that exists in both formats", () => {
+    const graphics = new Set(readdirSync("public/graphics"));
+
+    for (const exercise of EXERCISES) {
+      const base = EXERCISE_VIDEO_BY_ID[exercise.id];
+      if (!base) continue;
+      const name = base.replace("/graphics/", "");
+      expect(graphics.has(`${name}.webm`)).toBe(true);
+      expect(graphics.has(`${name}.mp4`)).toBe(true);
+    }
   });
 
   it("contains the reference-table style wheelchair, mobility-aid, and pool-access entries", () => {

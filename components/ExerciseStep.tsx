@@ -14,8 +14,7 @@ import { Timer } from "@/components/Timer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { CameraLoadBoundary } from "@/components/CameraLoadBoundary";
-import { ExerciseDemo } from "@/components/ExerciseDemo";
-import { getExerciseVideoUrl } from "@/lib/exerciseVideos";
+import { ExerciseVisual } from "@/components/ExerciseVisual";
 import { Pause, Play } from "lucide-react";
 
 // F9 lives entirely client-side; loaded only when someone opts in.
@@ -125,10 +124,7 @@ export function ExerciseStep({
   // scrolls. Non-hero exercises use the same two columns, minus the camera.
   const isHero = exercise.id === HERO_EXERCISE_ID;
 
-  const demoUrl = getExerciseVideoUrl(exercise.id);
-  const demo = demoUrl ? (
-    <ExerciseDemo videoUrl={demoUrl} name={exercise.name} />
-  ) : null;
+  const demo = <ExerciseVisual exercise={exercise} />;
 
   const header = (
     <div className="flex flex-col gap-2">
