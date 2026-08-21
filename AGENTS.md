@@ -29,7 +29,7 @@ Disabled users face two failures:
 ### 1.4 Core loop (the demo path — protect this at all costs)
 1. **Onboard** → build an *ability profile* (positions, equipment, limits) — never asks for diagnoses
 2. **Daily energy check-in** → 1–5 "battery" scale (spoon-theory inspired)
-3. **AI generates an adapted workout** → filtered by profile, scaled by today's energy
+3. **A workout is built for today** → filtered by profile, scaled by today's energy, on-device
 4. **Accessible workout player** → step-by-step, multi-modal instructions, pause-friendly
 5. **Progress view** → celebrates showing up and effort, never counts calories or steps
 
@@ -38,12 +38,12 @@ Disabled users face two failures:
 | # | Feature | Priority | Notes |
 |---|---------|----------|-------|
 | F1 | Ability-profile onboarding (positions, equipment, mobility ranges, sensory prefs) | P0 | 4–6 screens max, big tap targets, skippable |
-| F2 | Exercise library (~30 seeded exercises, JSON) tagged by position/equipment/body-region/intensity | P0 | Seed data hand-written; every exercise has a seated or lying variant |
+| F2 | Exercise library (37 seeded exercises, JSON) tagged by position/equipment/body-region/intensity | P0 | Seed data hand-written. Every exercise that is meant to be demonstrated has a demo clip; only `manual_entry` activities are exempt (enforced by `lib/exercises.test.ts`) |
 | F3 | Daily energy check-in (1–5 scale, optional pain/mood note) | P0 | One screen, one tap, done |
-| F4 | AI workout generator (LLM call: profile + energy + library → structured workout JSON) | P0 | Falls back to rule-based filter if API fails |
+| F4 | Workout builder (`lib/workoutBuilder.ts`): profile + energy + library → workout | P0 | Deterministic, pure, on-device. **No model is called at runtime** — see § 5 |
 | F5 | Workout player: one exercise per screen, text + illustration + optional TTS audio, timers with pause/extend, "skip — no penalty" button | P0 | The hero screen. Fully keyboard & screen-reader operable |
 | F6 | Progress view: consistency calendar + effort log, no calorie/step counts | P1 | Simple, warm copy |
-| F7 | Accessibility settings: text size, high contrast, reduced motion, haptics toggle | P1 | Persist in Supabase profile |
+| F7 | Accessibility settings: text size, high contrast, reduced motion, haptics toggle | P1 | Persist in `store/profile.ts` (localStorage) |
 | F8 | Voice control of the workout player ("next", "pause") | P2 | Web Speech API, demo-only if time permits |
 | F9 | **Motion tracking (MediaPipe Pose, client-side):** hands-free rep counting + range-of-motion capture for ONE seated upper-body hero exercise | P1 | Upper-body landmarks only; app fully usable with camera off; no form correction ever |
 | F10 | Buddy/community feed | ❌ CUT | Do not build |
@@ -62,21 +62,25 @@ Disabled users face two failures:
 
 | Layer | Choice | Why |
 |-------|--------|-----|
-| App | **Next.js 15 (App Router) + TypeScript**, installable as a **PWA** | No app store, runs on judges' phones; server-side code built in |
+| App | **Next.js 15 (App Router) + TypeScript**, with a web app manifest | No app store, runs on any phone browser. **Not yet a true installable PWA** — there is no service worker, so there is no offline support and Android will not offer an install prompt |
 | Styling | **Tailwind CSS** | Speed; consistent spacing/contrast tokens |
 | Components | **Radix UI primitives** (+ lucide-react icons) | Accessible by default: focus, ARIA, keyboard nav |
-| Backend | **Supabase** (auth, Postgres, storage) via `@supabase/ssr` | Zero backend code; magic-link auth |
-| AI | **Gemini API** (`@google/genai`, gemini-2.5-flash) via a **Next.js Route Handler** (`app/api/generate-workout`) | Key stays server-side; no separate edge functions needed |
+| Backend | **None.** The app runs entirely on-device | Accounts were removed in `f6ad796`. No auth, no server data, nothing to sync. See § 4 |
+| AI | **None at runtime.** `@google/genai` is a **devDependency** used only by `scripts/generate-audio.ts` at build time | The runtime Gemini path was removed in `0968b4a`: measured 8.8-13.6s against a 4000ms client timeout, so it aborted on every call and had never once reached a user |
 | Voice (TTS) | **Google AI Studio (Gemini API)** (pre-generated at build time → `audio_url`) + **Web Speech API** runtime fallback | Warm, consistent female voice across devices; clips are static files, so no runtime dependency, cost, or privacy leak |
 | Motion tracking | **@mediapipe/tasks-vision** (PoseLandmarker) — client-side only | All video stays on-device (privacy); no backend, no upload |
-| State | **Zustand** (client) + Supabase queries | No Redux. Keep it tiny |
+| State | **Zustand** with `persist` → localStorage (`store/`) | No Redux. Keep it tiny |
 | Deploy | **Vercel** | Push-to-deploy from main |
 | A11y testing | axe DevTools + manual VoiceOver pass | Run axe before every merge to main |
 
 **Forbidden:** Pages Router (App Router only), experimental Next.js flags, Redux,
-CSS-in-JS libs, custom auth, native builds (Expo/React Native), Supabase Edge
-Functions (use Route Handlers), any new dependency not listed above without team
-agreement.
+CSS-in-JS libs, custom auth, native builds (Expo/React Native), any runtime LLM
+call, any new dependency not listed above without team agreement.
+
+Note: there is no test environment with a DOM. `vitest.config.ts` is
+`environment: "node"`, and neither jsdom nor happy-dom is installed, so
+component-render and hydration behaviour cannot currently be unit-tested. Adding
+one is a new devDependency and therefore a team decision.
 
 ---
 
@@ -85,45 +89,58 @@ agreement.
 ```
 app/
   layout.tsx                 # Root layout: fonts, providers, skip-to-content link
-  page.tsx                   # Landing / auth entry
-  onboarding/page.tsx
-  check-in/page.tsx
-  workout/page.tsx           # Workout player
-  progress/page.tsx
-  settings/page.tsx
-  api/
-    generate-workout/route.ts  # Server-side LLM call + zod validation + fallback
-components/                  # Reusable UI (Button, Card, Timer, EnergyPicker...)
+  page.tsx                   # Landing (marketing; its own nav — see lib/chromeRoutes)
+  onboarding/page.tsx        # F1 ability profile
+  dashboard/page.tsx         # The hub: energy check-in (F3) + build today's workout
+  workout/page.tsx           # F5 player, via DailyWorkoutLoader
+  exercise/page.tsx          # F9 camera-tracked set (calibrate -> track -> summary)
+  exercise/[exerciseId]/     # Single exercise from the library, played in F5
+  library/page.tsx           # Browse the seeded library
+  library/[group]/[value]/   # Library filtered by position/equipment/region/category
+  calibrate/page.tsx         # F9 personal range capture
+  summary/page.tsx           # F9 set summary; writes the set into history
+  progress/page.tsx          # F6
+  settings/page.tsx          # F7
+components/                  # Reusable UI (Button, Card, Timer, ExerciseVisual...)
 lib/
-  supabase/
-    client.ts                # Browser client (createBrowserClient)
-    server.ts                # Server client (createServerClient, cookies)
-  ai.ts                      # Client helper calling /api/generate-workout
+  workoutBuilder.ts          # F4 — the workout generator (deterministic, pure)
   exercises.ts               # Seed exercise data + filter helpers
-store/                       # Zustand stores (profile, session)
+  exerciseVideos.ts          # exercise id -> demo clip base path
+  audioManifest.ts           # GENERATED by scripts/generate-audio.ts
+  speech.ts                  # Pre-generated clip, else Web Speech (§ 5c)
+  pose/                      # F9: angles, smoothing, rep counting, providers
+store/                       # Zustand stores, all persisted to localStorage
 types.ts                     # ALL shared types live here
-supabase/migrations/
+assets/exercise-gifs/        # 1080² GIF masters. NOT served — build input only
+public/graphics/             # Generated 720² .webm/.mp4 demo clips (served)
+public/audio/                # Pre-generated instruction audio (served)
+scripts/                     # Build-time only: audio, video, screenshots
+supabase/migrations/         # Design artifact, not wired to anything (§ 4)
 ```
+
+There is **no `src/` directory** and **no `app/api/`**. Nothing runs on a server
+beyond Next.js rendering the pages.
 
 **Server/client rules:** components are Server Components by default; add
 `"use client"` only where there's interactivity (the player, pickers, forms).
-Never import `lib/supabase/server.ts` or the Gemini SDK into a client component.
+Never import the Gemini SDK into any app code — it is a build-script dependency
+and must not enter the bundle.
 
 ---
 
-## 4. Data Model (keep to these 4 tables)
+## 4. Data Model (all on-device)
 
-```sql
-profiles      (id, display_name, abilities jsonb, prefs jsonb, created_at)
-exercises     (id, name, description, positions text[], equipment text[],
-               body_regions text[], intensity int, instructions jsonb,
-               audio_url, image_url)   -- seeded, read-only at runtime
-checkins      (id, user_id, energy int, note, created_at)
-sessions      (id, user_id, workout jsonb, completed_steps int[],
-               effort int, created_at)
-```
+There is no server. Everything persists to `localStorage` through Zustand's
+`persist` middleware, one store per concern:
 
-`abilities` jsonb shape:
+| Store | Key | Holds |
+|---|---|---|
+| `store/profile.ts` | `af-profile` | `displayName`, `abilities`, `prefs` (F7), `todaysEnergy` |
+| `store/history.ts` | `af-history` | `sessions[]` (F6 effort log), `checkins[]` (F3) |
+| `store/calibration.ts` | `af-calibration` | Per-exercise `PersonalRange` (F9) |
+| `store/session.ts` | `af-session` | In-flight workout. **Only `trackingSummary` is persisted** — see below |
+
+`abilities` shape:
 ```json
 {
   "positions": ["seated", "lying"],
@@ -133,16 +150,43 @@ sessions      (id, user_id, workout jsonb, completed_steps int[],
 }
 ```
 
+**Why the in-flight workout is not persisted.** Restoring a half-finished
+session days later would drop the user mid-workout with no context. Because F4
+is deterministic, `/workout` rebuilds today's workout from the persisted
+`abilities` + `todaysEnergy` instead (`components/DailyWorkoutLoader.tsx`) and
+restarts at step one. Progress within a workout is deliberately not restored.
+
+**Durability caveat, unsolved.** `localStorage` is evictable — iOS Safari clears
+it after roughly seven days without a visit. For an app whose users have
+fluctuating energy, the gap that triggers eviction is exactly the gap the app
+exists to accommodate. `navigator.storage.persist()` and a user-facing
+export/import are the fixes that fit the on-device model; neither is built.
+
+`supabase/migrations/0001_init.sql` is kept deliberately as a design artifact —
+the schema and RLS policies for an accounts version. It is not wired to
+anything at runtime and there is no Supabase client in the app.
+
 ---
 
-## 5. AI Workout Generation Contract
+## 5. Workout Generation Contract (F4)
 
-Route Handler `POST /api/generate-workout` receives `{ profile, energy, recent_session_ids }`
-and must return **only** this JSON (validate with zod server-side before responding):
+`lib/workoutBuilder.ts` is the only workout generator. It is pure, synchronous
+and deterministic: the same `(abilities, energy)` always produce the same
+workout, which is what lets `/workout` rebuild after a refresh instead of
+persisting one (§ 4).
 
+```ts
+buildWorkout({ abilities, energy }): WorkoutBuildResult
+
+type WorkoutBuildResult =
+  | { ok: true; workout: Workout }
+  | { ok: false; reason: "no_exercises_available" };
+```
+
+`Workout` (see `types.ts`):
 ```json
 {
-  "title": "Gentle Seated Strength",
+  "title": "Gentle Reset",
   "estimated_minutes": 15,
   "energy_level": 2,
   "steps": [
@@ -157,13 +201,26 @@ and must return **only** this JSON (validate with zod server-side before respond
 }
 ```
 
-Rules for the generator prompt:
-- Only reference `exercise_id`s that exist in the seeded library (pass the filtered list in).
-- Energy 1–2 → ≤10 min, ≤4 steps, generous rest. Energy 4–5 → up to 25 min.
-- Never include exercises requiring positions/equipment outside the profile.
-- Tone of `adaptation_note`: practical and warm, never medical advice.
-- **Fallback:** if the API call fails or returns invalid JSON, `lib/ai.ts` builds a
-  workout with a deterministic filter (position ∩ equipment, sort by intensity, take N by energy).
+Rules:
+- Only `exercise_id`s from the seeded library; position ∩ equipment, minus
+  `avoid_regions`.
+- Energy 1–2 → 4 steps, 30s work / 60s rest. Energy 3 → 5 steps. Energy 4–5 → 6
+  steps, 45s work / 30s rest.
+- `HERO_EXERCISE_ID` is included whenever the profile allows it, so the camera
+  step (F9) has somewhere to attach.
+- **The empty case is in the return type.** A profile can filter the library to
+  zero (avoid every body region). Callers must check `ok` before reaching
+  `.workout`; returning a stepless workout made the player read `0 >= 0` as
+  "finished" and congratulate the user on a workout that never existed.
+
+**Known gap:** `adaptation_note` is currently the same sentence on every step.
+Per-exercise notes belong in the `lib/exercises.ts` seed, and titles should
+cover all five energy levels rather than two. Not yet done.
+
+**Do not reintroduce a runtime model call.** It was tried and removed (`0968b4a`):
+Gemini measured 8.8–13.6s against a 4000ms client timeout, so every request
+aborted and silently served this builder. Nothing errored, which is why it went
+unnoticed for six weeks. If you want richer notes, write them into the seed.
 
 ---
 
@@ -212,7 +269,7 @@ called live.
   (`lib/exercises.ts`), synthesizes one audio file per exercise (name + instructions), writes
   them to `public/audio/<exercise_id>.*` (WAV for Gemini, MP3 for Cloud TTS), and regenerates the `lib/audioManifest.ts`
   id→url map. Run with `npm run generate:audio`.
-- **Providers:** Gemini / Google AI Studio first (`GEMINI_API_KEY`, reusing the app key), **Google Cloud TTS as an
+- **Providers:** Gemini / Google AI Studio first (`GEMINI_API_KEY` — build-time only; there is no app key), **Google Cloud TTS as an
   automatic fallback** (`GOOGLE_TTS_API_KEY`) if Gemini is unset or fails. The script probes on the first exercise and
   locks in one provider for the whole run, so voices never mix; force one with
   `TTS_PROVIDER=gemini|google`.
@@ -220,9 +277,9 @@ called live.
   manifest) and **falls back to the Web Speech API** (`lib/speech.ts`, `speakOrPlay`)
   whenever a clip is missing, and for dynamic strings (rep counts, the rest cue). With no
   clips generated yet, everything falls back — so the app always works.
-- **Privacy / offline:** clips are static assets, so nothing is uploaded at runtime and
-  playback works offline (venue-Wi-Fi safe). The Gemini/Google keys are used only by the build
-  script, never shipped to the client.
+- **Privacy:** clips are static assets, so nothing is uploaded at runtime. The
+  Gemini/Google keys are used only by the build script, never shipped to the client.
+  They are **not** available offline — there is no service worker (§ 2).
 - **Scope:** clips cover only the static name + instructions. The AI-generated
   `adaptation_note` stays on screen and is spoken only via Web Speech on the fallback
   path — never try to pre-generate dynamic text.
@@ -242,20 +299,36 @@ called live.
 9. **Copy tone:** never "just", "simply", "easy". Never guilt-trip ("you missed a day"). Skipping is always framed as a valid choice.
 10. **Forms:** every input has a visible `<label>`; errors announced and described in text.
 
-Design tokens:
+Design tokens — **"warm paper"**, defined in `app/globals.css` and exposed as
+Tailwind classes. Use the token classes; **never** raw `slate-*`, `indigo-*`,
+`emerald-*` or a literal hex at a call site.
+
 ```
-Primary: indigo-600 (#4F46E5) on white; text: slate-900; secondary text: slate-600 (min size 16px)
-Backgrounds: white / slate-50. Error: red-700. Success: emerald-700.
-Base font: 18px. Spacing scale: 4/8/16/24/32. Radius: rounded-2xl on cards, rounded-xl on buttons.
+Ground      bg-cream (#f6eddc) page · bg-surface (#fffdf7) cards · bg-stage (#26211c) camera
+Text        text-ink (#211d19) · text-ink-soft (#5c5347) secondary · text-milk (#fff9ee) on dark
+Accents     raspberry (#a93254) hero · evergreen (#1f5747) success · marigold / lavender / mint washes
+Lines       border-line hairlines · border-line-strong interactive (3:1)
+Error       text-error (#b3261e)
+Type        font-display = Bricolage Grotesque (headings) · font-sans = Figtree (body)
+Base font   18px root. Spacing 4/8/16/24/32. Radius: rounded-3xl cards, rounded-full buttons.
 ```
+
+Every pairing is contrast-verified and the ratios are documented at the top of
+`app/globals.css` — ink on cream 15.3, ink-soft on cream 6.9, raspberry on cream
+5.9, milk on ink 16.0. Adding a colour means adding a token there, with its
+ratio, not typing a hex into a component.
+
+Known token debt: canvas and SVG code (`RangeArc`, `PoseTracker`,
+`CalibrationFlow`) re-types token values as hex because it cannot use Tailwind
+classes, and two of those colours have no token at all. See `TODOS.md`.
 
 ---
 
 ## 7. Vibecoding Conventions (for AI agents & humans)
 
-- **TypeScript strict.** No `any`. All shared types in `src/types.ts` — check there before inventing a type.
+- **TypeScript strict.** No `any`. All shared types in `types.ts` at the repo root (there is no `src/`) — check there before inventing a type.
 - **One screen = one folder** with an `index.tsx`. Components under ~150 lines; extract when bigger.
-- **Never hardcode secrets.** Client-safe vars use the `NEXT_PUBLIC_` prefix (Supabase URL + anon key only). `GEMINI_API_KEY` is read **only** inside `app/api/*` route handlers and `scripts/generate-audio.ts` at build time. `GOOGLE_TTS_API_KEY` is used **only** by `scripts/generate-audio.ts` at build time — never at runtime or in the client.
+- **Never hardcode secrets.** The app needs **no** environment variables to run — nothing calls a keyed service at runtime. `GEMINI_API_KEY` and `GOOGLE_TTS_API_KEY` are read **only** by `scripts/generate-audio.ts` at build time, and must never be read from `app/`, `components/`, `lib/` or `store/`.
 - **No new dependencies** beyond Section 2 without asking the team.
 - **Loading/error/empty states are mandatory** on every screen that fetches data.
 - **Mobile-first**: build at 390px width; desktop is a bonus.
@@ -265,7 +338,12 @@ Base font: 18px. Spacing scale: 4/8/16/24/32. Radius: rounded-2xl on cards, roun
 
 ---
 
-## 8. 48-Hour Plan (team of 4)
+## 8. 48-Hour Plan (team of 4) — HISTORICAL
+
+> This is the original hackathon schedule, kept as a record of who built what.
+> It is **not** a description of the current system: the Supabase and
+> `/api/generate-workout` work in column C was built and has since been removed.
+> Do not treat this table as instructions.
 
 | Block | A (Frontend/UI) | B (Frontend/Player) | C (Backend/AI) | D (Design/Content/QA) |
 |-------|-----------------|--------------------|----------------|----------------------|
@@ -282,10 +360,16 @@ Base font: 18px. Spacing scale: 4/8/16/24/32. Radius: rounded-2xl on cards, roun
 
 ## 9. Demo Script (3 minutes)
 
+> Written for the original demo and still the best walkthrough of the product.
+> The check-in now lives on `/dashboard` rather than its own screen, and the
+> workout is built on-device rather than generated by a model.
+
 1. Open with the problem: show a mainstream app's "10,000 steps!" screen. (20s)
 2. Onboard as a wheelchair user with a resistance band. (30s)
-3. Check in at energy **2** → generate → show the short, gentle, seated workout. (25s)
-4. Re-check-in at energy **4** → show the longer, harder plan. *The adaptive moment.* (25s)
+3. On `/dashboard`, check in at energy **2** → build → the short, gentle, seated
+   workout (4 steps, 30s work, 60s rest). (25s)
+4. Re-check in at energy **4** → the longer, harder plan (6 steps, 45s / 30s).
+   *The adaptive moment.* (25s)
 5. Hero exercise with camera on: hands-free rep counting, live ROM angle — mention all
    processing is on-device, nothing uploaded. (40s)
 6. Run one step **with VoiceOver on, screen visible** — rep counts announced aloud. (30s)
@@ -299,4 +383,26 @@ Base font: 18px. Spacing scale: 4/8/16/24/32. Radius: rounded-2xl on cards, roun
 Social features, wearables, video *recording/storage* (live on-device tracking only),
 form correction or movement judgments, diet/nutrition, medical advice or diagnosis
 language, notifications, payment/subscription, admin dashboards, i18n, native apps,
-offline sync beyond default PWA caching.
+accounts or any server-side data, and any runtime LLM call.
+
+---
+
+## 11. Known Gaps (real, verified, unfixed)
+
+Recorded so they are not rediscovered as surprises. See `TODOS.md` for detail.
+
+- **No service worker.** No offline support; Android will not offer an install
+  prompt. `manifest.webmanifest` also has `start_url: "/"`, so an installed app
+  opens on the marketing page rather than `/dashboard`, and ships one 512px icon
+  with no 192px and no `maskable`.
+- **`localStorage` is evictable** (§ 4). No `navigator.storage.persist()` call,
+  no export/import.
+- **`adaptation_note` is one repeated sentence** across every step (§ 5).
+- **Token debt in canvas/SVG code** (§ 6).
+- **No DOM test environment** (§ 2), so hydration bugs cannot be unit-tested.
+  One such bug — the energy dial pinned to 3 — was found only in a browser.
+- **Sub-16px text** in ~38 places against § 6's own 16px minimum (`text-sm` is
+  15.75px at the 18px root, `text-xs` is 13.5px), and the onboarding name
+  placeholder computes to 3.54:1 against a 4.5:1 bar.
+- **Two dashboard loops.** `/dashboard` still presents the built workout and the
+  camera session as coequal, and `/workout` has one inbound edge.
