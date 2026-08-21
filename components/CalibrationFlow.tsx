@@ -51,6 +51,7 @@ import { smoothWithEma } from "@/lib/pose/smoothing";
 import { getStaticAudioUrl } from "@/lib/audioManifest";
 import { cancelSpeech, speakOrPlay } from "@/lib/speech";
 import { setSpeechEnabled } from "@/lib/prefs";
+import { getCanvasPalette } from "@/lib/canvasPalette";
 import type { StaticClipId } from "@/lib/staticAudio";
 import { useCalibrationStore } from "@/store/calibration";
 import { useProfileStore } from "@/store/profile";
@@ -134,8 +135,9 @@ function drawMediaPipeLandmarks(
   const height = canvas.height;
   context.clearRect(0, 0, width, height);
   // Marigold from the design tokens: 7.6:1 against the dark stage, and it
-  // reads as part of the brand instead of a debug overlay.
-  context.fillStyle = "#e5a83c";
+  // reads as part of the brand instead of a debug overlay. Resolved from the
+  // custom property so the overlay follows the high-contrast setting.
+  context.fillStyle = getCanvasPalette().marigold;
 
   for (const index of VISIBLE_UPPER_BODY_INDICES) {
     const point = landmarks[index];

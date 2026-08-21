@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera } from "lucide-react";
 import { RangeArc } from "@/components/RangeArc";
 import { announceRepCount } from "@/lib/speech";
+import { getCanvasPalette } from "@/lib/canvasPalette";
 import { POSE_EXERCISES } from "@/lib/pose/exercises";
 import {
   createRealPoseProvider,
@@ -132,8 +133,9 @@ function drawMediaPipeLandmarks(
   context.clearRect(0, 0, width, height);
   if (!landmarks) return;
 
-  // Marigold from the design tokens, so the overlay reads as part of the brand.
-  context.fillStyle = "#e5a83c";
+  // Marigold from the design tokens, so the overlay reads as part of the brand
+  // and follows the high-contrast setting instead of ignoring it.
+  context.fillStyle = getCanvasPalette().marigold;
   for (const index of VISIBLE_UPPER_BODY_INDICES) {
     const point = landmarks[index];
     if (!point) continue;
@@ -199,8 +201,10 @@ function drawSyntheticSkeleton(
   context.lineCap = "round";
   context.lineJoin = "round";
   context.lineWidth = 6;
-  context.strokeStyle = visible ? "#e8798f" : "#8a7d66";
-  context.fillStyle = visible ? "#e8798f" : "#8a7d66";
+  const palette = getCanvasPalette();
+  const limbColor = visible ? palette.raspberryBright : palette.stageDim;
+  context.strokeStyle = limbColor;
+  context.fillStyle = limbColor;
 
   drawLimb(context, [
     leftShoulder,

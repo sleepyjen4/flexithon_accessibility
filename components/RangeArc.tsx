@@ -11,6 +11,13 @@ interface RangeArcProps {
   className?: string;
 }
 
+// Two colours in this chart have no token in app/globals.css yet (TODOS.md,
+// "Brand-hover design tokens"). They are named here rather than forced onto a
+// token that means something else; until a token exists they cannot follow the
+// high-contrast setting.
+const ARC_TRACK_COLOR = "#4a4438"; // unfilled range track on the dark stage
+const TARGET_MET_COLOR = "#7ec8a8"; // evergreen lightened for the dark stage
+
 // Gauge geometry: a 180° arc above the baseline. f = 0 sits at the left
 // (calibrated minimum), f = 1 at the right (calibrated maximum).
 const CENTER_X = 100;
@@ -67,6 +74,8 @@ export function RangeArc({
 
   // Rendered inside the dark camera stage, so colors come from the dark end of
   // the token set: raspberry-bright progress, marigold markers, milk read-out.
+  // They are applied as fill-*/stroke-* utilities (or var() in a computed
+  // style) rather than hex, so the high-contrast setting reaches them.
   return (
     <figure
       className={`rounded-2xl bg-milk/5 p-4 text-center ${className ?? ""}`}
@@ -80,7 +89,7 @@ export function RangeArc({
         <path
           d={arcPath(0, 1, RADIUS)}
           fill="none"
-          stroke="#4a4438"
+          stroke={ARC_TRACK_COLOR}
           strokeWidth={14}
           strokeLinecap="round"
         />
@@ -90,7 +99,7 @@ export function RangeArc({
           <path
             d={arcPath(0, currentFraction, RADIUS)}
             fill="none"
-            stroke="#e8798f"
+            className="stroke-raspberry-bright"
             strokeWidth={14}
             strokeLinecap="round"
           />
@@ -102,7 +111,9 @@ export function RangeArc({
           y1={targetInner.y}
           x2={targetOuter.x}
           y2={targetOuter.y}
-          stroke={peakReachedTarget ? "#7ec8a8" : "#d6ccbb"}
+          style={{
+            stroke: peakReachedTarget ? TARGET_MET_COLOR : "var(--milk-soft)",
+          }}
           strokeWidth={4}
           strokeLinecap="round"
         />
@@ -110,7 +121,9 @@ export function RangeArc({
           cx={target.x}
           cy={target.y}
           r={4}
-          fill={peakReachedTarget ? "#7ec8a8" : "#d6ccbb"}
+          style={{
+            fill: peakReachedTarget ? TARGET_MET_COLOR : "var(--milk-soft)",
+          }}
         />
 
         {/* Peak-so-far marker */}
@@ -120,23 +133,28 @@ export function RangeArc({
             cy={pointOnArc(peakFraction, RADIUS).y}
             r={6}
             fill="none"
-            stroke="#e5a83c"
+            className="stroke-marigold"
             strokeWidth={3}
           />
         ) : null}
 
         {/* Live position dot */}
         {currentPoint ? (
-          <circle cx={currentPoint.x} cy={currentPoint.y} r={8} fill="#e8798f" />
+          <circle
+            cx={currentPoint.x}
+            cy={currentPoint.y}
+            r={8}
+            className="fill-raspberry-bright"
+          />
         ) : null}
 
-        {/* Center read-out. Explicit fill attributes (not Tailwind fill-*
-            classes) so the text colours are reliable on SVG across browsers. */}
+        {/* Center read-out. Colour comes from the token utilities so it tracks
+            the high-contrast setting like the rest of the app. */}
         <text
           x={CENTER_X}
           y={CENTER_Y - 18}
           textAnchor="middle"
-          fill="#fff9ee"
+          className="fill-milk"
           fontSize={30}
           fontWeight={700}
         >
@@ -146,7 +164,7 @@ export function RangeArc({
           x={CENTER_X}
           y={CENTER_Y}
           textAnchor="middle"
-          fill="#d6ccbb"
+          className="fill-milk-soft"
           fontSize={11}
         >
           of {Math.round(range.maxDeg)}° range

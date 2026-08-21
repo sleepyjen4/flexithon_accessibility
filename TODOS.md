@@ -11,23 +11,23 @@ raw hex at their call sites instead of existing as tokens:
 - `#173f33` evergreen pressed (1 site)
 - `#4f4a78` lavender ink (3 sites)
 
-Deferred rather than half-done. There are **60 hex values in `app/` + `components/`;
-26 live legitimately in `globals.css`, leaving 34 outside it.** The 17 above are the
-easy half. The other 17 are in canvas and SVG code that cannot use Tailwind classes
-and re-types token values by hand:
+**Done.** Both halves shipped. The Tailwind-class hexes became four tokens
+(`--ink-hover`, `--raspberry-deep`, `--evergreen-deep`, `--lavender-deep`), and
+canvas/SVG now resolve tokens at runtime through `lib/canvasPalette.ts` — cached
+once, invalidated by a `MutationObserver` on `data-contrast`, so the camera stage
+follows high contrast. `RangeArc`'s SVG uses `stroke-*`/`fill-*` utilities instead.
 
-- `components/RangeArc.tsx` — 10, including `#4a4438` and `#7ec8a8` (`:83,105,113`)
-  which have **no corresponding token at all**
-- `components/PoseTracker.tsx` — 7 (`:136` `#e5a83c` = marigold, `:202` `#e8798f` =
-  raspberry-bright / `#8a7d66` = line-strong)
-- `components/CalibrationFlow.tsx` — 2
+Two colours remain untokenized because they genuinely have no counterpart in the
+palette, and both are dark-stage colours the warm-paper system was never designed
+for:
 
-Doing this properly means deciding how canvas code reads design tokens (pass as props,
-or read via `getComputedStyle` on a token-bearing element), and naming the two colours
-that don't have tokens. That is a real design-system task, not a find-and-replace.
+- `#4a4438` — the unfilled arc track
+- `#7ec8a8` — the target-reached marker
 
-Shipping 17 of 34 and calling it a token pass would leave a shadow palette in exactly
-the part of the app most likely to drift.
+They are hoisted to named constants at the top of `components/RangeArc.tsx` and are
+inert under high contrast. Naming them needs a decision about how the dark stage
+relates to the palette — `--stage-dim` (added for the dimmed pose skeleton) is the
+first token of that kind and is the precedent to follow.
 
 ### Information architecture — two loops, one dashboard
 Out of scope for a UI/UX pass because it changes product architecture on a team repo,

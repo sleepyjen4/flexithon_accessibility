@@ -318,9 +318,29 @@ Every pairing is contrast-verified and the ratios are documented at the top of
 5.9, milk on ink 16.0. Adding a colour means adding a token there, with its
 ratio, not typing a hex into a component.
 
-Known token debt: canvas and SVG code (`RangeArc`, `PoseTracker`,
-`CalibrationFlow`) re-types token values as hex because it cannot use Tailwind
-classes, and two of those colours have no token at all. See `TODOS.md`.
+**Hover idiom — pick by what is *behind* the element, not by what it is.**
+Every wash in the palette is within 1.15:1 luminance of cream, so a light-on-light
+hover can produce an edge with no luminance change at all. See the equiluminance
+note at the top of `app/globals.css` before inventing a new hover.
+
+- Control **inside a card** (`bg-surface`): `hover:bg-mint`. Surface → mint is
+  1.20:1 — a real step. This is the default idiom.
+- Control **directly on the page** (`bg-cream`): no wash works. Use border
+  (`line` → `line-strong`) plus elevation. Never `hover:bg-cream` here — it
+  paints the element to exactly the page colour and it dissolves. That shipped
+  once.
+- **Dark surfaces:** `bg-milk/10` scrims. Never `bg-white`.
+
+High contrast (`html[data-contrast="high"]`) darkens the accents *and* their
+`-deep` hover shades together, so hover feedback survives the mode.
+
+Canvas and SVG read tokens at runtime via `lib/canvasPalette.ts`, which
+resolves the custom properties once from the document root and drops its cache
+when `data-contrast` changes — so the camera stage follows high contrast like
+everything else. Never call `getComputedStyle` from inside a draw loop.
+
+Remaining token debt: two colours in `RangeArc` (`#4a4438` arc track, `#7ec8a8`
+target-met marker) still have no token at all. See `TODOS.md`.
 
 ---
 
@@ -401,8 +421,14 @@ Recorded so they are not rediscovered as surprises. See `TODOS.md` for detail.
 - **Token debt in canvas/SVG code** (§ 6).
 - **No DOM test environment** (§ 2), so hydration bugs cannot be unit-tested.
   One such bug — the energy dial pinned to 3 — was found only in a browser.
-- **Sub-16px text** in ~38 places against § 6's own 16px minimum (`text-sm` is
-  15.75px at the 18px root, `text-xs` is 13.5px), and the onboarding name
-  placeholder computes to 3.54:1 against a 4.5:1 bar.
+- **Sub-16px text**, partly fixed. `--text-sm` is now overridden in
+  `app/globals.css` to 0.889rem = 16.00px at the 18px root, clearing all 10
+  `text-sm` call sites. `text-xs` is still 13.5px across 26 sites; 23 of those
+  are uppercase, wide-tracked eyebrow labels where the size is intentional, but
+  three carry real prose (`DashboardNav` mobile labels, `ProgressView`'s mint
+  chip, `VoiceControl`'s hint line) and should move to `text-sm` individually.
+  Note that under the 16px "Compact" root everything below `base` is under 16px
+  by construction — no relative scale can prevent that. The onboarding name
+  placeholder also computes to 3.54:1 against a 4.5:1 bar.
 - **Two dashboard loops.** `/dashboard` still presents the built workout and the
   camera session as coequal, and `/workout` has one inbound edge.
