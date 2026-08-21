@@ -1,10 +1,10 @@
 import { WorkoutPageFrame } from "@/components/WorkoutPageFrame";
-import { WorkoutPlayer } from "@/components/WorkoutPlayer";
+import { DailyWorkoutLoader } from "@/components/DailyWorkoutLoader";
 
 export default function WorkoutPage() {
   return (
     <WorkoutPageFrame>
-      <WorkoutPlayer />
+      <DailyWorkoutLoader />
     </WorkoutPageFrame>
   );
 }

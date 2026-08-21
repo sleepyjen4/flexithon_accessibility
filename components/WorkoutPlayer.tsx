@@ -57,7 +57,7 @@ export function WorkoutPlayer() {
           Check in with today&apos;s energy and we&apos;ll build one that fits.
         </p>
         <Button asChild>
-          <Link href="/">Check in now</Link>
+          <Link href="/dashboard">Check in now</Link>
         </Button>
       </div>
     );

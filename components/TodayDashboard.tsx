@@ -45,16 +45,37 @@ export function TodayDashboard() {
   const setWorkout = useSessionStore((state) => state.setWorkout);
   const addCheckin = useHistoryStore((state) => state.addCheckin);
   const calibratedRange = useCalibrationStore((state) => state.ranges[HERO_EXERCISE_ID]);
-  const [energy, setEnergy] = useState<EnergyLevel>(todaysEnergy ?? 3);
+  // `picked` is only this visit's explicit choice; the displayed value falls
+  // through to the persisted check-in. Reading `todaysEnergy` here rather than
+  // seeding useState with it matters: useState captures its initial value on
+  // the first render, which runs against the pre-rehydration store so that
+  // client output matches SSR. Zustand's persist applies afterwards and
+  // useState never re-reads, so seeding it pinned the dial to 3 forever — and
+  // then overwrote the user's real check-in with 3 on the next Create tap.
+  const [picked, setPicked] = useState<EnergyLevel | null>(null);
+  const energy: EnergyLevel = picked ?? todaysEnergy ?? 3;
+  const [unavailable, setUnavailable] = useState(false);
 
   // Generation is synchronous and total now that no model sits in front of it,
-  // so there is no loading state to announce and no request to fail. The
-  // remaining failure mode — a profile that filters the library down to zero
-  // exercises — is not handled here yet; see Phase 2c.
+  // so there is no loading state to announce and no request to fail. The one
+  // real failure is a profile that leaves no exercises to draw from; the build
+  // result carries it, and we say so here instead of navigating to a workout
+  // with no steps (which the player would celebrate as finished).
   const createWorkout = () => {
+    const result = buildWorkout({
+      abilities: abilities ?? DEFAULT_ABILITIES,
+      energy,
+    });
+
+    if (!result.ok) {
+      setUnavailable(true);
+      return;
+    }
+
+    setUnavailable(false);
     setTodaysEnergy(energy);
     addCheckin({ energy, date: localDateKey(new Date()) });
-    setWorkout(buildWorkout({ abilities: abilities ?? DEFAULT_ABILITIES, energy }));
+    setWorkout(result.workout);
     router.push("/workout");
   };
 
@@ -107,7 +128,7 @@ export function TodayDashboard() {
                     type="button"
                     aria-pressed={energy === level}
                     aria-label={`${level}: ${ENERGY_LABELS[level]}`}
-                    onClick={() => setEnergy(level)}
+                    onClick={() => setPicked(level)}
                     className={`h-14 rounded-lg transition-colors ${level <= energy
                       ? "bg-raspberry hover:bg-[#8f2a47]"
                       : "bg-line hover:bg-raspberry-soft"
@@ -121,6 +142,32 @@ export function TodayDashboard() {
               />
             </div>
           </fieldset>
+
+          {/* sr-only rather than display:contents when idle — the latter has a
+              history of dropping nodes out of the accessibility tree, which is
+              the one thing a live region cannot afford. */}
+          <p
+            aria-live="polite"
+            className={
+              unavailable
+                ? "rounded-2xl bg-raspberry-soft p-4 text-base leading-7 text-ink"
+                : "sr-only"
+            }
+          >
+            {unavailable && (
+              <>
+                The areas you&apos;re working around leave nothing in the library
+                to draw from today. Reopen your profile and free up an area, and
+                a workout can be built from what&apos;s left.{" "}
+                <Link
+                  href="/onboarding"
+                  className="font-bold text-ink underline underline-offset-4 hover:text-raspberry"
+                >
+                  Adjust your profile
+                </Link>
+              </>
+            )}
+          </p>
 
           <button
             type="button"

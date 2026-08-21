@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { Abilities, BodyRegion, Equipment, Position } from "@/types";
 import { useProfileStore } from "@/store/profile";
+import { hasAvailableExercises } from "@/lib/workoutBuilder";
 import { ChoiceList } from "@/components/ChoiceList";
 import { Button } from "@/components/Button";
 
@@ -155,21 +156,27 @@ export function OnboardingFlow() {
   const [avoidRegions, setAvoidRegions] = useState<BodyRegion[]>([]);
   const [sensory, setSensory] = useState<SensoryKey[]>(["captions"]);
 
+  const abilities: Abilities = {
+    // Skipped steps get inclusive defaults, never empty filters.
+    positions: positions.length > 0 ? positions : ["seated", "lying"],
+    equipment:
+      equipment.length > 0
+        ? [...new Set([...equipment, "none" as Equipment])]
+        : ["none", "chair", "wall"],
+    avoid_regions: avoidRegions,
+    sensory: {
+      captions: sensory.includes("captions"),
+      reduced_motion: sensory.includes("reduced_motion"),
+      haptics: sensory.includes("haptics"),
+    },
+  };
+
+  // Avoiding every area filters the library to nothing. Say so here, while the
+  // choices are on screen and reversible, rather than letting the dashboard's
+  // Create button turn into a wall later.
+  const noExercisesLeft = !hasAvailableExercises(abilities);
+
   const finish = () => {
-    const abilities: Abilities = {
-      // Skipped steps get inclusive defaults, never empty filters.
-      positions: positions.length > 0 ? positions : ["seated", "lying"],
-      equipment:
-        equipment.length > 0
-          ? [...new Set([...equipment, "none" as Equipment])]
-          : ["none", "chair", "wall"],
-      avoid_regions: avoidRegions,
-      sensory: {
-        captions: sensory.includes("captions"),
-        reduced_motion: sensory.includes("reduced_motion"),
-        haptics: sensory.includes("haptics"),
-      },
-    };
     // Optional: only overwrite a saved name when one was actually typed, so
     // re-running onboarding to change abilities never wipes the greeting.
     const trimmedName = name.trim();
@@ -254,14 +261,27 @@ export function OnboardingFlow() {
         />
       )}
       {step === 2 && (
-        <ChoiceList
-          legend="Body areas to avoid"
-          options={REGION_OPTIONS}
-          selected={avoidRegions}
-          onToggle={(value) =>
-            setAvoidRegions((current) => toggle(current, value))
-          }
-        />
+        <>
+          <ChoiceList
+            legend="Body areas to avoid"
+            options={REGION_OPTIONS}
+            selected={avoidRegions}
+            onToggle={(value) =>
+              setAvoidRegions((current) => toggle(current, value))
+            }
+          />
+          <p
+            aria-live="polite"
+            className={
+              noExercisesLeft
+                ? "rounded-2xl bg-raspberry-soft p-4 text-base leading-7 text-ink"
+                : "sr-only"
+            }
+          >
+            {noExercisesLeft &&
+              "Working around all of these leaves nothing in the library to build from. Free up one area and there will be exercises to choose from again."}
+          </p>
+        </>
       )}
       {step === 3 && (
         <ChoiceList
