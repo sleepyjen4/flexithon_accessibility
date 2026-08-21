@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { WelcomeCta } from "@/components/WelcomeCta";
 
 export default function WelcomePage() {
   return (
@@ -34,13 +34,11 @@ export default function WelcomePage() {
         </div>
 
         <div className="rise-in rise-in-3 flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/onboarding"
-            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-raspberry px-8 text-lg font-bold text-milk transition-colors hover:bg-raspberry-deep"
-          >
-            Get started
-            <ArrowRight aria-hidden="true" className="h-5 w-5" />
-          </Link>
+          <WelcomeCta
+            tone="hero"
+            startLabel="Get started"
+            continueLabel="Continue to your dashboard"
+          />
           <Link
             href="/library"
             className="inline-flex min-h-14 items-center justify-center rounded-full border-2 border-ink px-8 text-lg font-bold text-ink transition-colors hover:bg-mint"
@@ -70,13 +68,11 @@ export default function WelcomePage() {
             Set up your ability profile once, then check in whenever you move.
             Good day or hard day, no penalty either way.
           </p>
-          <Link
-            href="/onboarding"
-            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-milk px-8 text-lg font-bold text-ink transition-colors hover:bg-cream"
-          >
-            Create your profile
-            <ArrowRight aria-hidden="true" className="h-5 w-5" />
-          </Link>
+          <WelcomeCta
+            tone="band"
+            startLabel="Create your profile"
+            continueLabel="Go to your dashboard"
+          />
         </div>
       </section>
     </div>
