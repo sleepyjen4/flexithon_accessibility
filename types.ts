@@ -150,7 +150,7 @@ export interface Checkin {
 }
 
 // ---------------------------------------------------------------------------
-// AI workout generation contract (Section 5)
+// Workout shape, produced by lib/workoutBuilder
 // ---------------------------------------------------------------------------
 
 export const WorkoutStepSchema = z.object({
@@ -169,17 +169,6 @@ export const WorkoutSchema = z.object({
   steps: z.array(WorkoutStepSchema).min(1),
 });
 export type Workout = z.infer<typeof WorkoutSchema>;
-
-export const GenerateWorkoutRequestSchema = z.object({
-  profile: z.object({
-    abilities: AbilitiesSchema,
-  }),
-  energy: z.number().int().min(1).max(5),
-  recent_session_ids: z.array(z.string()),
-});
-export type GenerateWorkoutRequest = z.infer<
-  typeof GenerateWorkoutRequestSchema
->;
 
 // ---------------------------------------------------------------------------
 // Personal range of motion (T08 — calibration, F9)

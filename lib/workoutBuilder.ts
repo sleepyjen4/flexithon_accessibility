@@ -6,15 +6,24 @@ import {
   stepCountForEnergy,
 } from "@/lib/exercises";
 
-function fallbackTimingForEnergy(energy: number) {
+function timingForEnergy(energy: number) {
   return {
     durationSeconds: energy <= 2 ? 30 : 45,
     restSeconds: energy <= 2 ? 60 : 30,
   };
 }
 
-/** Deterministic fallback (Section 5): sorted by intensity, scaled by energy. */
-export function buildFallbackWorkoutForExercises(
+/**
+ * The workout generator (F4). Deterministic and pure: sorted by intensity,
+ * scaled by energy, hero exercise guaranteed by `pickExercisesForEnergy`.
+ *
+ * This used to be the fallback behind a Gemini route handler. The route was
+ * removed because it never reached a user: the client aborted at 4000ms while
+ * live calls measured 8.8-13.6s, so every workout ever generated came from
+ * here. Nothing calls a model at runtime now, which is what makes generation
+ * instant and its output reproducible from (abilities, energy) alone.
+ */
+export function buildWorkoutForExercises(
   availableExercises: Exercise[],
   energy: number,
 ): Workout {
@@ -22,7 +31,7 @@ export function buildFallbackWorkoutForExercises(
     availableExercises,
     stepCountForEnergy(energy),
   );
-  const { durationSeconds, restSeconds } = fallbackTimingForEnergy(energy);
+  const { durationSeconds, restSeconds } = timingForEnergy(energy);
 
   return {
     title: energy <= 2 ? "Gentle Reset" : "Steady Progress",
@@ -41,14 +50,14 @@ export function buildFallbackWorkoutForExercises(
   };
 }
 
-export function buildFallbackWorkout({
+export function buildWorkout({
   abilities,
   energy,
 }: {
   abilities: Abilities;
   energy: EnergyLevel;
 }): Workout {
-  return buildFallbackWorkoutForExercises(
+  return buildWorkoutForExercises(
     filterExercisesForAbilities(abilities, EXERCISES),
     energy,
   );

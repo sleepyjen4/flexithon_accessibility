@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, LibraryBig } from "lucide-react";
 import type { Abilities, EnergyLevel } from "@/types";
-import { generateWorkout } from "@/lib/ai";
+import { buildWorkout } from "@/lib/workoutBuilder";
 import { localDateKey } from "@/lib/dateKey";
 import { HERO_EXERCISE_ID } from "@/lib/exercises";
 import { useCalibrationStore } from "@/store/calibration";
@@ -46,26 +46,16 @@ export function TodayDashboard() {
   const addCheckin = useHistoryStore((state) => state.addCheckin);
   const calibratedRange = useCalibrationStore((state) => state.ranges[HERO_EXERCISE_ID]);
   const [energy, setEnergy] = useState<EnergyLevel>(todaysEnergy ?? 3);
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
 
-  const createWorkout = async () => {
-    if (status === "loading") return;
-
-    setStatus("loading");
+  // Generation is synchronous and total now that no model sits in front of it,
+  // so there is no loading state to announce and no request to fail. The
+  // remaining failure mode — a profile that filters the library down to zero
+  // exercises — is not handled here yet; see Phase 2c.
+  const createWorkout = () => {
     setTodaysEnergy(energy);
     addCheckin({ energy, date: localDateKey(new Date()) });
-
-    try {
-      const nextWorkout = await generateWorkout({
-        abilities: abilities ?? DEFAULT_ABILITIES,
-        energy,
-        recentSessionIds: [],
-      });
-      setWorkout(nextWorkout);
-      router.push("/workout");
-    } catch {
-      setStatus("error");
-    }
+    setWorkout(buildWorkout({ abilities: abilities ?? DEFAULT_ABILITIES, energy }));
+    router.push("/workout");
   };
 
   return (
@@ -132,28 +122,15 @@ export function TodayDashboard() {
             </div>
           </fieldset>
 
-          <p
-            aria-live="polite"
-            className={
-              status === "idle"
-                ? "sr-only"
-                : "text-base font-semibold text-ink-soft"
-            }
-          >
-            {status === "loading" && "Building a workout that fits today."}
-            {status === "error" && "Something went wrong. Your check-in is saved, so try again when ready."}
-          </p>
-
           <button
             type="button"
             onClick={createWorkout}
-            disabled={status === "loading"}
-            className="min-h-14 w-full rounded-full bg-ink px-6 text-lg font-bold text-milk transition-colors hover:bg-[#3a332b] disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-14 w-full rounded-full bg-ink px-6 text-lg font-bold text-milk transition-colors hover:bg-[#3a332b]"
           >
-            {status === "loading" ? "Creating today's workout" : "Create today's workout"}
+            Create today&apos;s workout
           </button>
 
-          {workout && status !== "loading" && (
+          {workout && (
             <Link
               href="/exercise"
               className="flex min-h-12 items-center justify-center rounded-full border-2 border-ink px-4 text-center text-base font-bold text-ink transition-colors hover:bg-mint"

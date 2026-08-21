@@ -7,8 +7,6 @@ import type {
   ExerciseMetric,
   Position,
   TrackingMode,
-  Workout,
-  WorkoutStep,
 } from "@/types";
 
 type ExerciseSeed = Omit<
@@ -1065,21 +1063,6 @@ export function groupExercisesByInteraction(
   );
 }
 
-export function exerciseForWorkoutPrompt(exercise: Exercise) {
-  return {
-    exercise_id: exercise.id,
-    name: exercise.name,
-    category: exercise.category,
-    interaction_group: exercise.interaction_group,
-    positions: exercise.positions,
-    equipment: exercise.equipment,
-    body_regions: exercise.body_regions,
-    intensity: exercise.intensity,
-    tracking_modes: exercise.tracking_modes,
-    metric_logged: exercise.metric_logged,
-  };
-}
-
 /** Exercises usable given a profile's positions/equipment, excluding avoided body regions. */
 export function filterExercisesForAbilities(
   abilities: Abilities,
@@ -1100,7 +1083,7 @@ export function filterExercisesForAbilities(
   });
 }
 
-/** Energy 1-2 -> fewer, gentler steps; energy 4-5 -> more, harder steps (Section 5). */
+/** Energy 1-2 -> fewer, gentler steps; energy 4-5 -> more, harder steps. */
 export function stepCountForEnergy(energy: number): number {
   if (energy <= 2) return 4;
   if (energy === 3) return 5;
@@ -1108,7 +1091,7 @@ export function stepCountForEnergy(energy: number): number {
 }
 
 /**
- * Gentlest-first selection for the deterministic fallback (Section 5). Sorting
+ * Gentlest-first selection for lib/workoutBuilder. Sorting
  * by intensity alone can crowd HERO_EXERCISE_ID out entirely — there are more
  * intensity-1 stretches in the library than most step budgets — so once the
  * intensity sort picks its N, swap it in if it was left out and is available.
@@ -1130,32 +1113,4 @@ export function pickExercisesForEnergy(
   }
 
   return chosen;
-}
-
-/**
- * Guarantees HERO_EXERCISE_ID appears in a generated workout's steps when it's
- * available for the user's abilities, regardless of what produced the workout
- * (LLM or fallback) — Section 5b requires it to reliably appear so the
- * camera-tracking demo has a step to attach to.
- */
-export function ensureHeroExerciseStep(
-  workout: Workout,
-  availableExercises: Exercise[],
-  energy: number,
-): Workout {
-  const hero = availableExercises.find((exercise) => exercise.id === HERO_EXERCISE_ID);
-  if (!hero || workout.steps.length === 0) return workout;
-  if (workout.steps.some((step) => step.exercise_id === HERO_EXERCISE_ID)) return workout;
-
-  const heroStep: WorkoutStep = {
-    exercise_id: hero.id,
-    duration_seconds: energy <= 2 ? 30 : 45,
-    reps: null,
-    rest_after_seconds: energy <= 2 ? 60 : 30,
-    adaptation_note: "Go at your own pace — skipping is always okay.",
-  };
-
-  const steps = [...workout.steps];
-  steps[steps.length - 1] = heroStep;
-  return { ...workout, steps };
 }

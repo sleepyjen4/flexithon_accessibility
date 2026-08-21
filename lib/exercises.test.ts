@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   EXERCISES,
   getExerciseById,
-  exerciseForWorkoutPrompt,
   filterExercisesForAbilities,
   groupExercisesByCategory,
   groupExercisesByInteraction,
@@ -226,20 +225,6 @@ describe("library display and prompt helpers", () => {
         "walking_mobility_aids",
         "swimming",
       ]),
-    );
-  });
-
-  it("passes T22 metadata through the workout prompt payload", () => {
-    const promptExercise = exerciseForWorkoutPrompt(EXERCISES[0]);
-
-    expect(promptExercise).toEqual(
-      expect.objectContaining({
-        exercise_id: EXERCISES[0].id,
-        category: EXERCISES[0].category,
-        interaction_group: EXERCISES[0].interaction_group,
-        tracking_modes: EXERCISES[0].tracking_modes,
-        metric_logged: EXERCISES[0].metric_logged,
-      }),
     );
   });
 });

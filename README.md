@@ -4,7 +4,7 @@ Alpha — a fitness app that adapts to your body and your energy today. See [AGE
 
 ## Getting Started
 
-1. Copy `.env.example` to `.env.local` and add your `GEMINI_API_KEY` (optional — without it the workout generator falls back to a deterministic filter).
+1. Copy `.env.example` to `.env.local`. Nothing in the app calls a model at runtime, so no key is needed to run it — `GEMINI_API_KEY` is read only by `npm run generate:audio` when regenerating the pre-recorded exercise instructions.
 2. Install dependencies and run the dev server:
 
 ```bash
@@ -16,7 +16,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Stack
 
-Next.js 15 (App Router) + TypeScript, Tailwind CSS, Radix UI, Gemini API, Zustand, MediaPipe Pose. See [AGENTS.md](./AGENTS.md) § 2 for details — do not add dependencies outside this list without team agreement.
+Next.js 15 (App Router) + TypeScript, Tailwind CSS, Radix UI, Zustand, MediaPipe Pose. See [AGENTS.md](./AGENTS.md) § 2 for details — do not add dependencies outside this list without team agreement.
+
+Workouts are generated on-device by `lib/workoutBuilder.ts`, deterministically from your ability profile and today's energy. The Gemini SDK is a build-time dependency only, used by `scripts/generate-audio.ts` to pre-generate instruction audio.
 
 ## Data
 
