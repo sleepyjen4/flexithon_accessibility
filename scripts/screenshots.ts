@@ -25,6 +25,7 @@ import type {
   Abilities,
   AccessibilityPrefs,
   EnergyLevel,
+  SessionSummary,
   WorkoutSessionSummary,
 } from "../types";
 
@@ -101,18 +102,42 @@ function demoState(): Record<string, unknown> {
     haptics: false,
     speech_enabled: true,
   };
-  const sessions: WorkoutSessionSummary[] = [1, 3, 6].map((days, index) => ({
+  // Oldest first, because that is the order addSession produces (it appends).
+  // ProgressView reads array order as chronological — it reverses for the
+  // effort log and takes last-minus-first for the range delta — so seeding
+  // newest-first inverts both against what a real user would see.
+  const sessions: WorkoutSessionSummary[] = [6, 3, 1].map((days, index) => ({
     id: `demo-session-${index}`,
-    workout_title: ["Gentle Seated Strength", "Steady Upper Body", "Gentle Reset"][index],
-    energy_level: ([3, 4, 2] as const)[index],
-    completed_steps: [4, 5, 3][index],
+    workout_title: ["Gentle Reset", "Steady Upper Body", "Gentle Seated Strength"][index],
+    energy_level: ([2, 4, 3] as const)[index],
+    completed_steps: [3, 5, 4][index],
     total_steps: [4, 5, 4][index],
-    effort: [3, 4, 2][index],
-    peak_rom_degrees: { seated_arm_raise: [82, 88, 74][index] },
+    effort: [2, 4, 3][index],
+    peak_rom_degrees: { seated_lateral_raise: [74, 82, 88][index] },
     completed_at: daysAgo(days),
   }));
 
+  // A finished camera set, so /summary captures its real content rather than
+  // its "No summary yet" state. Persisted under af-session (store/session.ts),
+  // which is also what makes a set survive a refresh.
+  const trackingSummary: SessionSummary = {
+    exerciseId: "seated_lateral_raise",
+    reps: 9,
+    personalRange: { minDeg: 14, maxDeg: 92 },
+    peakAngleToday: 88,
+    safeStats: {
+      repsInTargetRange: 9,
+      movementConsistencyPercent: 91,
+      averageRepSeconds: 3.4,
+      activeSeconds: 186,
+      restSeconds: 74,
+    },
+    startedAt: Date.now() - 6 * 60_000,
+    endedAt: Date.now() - 2 * 60_000,
+  };
+
   return {
+    "af-session": { state: { trackingSummary }, version: 0 },
     "af-profile": {
       state: { displayName: "Sam", abilities, prefs, todaysEnergy: 3 as EnergyLevel },
       version: 0,
@@ -130,7 +155,7 @@ function demoState(): Record<string, unknown> {
     "af-calibration": {
       state: {
         ranges: {
-          seated_arm_raise: { minDeg: 14, maxDeg: 92, capturedAt: daysAgo(6) },
+          seated_lateral_raise: { minDeg: 14, maxDeg: 92, capturedAt: daysAgo(6) },
         },
       },
       version: 0,

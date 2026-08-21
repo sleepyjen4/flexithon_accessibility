@@ -1,10 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { Activity, CheckCircle2, Clock, Gauge, Home, RotateCcw } from "lucide-react";
 import { Button } from "@/components/Button";
 import { getExerciseById } from "@/lib/exercises";
 import { useSessionStore } from "@/store/session";
+import { useHistoryStore } from "@/store/history";
+import { useProfileStore } from "@/store/profile";
+import { trackedSessionToHistory } from "@/lib/trackedSession";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -87,6 +91,23 @@ function getPaceLabel(seconds: number | null): string {
 export default function SummaryPage() {
   const summary = useSessionStore((state) => state.trackingSummary);
   const exercise = summary ? getExerciseById(summary.exerciseId) : null;
+  const addSession = useHistoryStore((state) => state.addSession);
+  const todaysEnergy = useProfileStore((state) => state.todaysEnergy);
+
+  // A tracked set is real work and belongs in the same history the generated
+  // workouts write to, or /progress stays blank for anyone who only uses the
+  // camera. Safe to run on mount: trackedSessionToHistory derives its id from
+  // the set itself, and addSession ignores an id it already holds, so a
+  // refresh or a back/forward cannot duplicate the entry.
+  useEffect(() => {
+    if (!summary) return;
+    addSession(
+      trackedSessionToHistory(summary, {
+        exerciseName: exercise?.name,
+        energy: todaysEnergy,
+      }),
+    );
+  }, [summary, exercise?.name, todaysEnergy, addSession]);
 
   if (!summary) {
     return (
