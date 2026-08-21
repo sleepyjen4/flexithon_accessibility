@@ -220,7 +220,7 @@ export default function SummaryPage() {
             <div className="flex items-center gap-3">
               <span
                 aria-hidden="true"
-                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-lavender text-[#4f4a78]"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl bg-lavender text-lavender-deep"
               >
                 <Gauge className="h-6 w-6" />
               </span>

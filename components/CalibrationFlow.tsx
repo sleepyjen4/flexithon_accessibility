@@ -631,7 +631,7 @@ export function CalibrationFlow({
                 <RadioGroup.Item
                   key={option.id}
                   value={option.id}
-                  className="group flex min-h-16 w-full items-center gap-4 rounded-3xl border-2 border-line-strong bg-surface px-4 py-3 text-left shadow-card transition-colors hover:bg-cream data-[state=checked]:border-evergreen data-[state=checked]:bg-mint"
+                  className="group flex min-h-16 w-full items-center gap-4 rounded-3xl border-2 border-line-strong bg-surface px-4 py-3 text-left shadow-card transition-colors hover:bg-mint data-[state=checked]:border-evergreen data-[state=checked]:bg-mint"
                 >
                   <span
                     aria-hidden="true"
@@ -837,7 +837,7 @@ export function CalibrationFlow({
             is where the eye lands. Focus rings inside flip to milk (.on-dark). */}
           <div className="on-dark rounded-3xl bg-stage p-4 shadow-card sm:p-5">
             <div
-              className="overflow-hidden rounded-2xl bg-[#3a332b]"
+              className="overflow-hidden rounded-2xl bg-ink-hover"
               role="img"
               aria-label="Live camera preview with shoulder, elbow, and wrist landmarks for calibration."
             >

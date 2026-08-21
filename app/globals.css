@@ -8,6 +8,10 @@
  *   milk on stage 15.2 · milk on evergreen 8.0 · milk on raspberry 6.1
  *   raspberry on cream 5.9 · evergreen on mint 6.9 · marigold-deep on cream 6.2
  *   error on cream 6.0 · line-strong on cream 3.7 · raspberry-bright on stage 5.7
+ * Pressed/hover variants of the accents, same bar:
+ *   milk on raspberry-deep 7.7 · milk on ink-hover 11.9 · milk-soft on ink-hover 7.8
+ *   milk on evergreen-deep 11.2 · lavender-deep on lavender 6.5
+ *   lavender-deep on surface 8.0
  * ------------------------------------------------------------------------- */
 :root {
   --cream: #f6eddc; /* page background */
@@ -16,18 +20,22 @@
   --milk-soft: #d6ccbb; /* secondary text on dark surfaces (10:1 on stage) */
   --ink: #211d19; /* primary text, primary buttons */
   --ink-soft: #5c5347; /* secondary text */
+  --ink-hover: #3a332b; /* ink lifted one step: hover/press on ink surfaces */
   --line: #e7decb; /* decorative hairline borders */
   --line-strong: #8a7d66; /* interactive borders (3:1 non-text contrast) */
   --stage: #26211c; /* dark camera-stage surface */
   --raspberry: #a93254; /* hero accent; white text safe */
   --raspberry-bright: #e8798f; /* raspberry for use ON dark surfaces only */
+  --raspberry-deep: #8f2a47; /* raspberry darkened: hover/press on raspberry */
   --raspberry-soft: #f7dfe3; /* wash background, ink text */
   --evergreen: #1f5747; /* success / movement accent; white text safe */
+  --evergreen-deep: #173f33; /* evergreen darkened: hover/press on evergreen */
   --mint: #ddede1; /* selected-state wash, ink text */
   --marigold: #e5a83c; /* decorative fills on dark/neutral only */
   --marigold-deep: #7a5310; /* marigold as text on cream */
   --marigold-soft: #f6e7c4; /* wash background, ink text */
   --lavender: #e6e3f6; /* stat-chip wash, ink text */
+  --lavender-deep: #4f4a78; /* readable text/icons on the lavender wash */
   --error: #b3261e;
 
   --background: var(--cream);
@@ -45,18 +53,22 @@
   --color-milk-soft: var(--milk-soft);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
+  --color-ink-hover: var(--ink-hover);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-stage: var(--stage);
   --color-raspberry: var(--raspberry);
   --color-raspberry-bright: var(--raspberry-bright);
+  --color-raspberry-deep: var(--raspberry-deep);
   --color-raspberry-soft: var(--raspberry-soft);
   --color-evergreen: var(--evergreen);
+  --color-evergreen-deep: var(--evergreen-deep);
   --color-mint: var(--mint);
   --color-marigold: var(--marigold);
   --color-marigold-deep: var(--marigold-deep);
   --color-marigold-soft: var(--marigold-soft);
   --color-lavender: var(--lavender);
+  --color-lavender-deep: var(--lavender-deep);
   --color-error: var(--error);
 
   --font-sans: var(--font-figtree);

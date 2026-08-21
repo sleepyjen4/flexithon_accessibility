@@ -22,10 +22,10 @@ export function Button({
   const base =
     "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full px-6 text-lg font-bold transition-[background-color,transform,box-shadow] duration-300 ease-smooth hover:-translate-y-0.5 hover:shadow-card active:translate-y-0 active:scale-[0.97] active:duration-150 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none disabled:active:scale-100";
   const variants = {
-    primary: "bg-ink text-milk hover:bg-[#3a332b]",
+    primary: "bg-ink text-milk hover:bg-ink-hover",
     secondary: "border-2 border-ink bg-surface text-ink hover:bg-mint",
-    accent: "bg-raspberry text-milk hover:bg-[#8f2a47]",
-    success: "bg-evergreen text-milk hover:bg-[#173f33]",
+    accent: "bg-raspberry text-milk hover:bg-raspberry-deep",
+    success: "bg-evergreen text-milk hover:bg-evergreen-deep",
   };
   const Component = asChild ? Slot : "button";
 

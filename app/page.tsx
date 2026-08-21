@@ -36,7 +36,7 @@ export default function WelcomePage() {
         <div className="rise-in rise-in-3 flex flex-col gap-3 sm:flex-row">
           <Link
             href="/onboarding"
-            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-raspberry px-8 text-lg font-bold text-milk transition-colors hover:bg-[#8f2a47]"
+            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-raspberry px-8 text-lg font-bold text-milk transition-colors hover:bg-raspberry-deep"
           >
             Get started
             <ArrowRight aria-hidden="true" className="h-5 w-5" />

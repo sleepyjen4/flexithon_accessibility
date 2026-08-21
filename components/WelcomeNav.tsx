@@ -30,7 +30,7 @@ export function WelcomeNav() {
           </Link>
           <Link
             href="/onboarding"
-            className="inline-flex min-h-12 items-center justify-center rounded-full bg-raspberry px-4 text-base font-bold text-milk transition-colors hover:bg-[#8f2a47] sm:px-5"
+            className="inline-flex min-h-12 items-center justify-center rounded-full bg-raspberry px-4 text-base font-bold text-milk transition-colors hover:bg-raspberry-deep sm:px-5"
           >
             Get started
           </Link>

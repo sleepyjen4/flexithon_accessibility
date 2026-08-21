@@ -165,7 +165,7 @@ export function ProgressView() {
         {!hasHistory && (
           <Link
             href="/dashboard"
-            className="mt-6 flex min-h-12 items-center justify-center rounded-xl bg-raspberry px-4 text-base font-black text-milk transition-[background-color,transform,box-shadow] duration-300 ease-smooth hover:-translate-y-0.5 hover:bg-[#8f2a47] hover:shadow-card active:translate-y-0 active:duration-150"
+            className="mt-6 flex min-h-12 items-center justify-center rounded-xl bg-raspberry px-4 text-base font-black text-milk transition-[background-color,transform,box-shadow] duration-300 ease-smooth hover:-translate-y-0.5 hover:bg-raspberry-deep hover:shadow-card active:translate-y-0 active:duration-150"
           >
             Check in today
           </Link>

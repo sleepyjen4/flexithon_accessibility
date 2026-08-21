@@ -49,7 +49,7 @@ export function ExerciseVisual({
     >
       <span
         aria-hidden="true"
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface text-[#4f4a78]"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface text-lavender-deep"
       >
         <ClipboardList className="h-6 w-6" />
       </span>

@@ -129,9 +129,16 @@ export function TodayDashboard() {
                     aria-pressed={energy === level}
                     aria-label={`${level}: ${ENERGY_LABELS[level]}`}
                     onClick={() => setPicked(level)}
-                    className={`h-14 rounded-lg transition-colors ${level <= energy
-                      ? "bg-raspberry hover:bg-[#8f2a47]"
-                      : "bg-line hover:bg-raspberry-soft"
+                    // Every segment carries its own 2px border, not just a
+                    // fill: unfilled segments were bg-line on a bg-surface card
+                    // at 1.31:1, so adjacent empty ones merged into a single
+                    // undivided band and you could not see where one target
+                    // ended and the next began (WCAG 2.2 1.4.11, needs 3:1).
+                    // line-strong gives the boundary 3.97:1, raspberry 6.31:1.
+                    // Border on both states keeps the box geometry identical.
+                    className={`h-14 rounded-lg border-2 transition-colors ${level <= energy
+                      ? "border-raspberry bg-raspberry hover:border-raspberry-deep hover:bg-raspberry-deep"
+                      : "border-line-strong bg-line hover:border-raspberry hover:bg-raspberry-soft"
                       } ${energy === level ? "ring-2 ring-ink ring-offset-2 ring-offset-surface" : ""}`}
                   />
                 ))}
@@ -172,7 +179,7 @@ export function TodayDashboard() {
           <button
             type="button"
             onClick={createWorkout}
-            className="min-h-14 w-full rounded-full bg-ink px-6 text-lg font-bold text-milk transition-colors hover:bg-[#3a332b]"
+            className="min-h-14 w-full rounded-full bg-ink px-6 text-lg font-bold text-milk transition-colors hover:bg-ink-hover"
           >
             Create today&apos;s workout
           </button>
@@ -223,11 +230,23 @@ export function TodayDashboard() {
 
       <Link
         href="/library"
-        className="rise-in rise-in-4 flex items-center gap-4 rounded-3xl border border-line bg-surface p-6 shadow-card transition-colors hover:bg-cream lg:col-span-2 lg:p-8"
+        // No fill change on hover. This card sits on the page, and every wash in
+        // the palette is 1.00-1.15:1 against cream — a hue-only, equiluminant
+        // edge that reads soft — while anything with a real luminance step is
+        // a mid-saturation colour the warm-paper system deliberately does not
+        // have. So the hover is carried by the edge (border 1.15:1 -> 3.47:1)
+        // and the lift, matching Button, plus the icon chip inverting below.
+        className="group rise-in rise-in-4 flex items-center gap-4 rounded-3xl border border-line bg-surface p-6 shadow-card transition-[border-color,transform] duration-300 ease-smooth hover:-translate-y-0.5 hover:border-line-strong active:translate-y-0 active:duration-150 lg:col-span-2 lg:p-8"
       >
         <span
           aria-hidden="true"
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-lavender text-[#4f4a78]"
+          // The chip inverts with the card. Every wash in the palette sits in
+          // the same narrow luminance band as lavender, so tinting the card at
+          // all drops this chip's edge to ~1.0:1 — an equiluminant, hue-only
+          // boundary that reads as soft however different the hue is. No choice
+          // of card colour fixes that; the chip has to move too. Inverted it
+          // sits at 6.69:1 on mint, and the glyph keeps 6.46:1 inside it.
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-lavender text-lavender-deep transition-colors group-hover:bg-lavender-deep group-hover:text-lavender"
         >
           <LibraryBig className="h-7 w-7" />
         </span>
@@ -271,7 +290,7 @@ function OnboardingPrompt() {
         </p>
         <Link
           href="/onboarding"
-          className="flex min-h-12 items-center justify-center rounded-full bg-ink px-6 text-base font-bold text-milk transition-colors hover:bg-[#3a332b]"
+          className="flex min-h-12 items-center justify-center rounded-full bg-ink px-6 text-base font-bold text-milk transition-colors hover:bg-ink-hover"
         >
           Start onboarding
         </Link>
@@ -284,7 +303,7 @@ function DashboardActionLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="flex min-h-12 items-center justify-between rounded-2xl border-2 border-line-strong bg-surface px-4 text-base font-bold text-ink transition-colors hover:bg-cream"
+      className="flex min-h-12 items-center justify-between rounded-2xl border-2 border-line-strong bg-surface px-4 text-base font-bold text-ink transition-colors hover:bg-mint"
     >
       <span>{label}</span>
       <ArrowRight aria-hidden="true" className="h-5 w-5 text-raspberry" />

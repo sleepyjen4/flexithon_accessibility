@@ -68,7 +68,7 @@ export function WorkoutFinish({ workout }: WorkoutFinishProps) {
                   className={`flex min-h-12 w-full items-center justify-between rounded-xl border-2 px-4 text-left text-lg font-medium ${
                     isSelected
                       ? "border-ink bg-mint text-ink"
-                      : "border-line-strong bg-surface text-ink hover:bg-cream"
+                      : "border-line-strong bg-surface text-ink hover:bg-mint"
                   }`}
                 >
                   <span>

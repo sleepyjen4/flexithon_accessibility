@@ -23,7 +23,7 @@ const ROW_ICONS: Record<ExerciseLibraryGroupId, LucideIcon> = {
 
 const ROW_CHIP_CLASSES: Record<ExerciseLibraryGroupId, string> = {
   position: "bg-mint text-evergreen",
-  equipment: "bg-lavender text-[#4f4a78]",
+  equipment: "bg-lavender text-lavender-deep",
   "body-region": "bg-marigold-soft text-marigold-deep",
   category: "bg-raspberry-soft text-raspberry",
 };

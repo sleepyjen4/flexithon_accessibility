@@ -69,7 +69,7 @@ export function RangeArc({
   // the token set: raspberry-bright progress, marigold markers, milk read-out.
   return (
     <figure
-      className={`rounded-2xl bg-white/5 p-4 text-center ${className ?? ""}`}
+      className={`rounded-2xl bg-milk/5 p-4 text-center ${className ?? ""}`}
     >
       <svg
         viewBox="0 0 200 128"

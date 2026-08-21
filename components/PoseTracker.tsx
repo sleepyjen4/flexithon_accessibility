@@ -651,7 +651,7 @@ export function PoseTracker({
   const stagePrimary =
     "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-milk px-6 text-lg font-bold text-ink transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-50";
   const stageSecondary =
-    "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full border-2 border-milk px-6 text-lg font-bold text-milk transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50";
+    "inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-full border-2 border-milk px-6 text-lg font-bold text-milk transition-colors hover:bg-milk/10 disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <section
@@ -672,7 +672,7 @@ export function PoseTracker({
       </div>
 
       <div
-        className="mt-4 overflow-hidden rounded-2xl bg-[#3a332b]"
+        className="mt-4 overflow-hidden rounded-2xl bg-ink-hover"
         role="img"
         aria-label="Live camera preview with shoulder, elbow, and wrist landmarks for rep tracking."
       >
@@ -691,10 +691,10 @@ export function PoseTracker({
           />
 
           {cameraState !== "ready" ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#3a332b] p-4 text-center text-milk-soft">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-ink-hover p-4 text-center text-milk-soft">
               <span
                 aria-hidden="true"
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-milk/10"
               >
                 <Camera className="h-6 w-6" />
               </span>
@@ -776,7 +776,7 @@ export function PoseTracker({
       </div>
 
       {cameraUnavailable ? (
-        <div className="mt-4 rounded-2xl bg-white/10 p-4 text-milk-soft">
+        <div className="mt-4 rounded-2xl bg-milk/10 p-4 text-milk-soft">
           <h3 className="font-display font-bold text-milk">
             Continue without camera
           </h3>

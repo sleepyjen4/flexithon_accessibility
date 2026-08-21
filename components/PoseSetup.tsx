@@ -24,11 +24,11 @@ const SIDE_OPTIONS: { value: TrackedSide; label: string }[] = [
 ];
 
 const cardClass =
-  "group flex min-h-12 flex-1 items-center justify-between gap-3 rounded-2xl border-2 border-line-strong bg-surface px-4 py-2 text-left transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-evergreen data-[state=checked]:bg-mint";
+  "group flex min-h-12 flex-1 items-center justify-between gap-3 rounded-2xl border-2 border-line-strong bg-surface px-4 py-2 text-left transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-evergreen data-[state=checked]:bg-mint";
 
 // Compact variant for the three short side options laid out in one row.
 const sideCardClass =
-  "group flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-line-strong bg-surface px-2 py-2 transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-evergreen data-[state=checked]:bg-mint";
+  "group flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-line-strong bg-surface px-2 py-2 transition-colors hover:bg-mint disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-evergreen data-[state=checked]:bg-mint";
 
 /** A checkmark that appears only for the chosen option, so selection is shown
  * by an icon and not by color alone (AGENTS.md §6, rule 5). The unchosen
