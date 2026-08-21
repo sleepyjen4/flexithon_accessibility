@@ -31,11 +31,19 @@ exist in both formats.
 ## 2. Assets
 
 ```
-public/graphics/
+assets/exercise-gifs/
   <name>.gif            # source art, 1080×1080 (kept — do not delete)
+
+public/graphics/
   <name>.mp4            # generated, H.264, ~720², ~24–64 KB
   <name>.webm           # generated, VP9,   ~720², ~24–64 KB
 ```
+
+**Why the masters sit outside `public/`:** everything in `public/` is served
+verbatim, so the 35 GIFs (24 MB) shipped to every visitor's CDN on every deploy
+while nothing in the app ever loaded them — the player and the library both
+serve the 720² clips. They are build inputs, so they live in `assets/`. Still
+kept, still the thing you re-encode from; just not deployed.
 
 - `<name>` should be a clean slug (`lowercase_snake_case`, no spaces/caps).
   Normalise first if a source file has spaces
@@ -139,7 +147,7 @@ the rule lives in one place instead of being re-decided at each call site.
 
 ## 7. Add a new demo — checklist
 
-1. **Drop the GIF** at `public/graphics/<exercise_id>.gif` (name it exactly the
+1. **Drop the GIF** at `assets/exercise-gifs/<exercise_id>.gif` (name it exactly the
    exercise id; slugify if needed).
 2. **Convert:** `node scripts/generate-exercise-video.mjs <exercise_id>`
    (run `npm install --no-save ffmpeg-static` first if ffmpeg is missing).

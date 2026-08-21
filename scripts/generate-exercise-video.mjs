@@ -1,6 +1,11 @@
-// Transcodes exercise demo GIFs in public/graphics/ to web video (MP4 H.264 +
-// WebM VP9), downscaled from the 1080² source to 720² — far smaller than the
-// GIFs (~10×) and, unlike a GIF, pausable so we can honour reduced-motion.
+// Transcodes exercise demo GIFs to web video (MP4 H.264 + WebM VP9),
+// downscaled from the 1080² source to 720² — far smaller than the GIFs (~10×)
+// and, unlike a GIF, pausable so we can honour reduced-motion.
+//
+// Source art lives OUTSIDE public/ (assets/exercise-gifs/) because public/ is
+// served verbatim: the masters are build inputs, and shipping 24MB of them to
+// every visitor's CDN bought nothing. Only the generated 720² clips belong in
+// public/graphics/.
 //
 // Usage:
 //   node scripts/generate-exercise-video.mjs                 # all *.gif
@@ -17,14 +22,15 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const ffmpeg = require("ffmpeg-static");
 
-const GRAPHICS_DIR = path.resolve("public/graphics");
+const SOURCE_DIR = path.resolve("assets/exercise-gifs"); // 1080² masters, not served
+const OUTPUT_DIR = path.resolve("public/graphics"); // generated 720² clips, served
 const SCALE = "scale=720:-2:flags=lanczos"; // width 720, height auto (even)
 
 const args = process.argv.slice(2);
 const names = (
   args.length > 0
     ? args.map((a) => a.replace(/\.gif$/, ""))
-    : readdirSync(GRAPHICS_DIR)
+    : readdirSync(SOURCE_DIR)
         .filter((f) => f.endsWith(".gif"))
         .map((f) => f.replace(/\.gif$/, ""))
 ).sort();
@@ -38,13 +44,13 @@ function run(label, ffmpegArgs) {
 const force = process.env.FORCE === "1";
 let converted = 0;
 for (const name of names) {
-  const gif = path.join(GRAPHICS_DIR, `${name}.gif`);
+  const gif = path.join(SOURCE_DIR, `${name}.gif`);
   if (!existsSync(gif)) {
     console.warn(`! ${name}.gif not found — skipping`);
     continue;
   }
-  const mp4Out = path.join(GRAPHICS_DIR, `${name}.mp4`);
-  const webmOut = path.join(GRAPHICS_DIR, `${name}.webm`);
+  const mp4Out = path.join(OUTPUT_DIR, `${name}.mp4`);
+  const webmOut = path.join(OUTPUT_DIR, `${name}.webm`);
   if (!force && existsSync(mp4Out) && existsSync(webmOut)) {
     console.log(`${name}: up to date — skipping (FORCE=1 to re-encode)`);
     continue;
@@ -58,7 +64,7 @@ for (const name of names) {
     "-crf", "28",
     "-pix_fmt", "yuv420p",
     "-movflags", "+faststart",
-    path.join(GRAPHICS_DIR, `${name}.mp4`),
+    mp4Out,
   ]);
   run("webm", [
     "-i", gif,
