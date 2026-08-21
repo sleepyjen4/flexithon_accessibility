@@ -305,7 +305,7 @@ export function VoiceControl({ commands, onCommand }: VoiceControlProps) {
                   type="button"
                   onClick={() => setPanelOpen(false)}
                   aria-label="Close voice command guide"
-                  className="-mr-1 -mt-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-mint hover:text-ink"
+                  className="-mr-1 -mt-1 inline-flex min-h-12 min-w-12 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-mint hover:text-ink"
                 >
                   <X aria-hidden="true" className="h-5 w-5" />
                 </button>

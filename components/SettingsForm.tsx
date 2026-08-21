@@ -151,14 +151,31 @@ export function SettingsForm() {
                       preference is real and stored, and a row that disappears
                       on one device reads as a bug. Disabled + a stated reason
                       keeps the setting visible and stops the row promising
-                      something the browser cannot do. */}
+                      something the browser cannot do.
+
+                      The track paints at h-9 (40.5px at the 18px root) but
+                      the transparent `before` overlay makes the hit area
+                      h-12 (3rem) x full width. Spacing is rem-based and the
+                      text-size setting moves the root between 16px and 22px,
+                      so 3rem is 48px at the smallest setting and larger at
+                      every other one — the 48px floor in AGENTS.md 6.1 holds
+                      throughout, without inflating the switch on the one
+                      screen meant to look calm. Padding was the alternative
+                      but it grows the painted pill (backgrounds fill the
+                      padding box) and the focus outline with it; the overlay
+                      leaves both tight to the visible control. Being
+                      absolutely positioned it changes no layout, and it does
+                      not widen the switch, so the label keeps its own hit
+                      area. Rows are as tall as their two-line label (~58px at
+                      the 18px root) with gap-5 between, so the overlay stays
+                      inside its row. */}
                   <Switch.Root
                     id={`setting-${toggle.key}`}
                     checked={prefs[toggle.key]}
                     disabled={unsupported}
                     aria-describedby={unsupported ? noteId : undefined}
                     onCheckedChange={(checked) => update({ ...prefs, [toggle.key]: checked })}
-                    className="relative h-9 w-16 shrink-0 rounded-full bg-line-strong p-1 transition-colors duration-300 ease-smooth data-[state=checked]:bg-raspberry disabled:opacity-60"
+                    className="relative h-9 w-16 shrink-0 rounded-full bg-line-strong p-1 transition-colors duration-300 ease-smooth before:absolute before:inset-x-0 before:top-1/2 before:h-12 before:-translate-y-1/2 before:content-[''] data-[state=checked]:bg-raspberry disabled:opacity-60"
                   >
                     <Switch.Thumb className="block h-7 w-7 rounded-full bg-milk shadow-sm transition-transform duration-300 ease-smooth data-[state=checked]:translate-x-7" />
                   </Switch.Root>
